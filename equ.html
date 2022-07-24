@@ -1,1 +1,27 @@
-
+<!DOCTYPE html><html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>마릿수 계산기</title>
+<script>
+var showResult = function(){
+  var num1 = document.getElementsByTagName("input")[0].value;
+  var num2 = document.getElementsByTagName("input")[1].value;
+  var num3 = document.getElementsByTagName("input")[2].value;
+  var num4 = document.getElementsByTagName("input")[3].value;
+  var result = parseInt(num1) * parseInt(num2) * (100 + parseInt(num3))/100 * 7.5 * 2;
+  document.getElementsByTagName("input")[4].value=result;
+  var result = parseInt(num4) / (parseInt(num1) * (100 + parseInt(num3))/100 * 7.5 * 2) ;
+  document.getElementsByTagName("input")[5].value=result;
+}
+</script>
+</head>
+<body>
+<input type="text" placeholder="장비 레벨(130~200)" />
+<input type="text" placeholder="스타포스 수치(0~25)" />
+<input type="text" placeholder="파란 주스탯 수치" />
+<input type="text" placeholder="파란 부스탯 수치" /><p>
+<button onclick="showResult()">계산</button><p>
+<input type="text" placeholder="순메소량이 나오는 텍스트" /><br/>
+<input type="text" placeholder="시간당 마리수가 나오는 텍스트" />
+</body>
+</html>
