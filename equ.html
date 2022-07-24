@@ -1,24 +1,52 @@
 <!DOCTYPE html><html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>130 방어구 작 계산기</title>
+<title>방어구 작 계산기</title>
 <script>
+Var EquLv = prompt( '장착레벨 : ', '' );
 var Star = prompt( '스타포스 : ', '' );
 var Equ = prompt( '작횟수 : ', '' );
 var MainStat = prompt( '주스탯(파랑) : ', '' );
 var SubStat = prompt( '부스탯(파랑) : ', '' );
 var AtkStat = prompt( '공격력(파랑) : ', '' );
 
-if (star < 5){
-	StarStat = Star*2;
-}else if (star < 15){
-	StarStat = 10 + (Star-5) * 3;
-}else if (star < 25){
-	StarStat = 40 + (Star-15) * 7;
-	StarAtk = 6 + (Star - 15);
+var CulStat = (MainStat - SubStat) / Equ;
+var StarStat = '';
+var Atk1 = '';
+var Atk2 = '';
+var StarAtk = '';
+
+if (EquLv < 160){
+	if (star < 5){
+		StarStat = Star*2;
+	}else if (star < 15){
+		StarStat = 10 + (Star-5) * 3;
+	}else if (star < 21){
+		StarStat = 40 + (Star-15) * (7 + (EquLv-130)/5);
+		for(i=16;i=Star;i++){
+			Atk1 += (EquLv-130)/10 * 7 + (i-16);
+		}
+		StarAtk = Atk;
+	}else if (star < 25){
+		StarStat = 7 * (EquLv-130)/5 + 40
+		for(i=16;i=21;i++){
+			Atk1 += (EquLv-130)/10 * 7 + (i-16);
+		for(i=22;i=Star;i++){
+			Atk2 += (EquLv-130)/10 + 14 + (i-22) * 2;
+		}
+		StarAtk = Atk1 + Atk2;
+	}
+}else if (EquLv == 200){
+
 }
 
-prompt(
+if (CulStat == 1){
+	EquStat = "100% 완작";
+}else if (CulStat == 2){
+	EquStat = "70% 완작";
+}else if (CulStat == 3){
+	EquStat = "30% 완작";
+}
 
 </script>
 </head>
