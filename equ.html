@@ -1,18 +1,27 @@
 <!DOCTYPE html><html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>작 계산기</title>
+<title>130 방어구 작 계산기</title>
 <script>
-var LvEqu = prompt( '장비레벨 : ', '' );
 var Star = prompt( '스타포스 : ', '' );
+var Equ = prompt( '작횟수 : ', '' );
 var MainStat = prompt( '주스탯(파랑) : ', '' );
 var SubStat = prompt( '부스탯(파랑) : ', '' );
+var AtkStat = prompt( '공격력(파랑) : ', '' );
 
+if (star < 5){
+	StarStat = Star*2;
+}else if (star < 15){
+	StarStat = 10 + (Star-5) * 3;
+}else if (star < 25){
+	StarStat = 40 + (Star-15) * 7;
+	StarAtk = 6 + (Star - 15);
+}
 
-  
+prompt(
+
 </script>
 </head>
 <body>
-  
 </body>
 </html>
