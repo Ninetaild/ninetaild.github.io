@@ -1,0 +1,67 @@
+﻿<!DOCTYPE html><html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>방어구 작 계산기</title>
+<script>
+var CulStat = (MainStat - SubStat) / Equ;
+var StarStat = '';
+var Atk1 = '';
+var Atk2 = '';
+var StarAtk = '';
+
+if (EquLv < 160){
+	if (star < 5){
+		StarStat = Star*2;
+	}else if (star < 15){
+		StarStat = 10 + (Star-5) * 3;
+	}else if (star < 21){
+		StarStat = 40 + (Star-15) * (7 + (EquLv-130)/5);
+		for(i=16;i=Star;i++){
+			Atk1 += (EquLv-130)/10 * 7 + (i-16);
+		}
+		StarAtk = Atk;
+	}else if (star < 25){
+		StarStat = 7 * (EquLv-130)/5 + 40
+		for(i=16;i=21;i++){
+			Atk1 += (EquLv-130)/10 * 7 + (i-16);
+		for(i=22;i=Star;i++){
+			Atk2 += (EquLv-130)/10 + 14 + (i-22) * 2;
+		}
+		StarAtk = Atk1 + Atk2;
+	}
+}else if (EquLv == 200){
+
+}
+
+if (CulStat == 1){
+	EquStat = "100% 완작";
+}else if (CulStat == 2){
+	EquStat = "70% 완작";
+}else if (CulStat == 3){
+	EquStat = "30% 완작";
+}
+
+</script>
+</head>
+<body>
+장비 착용레벨
+<select name="EquLv">
+  <option value="130" selected> 무스펠
+  <option value="140"> 펜살리르
+  <option value="150"> 루타비스
+  <option value="160"> 앱솔랩스
+</select><br/>
+
+장비 부위
+<select name="EquParts">
+  <option value="1" selected> 방어구
+  <option value="2"> 장갑
+  <option value="3"> 무기
+</select><br/>
+<input type="text" placeholder="스타포스 수치" name="Star"><br/>
+<input type="text" placeholder="작 횟수" name="Equ"><br/>
+<input type="text" placeholder="주스탯(파랑)" name="MainStat"><br/>
+<input type="text" placeholder="부스탯(파랑)" name="SubStat"><br/>
+<input type="text" placeholder="공격력(파랑)" name="AtkStat"><br/>
+</body>
+</html>
