@@ -1,27 +1,93 @@
-﻿﻿<!DOCTYPE html><html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>마릿수 계산기</title>
-<script>
-var showResult = function(){
-	var num1 = document.getElementsByTagName("input")[0].value;
-	var num2 = document.getElementsByTagName("input")[1].value;
-	var num3 = document.getElementsByTagName("input")[2].value;
-	var num4 = document.getElementsByTagName("input")[3].value;
-	var result = parseInt(num1) * parseInt(num2) * (100 + parseInt(num3))/100 * 7.5 * 2;
-	document.getElementsByTagName("input")[4].value=result;
-	var result = parseInt(num4) / (parseInt(num1) * (100 + parseInt(num3))/100 * 7.5 * 2) ;
-	document.getElementsByTagName("input")[5].value=result;
-}
-</script>
+<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1">
+<title>작 계산기</title>
 </head>
 <body>
-<input type="text" placeholder="몬스터 레벨(275)" />
-<input type="text" placeholder="시간당 마리수(14000)" />
-<input type="text" placeholder="스탯창 메소 획득량(200)" />
-<input type="text" placeholder="1재획 순메소 획득량(180000000)" /><p>
-<button onclick="showResult()">계산</button><p>
-<input type="text" placeholder="순메소량이 나오는 텍스트" /><br/>
-<input type="text" placeholder="시간당 마리수가 나오는 텍스트" />
+<form>
+<label for="EquLv" class="visually-hidden">장비 이름</label>
+<select id="EquLv">
+  <option value="130" selected> 무스펠</option>
+  <option value="140"> 펜살리르</option>
+  <option value="150"> 루타비스</option>
+  <option value="160"> 앱솔랩스</option>
+  <option value="170"> 아케인셰이드</option>
+</select><br/>
+<label for="EquParts" class="visually-hidden">장비 부위</label>
+<select id="EquParts">
+  <option value="1" selected> 방어구</option>
+  <option value="2"> 장갑</option>
+  <option value="3"> 무기</option>
+</select><br/>
+<input type="text" placeholder="스타포스 수치" id="Star"><br/>
+<input type="text" placeholder="작 횟수" id="Equ"><br/>
+<input type="text" placeholder="주스탯(파랑)" id="MainStat"><br/>
+<input type="text" placeholder="부스탯(파랑)" id="SubStat"><br/>
+<input type="text" placeholder="공격력(파랑)" id="AtkStat"><br/>
+</form>
+<p>
+<button onclick="ShowResult()">결과보기</button><p>
+<label for="EquParts" class="visually-hidden">스타포스 스탯 상승량</label>
+<input type="text" id="Result1"><br/>
+<label for="EquParts" class="visually-hidden">스타포스 공격력 상승량</label>
+<input type="text" id="Result2"><br/>
+<label for="EquParts" class="visually-hidden">주흔작</label>
+<input type="text" id="Result3"><br/>
+
+<script type="text/javascript">
+function SetValue() {
+let EquLv_str = document.getElementByID('EquLv').value;
+let EquLv = parseInt(EquLv_str.options[EquLv_str.selectedIndex].value);
+let EquParts_str = document.getElementByID('EquParts').value;
+let EquParts = parseInt(EquParts_str.options[EquParts_str.selectedIndex].value);
+let Star =  parseInt(document.getElementById('Star').value);
+let Equ =  parseInt(document.getElementById('Equ').value);
+let MainStat =  parseInt(document.getElementById('MainStat').value);
+let SubStat =  parseInt(document.getElementById('SubStat').value);
+let AtkStat =  parseInt(document.getElementById('AtkStat').value);
+}
+
+function ShowResult() {
+var cul1 = (document.getElementById('MainStat').value-document.getElementById('SubStat').value) / document.getElementById
+
+('Equ').value;
+
+if (cul1 == "1"){
+document.getElementById('Result3').value = "100% 완작";
+}else if (cul1 == "2"){
+document.getElementById('Result3').value = "70% 완작";
+}else if (cul1 == "3"){
+document.getElementById('Result3').value = "30% 완작";
+}
+
+document.getElementById('Result1').value = document.getElementById('StarStat').value;
+document.getElementById('Result2').value = document.getElementById('StarAtk').value;
+}
+
+</script>
 </body>
 </html>
+<!--
+let StarStat, Atk1, Atk2, StarAtk, CulStat;
+
+if (Star < 5){
+	StarStat = Star*2;
+}else if (Star < 15){
+	StarStat = 10 + (Star-5) * 3;
+}else if (Star < 21){
+	StarStat = 40 + (Star-15) * (7 + (EquLv-130)/5);
+	for(i=16;i=Star;i++){
+		Atk1 += (EquLv-130)/10 * 7 + (i-16);
+	}
+	StarAtk = Atk;
+}else if (Star < 25){
+	StarStat = 7 * (EquLv-130)/5 + 40
+	for(i=16;i=21;i++){
+		Atk1 += (EquLv-130)/10 * 7 + (i-16);
+	}
+	for(i=22;i=Star;i++){
+		Atk2 += (EquLv-130)/10 + 14 + (i-22) * 2;
+	}
+	StarAtk = Atk1 + Atk2;
+}
+-->
