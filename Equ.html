@@ -1,62 +1,7 @@
-﻿<!DOCTYPE html><html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
 <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1">
 <title>작 계산기</title>
-<script>
-
-var ShowResult = function() {
-var EquLv_str = document.getElementByID('EquLv').value;
-var EquLv = EquLv_str.options[EquLv_str.selectedIndex].value;
-var EquParts_str = document.getElementByID('EquParts').value;
-var EquParts = EquParts_str.options[EquParts_str.selectedIndex].value;
-var Star = document.getElementByID('Star').value;
-var Equ = document.getElementByID('Equ').value;
-var MainStat = document.getElementByID('MainStat').value;
-var SubStat = document.getElementByID('SubStat').value;
-var AtkStat = document.getElementByID('AtkStat').value;
-
-var CulStat = (MainStat - SubStat) / Equ;
-
-var StarStat = '';
-var Atk1 = '';
-var Atk2 = '';
-var StarAtk = '';
-
-if (EquLv < 160){
-	if (star < 5){
-		StarStat = Star*2;
-	}else if (star < 15){
-		StarStat = 10 + (Star-5) * 3;
-	}else if (star < 21){
-		StarStat = 40 + (Star-15) * (7 + (EquLv-130)/5);
-		for(i=16;i=Star;i++){
-			Atk1 += (EquLv-130)/10 * 7 + (i-16);
-		}
-		StarAtk = Atk;
-	}else if (star < 25){
-		StarStat = 7 * (EquLv-130)/5 + 40
-		for(i=16;i=21;i++){
-			Atk1 += (EquLv-130)/10 * 7 + (i-16);
-		}
-		for(i=22;i=Star;i++){
-			Atk2 += (EquLv-130)/10 + 14 + (i-22) * 2;
-		}
-		StarAtk = Atk1 + Atk2;
-	}
-}else if (EquLv == 200){
-
-}
-
-if (CulStat == 1){
-	EquStat = "100% 완작";
-}else if (CulStat == 2){
-	EquStat = "70% 완작";
-}else if (CulStat == 3){
-	EquStat = "30% 완작";
-}
-}
-
-</script>
 </head>
 <body>
 <form>
@@ -66,6 +11,7 @@ if (CulStat == 1){
   <option value="140"> 펜살리르</option>
   <option value="150"> 루타비스</option>
   <option value="160"> 앱솔랩스</option>
+  <option value="170"> 아케인셰이드</option>
 </select><br/>
 <label for="EquParts" class="visually-hidden">장비 부위</label>
 <select id="EquParts">
@@ -78,18 +24,67 @@ if (CulStat == 1){
 <input type="text" placeholder="주스탯(파랑)" id="MainStat"><br/>
 <input type="text" placeholder="부스탯(파랑)" id="SubStat"><br/>
 <input type="text" placeholder="공격력(파랑)" id="AtkStat"><br/>
-</form><p><div>
-<button onclivk="ShowResult()">결과보기</button><p>
-</div>
-<script type="text/javascript">
-document.write(EquLv + "<br/>");
-document.write(EquParts + "<br/>");
-document.write(Star + "<br/>");
-document.write(Equ + "<br/>");
-document.write(MainStat + "<br/>");
-document.write(SubStat + "<br/>");
-document.write(AtkStat + "<br/>");
-</script>
+</form>
+<p>
+<button onclick="ShowResult()">결과보기</button><p>
+<label for="EquParts" class="visually-hidden">스타포스 스탯 상승량</label>
+<input type="text" id="Result1"><br/>
+<label for="EquParts" class="visually-hidden">스타포스 공격력 상승량</label>
+<input type="text" id="Result2"><br/>
+<label for="EquParts" class="visually-hidden">주흔작</label>
+<input type="text" id="Result3"><br/>
 
+<script type="text/javascript">
+function SetValue() {
+let EquLv_str = document.getElementByID('EquLv').value;
+let EquLv = parseInt(EquLv_str.options[EquLv_str.selectedIndex].value);
+let EquParts_str = document.getElementByID('EquParts').value;
+let EquParts = parseInt(EquParts_str.options[EquParts_str.selectedIndex].value);
+let Star =  parseInt(document.getElementById('Star').value);
+let Equ =  parseInt(document.getElementById('Equ').value);
+let MainStat =  parseInt(document.getElementById('MainStat').value);
+let SubStat =  parseInt(document.getElementById('SubStat').value);
+let AtkStat =  parseInt(document.getElementById('AtkStat').value);
+}
+
+function ShowResult() {
+let StarStat, Atk1, Atk2, StarAtk, CulStat;
+
+if (Star < 5){
+	StarStat = Star*2;
+}else if (Star < 15){
+	StarStat = 10 + (Star-5) * 3;
+}else if (Star < 21){
+	StarStat = 40 + (Star-15) * (7 + (EquLv-130)/5);
+	for(i=16;i=Star;i++){
+		Atk1 += (EquLv-130)/10 * 7 + (i-16);
+	}
+	StarAtk = Atk;
+}else if (Star < 25){
+	StarStat = 7 * (EquLv-130)/5 + 40
+	for(i=16;i=21;i++){
+		Atk1 += (EquLv-130)/10 * 7 + (i-16);
+	}
+	for(i=22;i=Star;i++){
+		Atk2 += (EquLv-130)/10 + 14 + (i-22) * 2;
+	}
+	StarAtk = Atk1 + Atk2;
+}
+let EquStat;
+CulStat = (MainStat - SubStat) / Equ;
+if (CulStat == 1){
+	EquStat = "100% 완작";
+}else if (CulStat == 2){
+	EquStat = "70% 완작";
+}else if (CulStat == 3){
+	EquStat = "30% 완작";
+}
+
+document.getElementById('Result1').value = document.getElementById('StarStat').value;
+document.getElementById('Result2').value = document.getElementById('StarAtk').value;
+document.getElementById('Result3').value = document.getElementById('EquStat').value;
+}
+
+</script>
 </body>
 </html>
