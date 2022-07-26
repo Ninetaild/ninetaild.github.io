@@ -51,13 +51,16 @@ function ShowResult() {
 var cul1 = (document.getElementById('MainStat').value-document.getElementById('SubStat').value) / document.getElementById
 
 ('Equ').value;
+var par1 = document.getElementById('EquParts').value;
 
-if (cul1 == "1"){
+if (par1 == "1"){
+if (cul1 == "3"){
 document.getElementById('Result3').value = "100% 완작";
-}else if (cul1 == "2"){
+}else if (cul1 == "4"){
 document.getElementById('Result3').value = "70% 완작";
-}else if (cul1 == "3"){
+}else if (cul1 == "7"){
 document.getElementById('Result3').value = "30% 완작";
+}
 }
 
 document.getElementById('Result1').value = document.getElementById('StarStat').value;
