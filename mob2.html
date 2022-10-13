@@ -1,4 +1,4 @@
-﻿﻿﻿<!DOCTYPE html><html lang="en">
+﻿﻿<!DOCTYPE html><html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>마릿수 계산기</title>
@@ -11,7 +11,7 @@ var showResult = function(){
 	var num5 = document.getElementsByTagName("input")[4].value;
 
 	if(num4 < 67){
-		var num4_ = 60 * (100 + parseInt(num4))/100
+		var num4_ = 0.6 * (100 + parseInt(num4))/100
 	}else{
 		var num4_ = 1
 	}
@@ -32,6 +32,7 @@ var showResult = function(){
 			document.getElementsByTagName("input")[7].value=i;
 			break;
 		}
+	document.getElementsByTagName("input")[7].value="손해";
 	}
 }
 </script>
