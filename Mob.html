@@ -29,7 +29,7 @@ let Lv = document.getElementByID('Lv').value;
 let mob = document.getElementByID('mob').value;
 let dop = document.getElementByID('dop').value;
 
-document.getElementById("Result1").innerHTML = Number(meso.value)
+document.getElementById("Result1").innerHTML = (1 + meso/100) * Lv * mob * 7.5
 
 document.getElementById('Result1').value = document.getElementById('StarStat').value;
 document.getElementById('Result2').value = document.getElementById('StarAtk').value;
