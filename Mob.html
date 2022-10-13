@@ -1,40 +1,29 @@
-<!DOCTYPE html><html lang="en">
+﻿﻿<!DOCTYPE html><html lang="en">
 <head>
-<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1">
-<title>작 계산기</title>
+<meta charset="UTF-8">
+<title>마릿수 계산기</title>
+<script>
+var showSum = function(){
+var showResult = function(){
+	var num1 = document.getElementsByTagName("input")[0].value;
+	var num2 = document.getElementsByTagName("input")[1].value;
+	var num3 = document.getElementsByTagName("input")[2].value;
+	var num4 = document.getElementsByTagName("input")[3].value;
+	var result = parseInt(num1) * parseInt(num2) * (100 + parseInt(num3))/100 * 7.5 * 2;
+	document.getElementsByTagName("input")[4].value=result;
+	var result = parseInt(num4) / (parseInt(num1) * (100 + parseInt(num3))/100 * 7.5 * 2) ;
+	document.getElementsByTagName("input")[5].value=result;
+}
+</script>
 </head>
 <body>
-*재획비 없는기준 스탯창 표기스탯 작성해주세요(쓸심o)*
-<form>
-<input type="text" placeholder="메획" id="meso"><br/>
-<input type="text" placeholder="드랍" id="drop"><br/>
-<input type="text" placeholder="몬스터 레벨" id="Lv"><br/>
-<input type="text" placeholder="시간당 마리수" id="mob"><br/>
-<input type="text" placeholder="재획비 가격" id="dop"><br/>
-</form>
-<p>
-<button onclick="Result()">결과보기</button><p>
-<label for="EquParts" class="visually-hidden"></label>
-<input type="text" id="Result1"><br/>
-<label for="EquParts" class="visually-hidden"></label>
-<input type="text" id="Result2"><br/>
-<label for="EquParts" class="visually-hidden"></label>
-<input type="text" id="Result3"><br/>
-
-<script type="text/javascript">
-function Result() {
-let meso = document.getElementByID('meso').value;
-let drop = document.getElementByID('drop').value;
-let Lv = document.getElementByID('Lv').value;
-let mob = document.getElementByID('mob').value;
-let dop = document.getElementByID('dop').value;
-
-document.getElementById("Result1").innerHTML = (1 + meso/100) * Lv * mob * 7.5
-
-document.getElementById('Result1').value = document.getElementById('StarStat').value;
-document.getElementById('Result2').value = document.getElementById('StarAtk').value;
-}
-
-</script>
+<input type="text" placeholder="몬스터 레벨(275)" />
+<input type="text" placeholder="시간당 마리수(14000)" />
+<input type="text" placeholder="스탯창 메소 획득량(200)" />
+<input type="text" placeholder="1재획 순메소 획득량(180000000)" /><p>
+<button onclick="showSum()">계산</button><p>
+<button onclick="showResult()">계산</button><p>
+<input type="text" placeholder="순메소량이 나오는 텍스트" /><br/>
+<input type="text" placeholder="시간당 마리수가 나오는 텍스트" />
 </body>
 </html>
