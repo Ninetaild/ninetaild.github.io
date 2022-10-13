@@ -13,7 +13,7 @@
 <input type="text" placeholder="재획비 가격" id="dop"><br/>
 </form>
 <p>
-<button onclick="ShowResult()">결과보기</button><p>
+<button onclick="Result()">결과보기</button><p>
 <label for="EquParts" class="visually-hidden"></label>
 <input type="text" id="Result1"><br/>
 <label for="EquParts" class="visually-hidden"></label>
@@ -22,14 +22,14 @@
 <input type="text" id="Result3"><br/>
 
 <script type="text/javascript">
-function SetValue() {
+function Result() {
 let meso = document.getElementByID('meso').value;
 let drop = document.getElementByID('drop').value;
 let Lv = document.getElementByID('Lv').value;
 let mob = document.getElementByID('mob').value;
 let dop = document.getElementByID('dop').value;
-  
 
+document.getElementById("valueC").innerHTML = Number(a) + Number(b);
 
 document.getElementById('Result1').value = document.getElementById('StarStat').value;
 document.getElementById('Result2').value = document.getElementById('StarAtk').value;
