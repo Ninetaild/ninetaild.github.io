@@ -23,32 +23,13 @@
 
 <script type="text/javascript">
 function SetValue() {
-let EquLv_str = document.getElementByID('EquLv').value;
-let EquLv = parseInt(EquLv_str.options[EquLv_str.selectedIndex].value);
-let EquParts_str = document.getElementByID('EquParts').value;
-let EquParts = parseInt(EquParts_str.options[EquParts_str.selectedIndex].value);
-let Star =  parseInt(document.getElementById('Star').value);
-let Equ =  parseInt(document.getElementById('Equ').value);
-let MainStat =  parseInt(document.getElementById('MainStat').value);
-let SubStat =  parseInt(document.getElementById('SubStat').value);
-let AtkStat =  parseInt(document.getElementById('AtkStat').value);
-}
+let meso = document.getElementByID('meso').value;
+let drop = document.getElementByID('drop').value;
+let Lv = document.getElementByID('Lv').value;
+let mob = document.getElementByID('mob').value;
+let dop = document.getElementByID('dop').value;
+  
 
-function ShowResult() {
-var cul1 = (document.getElementById('MainStat').value-document.getElementById('SubStat').value) / document.getElementById
-
-('Equ').value;
-var par1 = document.getElementById('EquParts').value;
-
-if (par1 == "1"){
-if (cul1 == "3"){
-document.getElementById('Result3').value = "100% 완작";
-}else if (cul1 == "4"){
-document.getElementById('Result3').value = "70% 완작";
-}else if (cul1 == "7"){
-document.getElementById('Result3').value = "30% 완작";
-}
-}
 
 document.getElementById('Result1').value = document.getElementById('StarStat').value;
 document.getElementById('Result2').value = document.getElementById('StarAtk').value;
