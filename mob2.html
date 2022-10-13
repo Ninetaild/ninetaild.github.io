@@ -1,0 +1,52 @@
+﻿﻿﻿<!DOCTYPE html><html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>마릿수 계산기</title>
+<script>
+var showResult = function(){
+	var num1 = document.getElementsByTagName("input")[0].value;
+	var num2 = document.getElementsByTagName("input")[1].value;
+	var num3 = document.getElementsByTagName("input")[2].value;
+	var num4 = document.getElementsByTagName("input")[3].value;
+	var num5 = document.getElementsByTagName("input")[4].value;
+
+	if(num4 < 67){
+		var num4_ = 60 * (100 + parseInt(num4))/100
+	}else{
+		var num4_ = 1
+	}
+
+	var result = parseInt(num1) * parseInt(num2) * (100 + parseInt(num3))/100 * 7.5 * 2 * num4_;
+	document.getElementsByTagName("input")[5].value=result;
+	var result = parseInt(num1) * parseInt(num2) * (100 + parseInt(num3))*1.2/100 * 7.5 * 2 * num4_;
+	document.getElementsByTagName("input")[6].value=result;
+
+	var num6 = document.getElementsByTagName("input")[5].value;
+	var num7 = document.getElementsByTagName("input")[6].value;
+
+	var n6 = num6 / 120
+	var n7 = num7 / 120
+
+	for(var i = 1; i < 120; i++){
+		if(n6 * i < n7 * i - num5 * 10000){
+			document.getElementsByTagName("input")[7].value=i;
+			break;
+		}
+	}
+}
+</script>
+</head>
+<body>
+*재획비 없는기준 스탯 입력해주세요(쓸심o)*<p>
+<input type="text" placeholder="몬스터 레벨(275)" /><br/>
+<input type="text" placeholder="시간당 마리수(14000)" /><br/>
+<input type="text" placeholder="스탯창 메소 획득량(200)" /><br/>
+<input type="text" placeholder="스탯창 아이템 획득량(200)" /><br/>
+<input type="text" placeholder="재물 획득의 비약 가격(1500)" /><p>
+<button onclick="showResult()">계산</button><p>
+<input type="text" placeholder="재획비 없을때 순메소" /><br/>
+<input type="text" placeholder="재획비 있을때 순메소" /><br/>
+<input type="text" placeholder="분 이상 사냥 시 재획이 이득" /><br/>
+
+</body>
+</html>
