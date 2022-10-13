@@ -4,34 +4,21 @@
 <title>작 계산기</title>
 </head>
 <body>
+*재획비 없는기준 스탯창 표기스탯 작성해주세요(쓸심o)*
 <form>
-<label for="EquLv" class="visually-hidden">장비 이름</label>
-<select id="EquLv">
-  <option value="130" selected> 무스펠</option>
-  <option value="140"> 펜살리르</option>
-  <option value="150"> 루타비스</option>
-  <option value="160"> 앱솔랩스</option>
-  <option value="170"> 아케인셰이드</option>
-</select><br/>
-<label for="EquParts" class="visually-hidden">장비 부위</label>
-<select id="EquParts">
-  <option value="1" selected> 방어구</option>
-  <option value="2"> 장갑</option>
-  <option value="3"> 무기</option>
-</select><br/>
-<input type="text" placeholder="스타포스 수치" id="Star"><br/>
-<input type="text" placeholder="작 횟수" id="Equ"><br/>
-<input type="text" placeholder="주스탯(파랑)" id="MainStat"><br/>
-<input type="text" placeholder="부스탯(파랑)" id="SubStat"><br/>
-<input type="text" placeholder="공격력(파랑)" id="AtkStat"><br/>
+<input type="text" placeholder="메획" id="meso"><br/>
+<input type="text" placeholder="드랍" id="drop"><br/>
+<input type="text" placeholder="몬스터 레벨" id="Lv"><br/>
+<input type="text" placeholder="시간당 마리수" id="mob"><br/>
+<input type="text" placeholder="재획비 가격" id="dop"><br/>
 </form>
 <p>
 <button onclick="ShowResult()">결과보기</button><p>
-<label for="EquParts" class="visually-hidden">스타포스 스탯 상승량</label>
+<label for="EquParts" class="visually-hidden"></label>
 <input type="text" id="Result1"><br/>
-<label for="EquParts" class="visually-hidden">스타포스 공격력 상승량</label>
+<label for="EquParts" class="visually-hidden"></label>
 <input type="text" id="Result2"><br/>
-<label for="EquParts" class="visually-hidden">주흔작</label>
+<label for="EquParts" class="visually-hidden"></label>
 <input type="text" id="Result3"><br/>
 
 <script type="text/javascript">
@@ -70,27 +57,3 @@ document.getElementById('Result2').value = document.getElementById('StarAtk').va
 </script>
 </body>
 </html>
-<!--
-let StarStat, Atk1, Atk2, StarAtk, CulStat;
-
-if (Star < 5){
-	StarStat = Star*2;
-}else if (Star < 15){
-	StarStat = 10 + (Star-5) * 3;
-}else if (Star < 21){
-	StarStat = 40 + (Star-15) * (7 + (EquLv-130)/5);
-	for(i=16;i=Star;i++){
-		Atk1 += (EquLv-130)/10 * 7 + (i-16);
-	}
-	StarAtk = Atk;
-}else if (Star < 25){
-	StarStat = 7 * (EquLv-130)/5 + 40
-	for(i=16;i=21;i++){
-		Atk1 += (EquLv-130)/10 * 7 + (i-16);
-	}
-	for(i=22;i=Star;i++){
-		Atk2 += (EquLv-130)/10 + 14 + (i-22) * 2;
-	}
-	StarAtk = Atk1 + Atk2;
-}
--->
