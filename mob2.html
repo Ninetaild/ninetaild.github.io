@@ -11,14 +11,14 @@ var showResult = function(){
 	var num5 = document.getElementsByTagName("input")[4].value;
 
 	if(num4 < 47){
-		var drop1 = 0.6 * (100 + parseInt(num4))/100
-		var drop2 = 0.6 * (120 + parseInt(num4))/100
+		var drop1 = 0.6 * (100 + parseInt(num4))/100;
+		var drop2 = 0.6 * (120 + parseInt(num4))/100;
 	}else if{num4 < 67){
-		var drop1 = 0.6 * (100 + parseInt(num4))/100
-		var drop2= 1
+		var drop1 = 0.6 * (100 + parseInt(num4))/100;
+		var drop2= 1;
 	}else{
-		var drop1 = 1
-		var drop2 = 1	
+		var drop1 = 1;
+		var drop2 = 1;
 	}
 
 	var result = parseInt(num1) * parseInt(num2) * (100 + parseInt(num3))/100 * 7.5 * 2 * drop1;
