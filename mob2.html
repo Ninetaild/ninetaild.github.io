@@ -10,20 +10,22 @@ var showResult = function(){
 	var num4 = document.getElementsByTagName("input")[3].value;
 	var num5 = document.getElementsByTagName("input")[4].value;
 
-	if(num4 < 47){
-		var drop1 = 0.6 * (100 + parseInt(num4))/100;
-		var drop2 = 0.6 * (120 + parseInt(num4))/100;
-	}else if{num4 < 67){
-		var drop1 = 0.6 * (100 + parseInt(num4))/100;
-		var drop2= 1;
+        var drop1 = num4;
+        var drop2 = num4 + 20;
+	if(drop1 < 67){
+		var drop1_ = 0.6 * (100 + parseInt(num4))/100;
 	}else{
-		var drop1 = 1;
-		var drop2 = 1;
+		var drop1_ = 1;
+	}
+	if(drop2 < 67){
+		var drop2_ = 0.6 * (100 + parseInt(num4))/100;
+	}else{
+		var drop2_ = 1;
 	}
 
-	var result = parseInt(num1) * parseInt(num2) * (100 + parseInt(num3))/100 * 7.5 * 2 * drop1;
+	var result = parseInt(num1) * parseInt(num2) * (100 + parseInt(num3))/100 * 7.5 * 2 * drop1_;
 	document.getElementsByTagName("input")[5].value=result;
-	var result = parseInt(num1) * parseInt(num2) * (100 + parseInt(num3))*1.2/100 * 7.5 * 2 * drop2;
+	var result = parseInt(num1) * parseInt(num2) * (100 + parseInt(num3))*1.2/100 * 7.5 * 2 * drop2_;
 	document.getElementsByTagName("input")[6].value=result;
 
 	var num6 = document.getElementsByTagName("input")[5].value;
