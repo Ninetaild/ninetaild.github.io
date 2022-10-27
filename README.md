@@ -4,8 +4,8 @@
 22.10.27 추가
 드메템 효율 계산기 추가
 
-## 재획비 손익 분기점(ninetaild.github.io/code/mob2.html)
+## 재획비 손익 분기점(https://ninetaild.github.io/code/mob2.html)
 :재획비 마실까 말까 고민될때 클릭
 
-## 드메템 효율 계산기(ninetaild.github.io/code/mob.html)
+## 드메템 효율 계산기(https://ninetaild.github.io/code/mob.html)
 :드랍 20%? 메획 20%? 뭐가 더 좋을지 모르겠으면 클릭
