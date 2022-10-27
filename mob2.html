@@ -10,15 +10,15 @@ var showResult = function(){
 	var num4 = document.getElementsByTagName("input")[3].value;
 	var num5 = document.getElementsByTagName("input")[4].value;
 
-        var drop1 = num4;
-        var drop2 = num4 + 20;
+        var drop1 = parseInt(num4);
+        var drop2 = parseInt(num4) + 20;
 	if(drop1 < 67){
-		var drop1_ = 0.6 * (100 + parseInt(num4))/100;
+		var drop1_ = 0.6 * (100 + drop1)/100;
 	}else{
 		var drop1_ = 1;
 	}
 	if(drop2 < 67){
-		var drop2_ = 0.6 * (120 + parseInt(num4))/100;
+		var drop2_ = 0.6 * (100 + drop2)/100;
 	}else{
 		var drop2_ = 1;
 	}
