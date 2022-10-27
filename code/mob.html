@@ -8,9 +8,13 @@ var showResult = function(){
 	var num2 = document.getElementsByTagName("input")[1].value;
 	var num3 = document.getElementsByTagName("input")[2].value;
 	var num4 = document.getElementsByTagName("input")[3].value;
-
-        var drop1 = parseInt(num4);
-        var drop2 = parseInt(num4) + 20;
+	var num5 = document.getElementsByTagName("input")[4].value;
+	var num6 = document.getElementsByTagName("input")[5].value;
+	var num7 = document.getElementsByTagName("input")[6].value;
+	var num8 = document.getElementsByTagName("input")[7].value;
+	
+        var drop1 = parseInt(num4) + parseInt(num6);
+        var drop2 = parseInt(num4) + parseInt(num8);
 	if(drop1 < 67){
 		var drop1_ = 0.6 * (100 + drop1)/100;
 	}else{
@@ -23,9 +27,9 @@ var showResult = function(){
 	}
 
 	var result = parseInt(num1) * parseInt(num2) * (100 + parseInt(num3))/100 * 7.5 * 2 * drop2_;
-	document.getElementsByTagName("input")[4].value=result;
+	document.getElementsByTagName("input")[8].value=result;
 	var result = parseInt(num1) * parseInt(num2) * (120 + parseInt(num3))/100 * 7.5 * 2 * drop1_;
-	document.getElementsByTagName("input")[5].value=result;
+	document.getElementsByTagName("input")[9].value=result;
 }
 </script>
 </head>
@@ -33,8 +37,15 @@ var showResult = function(){
 *쓸심만 쓴 스탯 입력해주세요*<p>
 <input type="text" placeholder="몬스터 레벨(275)" /><br/>
 <input type="text" placeholder="시간당 마리수(14000)" /><br/>
-<input type="text" placeholder="스탯창 메소 획득량(200)" /><br/>
-<input type="text" placeholder="스탯창 아이템 획득량(200)" /><br/>
+<input type="text" placeholder="스탯창 메소 획득량(20)" /><br/>
+<input type="text" placeholder="스탯창 아이템 획득량(20)" /><br/>
+<div><p>case1</p>
+<input type="text" placeholder="추가할 메소 획득량(20)" /><br/>
+<input type="text" placeholder="추가할 아이템 획득량(20)" /><br/>
+</div><div><p>case2</p>
+<input type="text" placeholder="추가할 메소 획득량(20)" /><br/>
+<input type="text" placeholder="추가할 아이템 획득량(20)" /><br/>
+</div>
 <button onclick="showResult()">계산</button><p>
 <input type="text" placeholder="드랍 한줄" /><br/>
 <input type="text" placeholder="메획 한줄" /><br/>
