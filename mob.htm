@@ -9,8 +9,8 @@ var showResult = function(){
 	var num3 = document.getElementsByTagName("input")[2].value;
 	var num4 = document.getElementsByTagName("input")[3].value;
 
-        var drop1 = num4;
-        var drop2 = num4 + 20;
+        var drop1 = parseInt(num4);
+        var drop2 = parseInt(num4) + 20;
 	if(drop1 < 67){
 		var drop1_ = 0.6 * (100 + drop1)/100;
 	}else{
@@ -23,9 +23,9 @@ var showResult = function(){
 	}
 
 	var result = parseInt(num1) * parseInt(num2) * (100 + parseInt(num3))/100 * 7.5 * 2 * drop2_;
-	document.getElementsByTagName("input")[4].value=drop1_;
-	var result = parseInt(num1) * parseInt(num2) * (100 + 20 + parseInt(num3))/100 * 7.5 * 2 * drop1_;
-	document.getElementsByTagName("input")[5].value=drop2_;
+	document.getElementsByTagName("input")[4].value=result;
+	var result = parseInt(num1) * parseInt(num2) * (120 + parseInt(num3))/100 * 7.5 * 2 * drop1_;
+	document.getElementsByTagName("input")[5].value=result;
 }
 </script>
 </head>
