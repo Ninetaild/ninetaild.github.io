@@ -9,22 +9,23 @@ var showResult = function(){
 	var num3 = document.getElementsByTagName("input")[2].value;
 
 	if(parseInt(num1) < 258){
-		var drop = 0.28 * (100 + parseInt(num1)/100;
+		var drop = 0.28 * (100 + parseInt(num1))/100;
 	}else{
-		var drop_ = 1;
+		var drop = 1;
 	}
 
-	var result = drop * parseInt(num3) / parseInt(num2) * 0.4;
-	document.getElementsByTagName("input")[3].value=drpp;
-  	var result = 1.435 * parseInt(num3) / parseInt(num2);
+	var result = parseInt(num3) / parseInt(num2) * drop * 0.4;
+	document.getElementsByTagName("input")[3].value=result;
+  	var result = parseInt(num3) / parseInt(num2) * 1.435;
 	document.getElementsByTagName("input")[4].value=result;
 }
 </script>
 </head>
 <body>
+*클탐, 파밍시간 단위는 동일하게 입력해주세요*<br/>
 <input type="text" placeholder="드랍율" /><br/>
-<input type="text" placeholder="던전 클리어 시간(분)" /><br/>
-<input type="text" placeholder="파밍 시간(분)" /><br/>
+<input type="text" placeholder="던전 클리어 시간" /><br/>
+<input type="text" placeholder="파밍 시간" /><br/>
 <button onclick="showResult()">계산</button><p>
 <input type="text" placeholder="비전서" /><br/>
 <input type="text" placeholder="마정석" /><br/>
