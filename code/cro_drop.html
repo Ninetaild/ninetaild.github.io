@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html><html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>마법사의 무덤 파밍</title>
@@ -6,7 +6,7 @@
 var showResult = function(){
 	var num1 = document.getElementsByTagName("input")[0].value;
 	var num2 = document.getElementsByTagName("input")[1].value;
-  var num3 = document.getElementsByTagName("input")[2].value;
+	var num3 = document.getElementsByTagName("input")[2].value;
   
 	if(parseInt(num1) < 258){
 		var drop = 0.28 * (100 + drop1)/100;
@@ -16,8 +16,8 @@ var showResult = function(){
 
 	var result = drop * parseInt(num3) / parseInt(num2) * 0.4;
 	document.getElementsByTagName("input")[3].value=result;
-  var result = 1.435 * parseInt(num3) / parseInt(num2);
-  document.getElementsByTagName("input")[4].value=result;
+  	var result = 1.435 * parseInt(num3) / parseInt(num2);
+	document.getElementsByTagName("input")[4].value=result;
 }
 </script>
 </head>
