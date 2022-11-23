@@ -1,5 +1,5 @@
-import.java.util.Scanner;
-class MainClass{
+import java.util.scanner;
+class ThisClass{
     public void Set1(double a){
         this.a=a;
     }
@@ -7,7 +7,7 @@ class MainClass{
         this.b=b;
     }
 }
-class SubClass extends MainClass{
+class SubClass extends ThisClass{
     int A=(int)a, B=(int)b, n=1;
     public void sum(){
         System.out.println("a+b="+(A+B));
@@ -27,7 +27,7 @@ class SubClass extends MainClass{
         }
     }
 }
-public class SubClass2{
+public class Result{
     public static void main(string[] args){
         System.out.println("2개의 정수 입력");
         Scanner sc=new Scanner(System.in);
