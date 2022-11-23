@@ -1,26 +1,24 @@
-﻿﻿﻿﻿<!DOCTYPE html><html lang="en">
+<!DOCTYPE html><html lang="en">
 <html><head>
 <meta charset="UTF-8">
 <title>계산</title>
 <script>
 function cal(){ 
-	var a=document.getElementById("a").value;
-	var b=document.getElementById("b").value;
-	var A=parseDouble("a").value;
-	var B=parseDouble("b").value;
+	var num1=document.getElementById("txt1").value;
+	var num2=document.getElementById("txt2").value;
+	var a=parseDouble("num1").value;
+	var b=parseDouble("num2").value;
 	var n=1;
-        for(int i=0;r<B;i++){
-		n=A*n;
+        for(int i=0;r<b;i++){
+		n=a*n;
 	}
 	document.getElementById("result").value=n;
 }
 </script></head>
-<body>
-<form action="">
-a : <input type="text" name="a"><br/>
-b : <input type="text" name="b"><br/>
+<body><br/>
+<input type="text" name="txt1"><br/>
+<input type="text" name="txt2"><br/>
 <button onclick="cal()">cal</button><br/>
-a^b : <input type="text" name="result"><br/>
-</form>
+<input type="text" name="result"><br/>
 </body>
 </html>
