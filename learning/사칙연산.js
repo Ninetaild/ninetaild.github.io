@@ -1,13 +1,8 @@
-import.java.util.Scanner;
-class MainClass{
-    public void Set1(double a){
-        this.a=a;
-    }
-    public void Set2(double b){
-        this.b=b;
-    }
+class SubClass1{
+    double a=10.0;
+    double b=5.0;
 }
-class SubClass extends MainClass{
+class SubClass2 extends SubClass1{
     int A=(int)a, B=(int)b, n=1;
     public void sum(){
         System.out.println("a+b="+(A+B));
@@ -27,12 +22,8 @@ class SubClass extends MainClass{
         }
     }
 }
-public class SubClass2{
+public class MainClass{
     public static void main(string[] args){
-        System.out.println("2개의 정수 입력");
-        Scanner sc=new Scanner(System.in);
-        double a = sc.nextDouble();
-        double b = sc.nextDouble();
         SubClass sub=new SubClass();
         sub.set(a);
         sub.set(b);
