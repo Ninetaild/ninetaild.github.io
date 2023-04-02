@@ -4,10 +4,11 @@
 <title>청구기호 생성기</title>
 <script>
 var showResult = function(){
-	var str = document.getElementsByTagName("input")[0].value;
-	var split = str.split(' ');
-	
-	var num1, num2, num3;
+	var s3, s4;
+	var str1 = document.getElementsByTagName("input")[0].value;
+	var s4 = document.getElementsByTagName("input")[1].value.charAt(0);
+	var split = str1.split(' ');
+
 /*
 split[0].value 325.04
 split[1].value 김
@@ -32,22 +33,25 @@ split[3].value ㅣ
 		{name : "ㅎ", v : 9},
 	];
 	
+	//ㅊ 아닐때
 	const arr2 = [
-		{name : "ㅏ", value : 1},
-		{name : "ㅐ", value : 19},
-		{name : "ㅓ", value : 2},
-		{name : "ㅗ", value : 29}, 
-		{name : "ㅜ", value : 3},
-		{name : "ㅡ", value : 4},
-		{name : "ㅣ", value : 6}, 
+		{name : "ㅏ", v : 2},
+		{name : "ㅐ", v : 3}, {name : "ㅑ", v : 3}, {name : "ㅒ", v : 3},
+		{name : "ㅓ", v : 4}, {name : "ㅔ", v : 4}, {name : "ㅕ", v : 4}, {name : "ㅖ", v : 4},
+		{name : "ㅗ", v : 5}, {name : "ㅘ", v : 5}, {name : "ㅙ", v : 5}, {name : "ㅚ", v : 5}, {name : "ㅛ", v : 5},
+		{name : "ㅜ", v : 6}, {name : "ㅝ", v : 6}, {name : "ㅞ", v : 6}, {name : "ㅟ", v : 6}, {name : "ㅠ", v : 6}, 
+		{name : "ㅡ", v : 7}, {name : "ㅢ", v : 7},
+		{name : "ㅣ", v : 8},
 	];
 	
+	//ㅊ 일때
 	const arr3 = [
-		{name : "ㅏ", value : 2},
-		{name : "ㅓ", value : 3},
-		{name : "ㅗ", value : 4}, 
-		{name : "ㅜ", value : 5},
-		{name : "ㅣ", value : 6}, 
+		{name : "ㅏ", v : 2}, {name : "ㅐ", v : 2}, {name : "ㅑ", v : 2}, {name : "ㅒ", v : 2}, 
+		{name : "ㅓ", v : 3}, {name : "ㅔ", v : 3}, {name : "ㅕ", v : 3}, {name : "ㅖ", v : 3}, 
+		{name : "ㅗ", v : 4}, {name : "ㅘ", v : 4}, {name : "ㅙ", v : 4}, {name : "ㅚ", v : 4}, {name : "ㅛ", v : 4}, 
+		{name : "ㅜ", v : 5}, {name : "ㅝ", v : 5}, {name : "ㅞ", v : 5}, {name : "ㅟ", v : 5}, {name : "ㅠ", v : 5},
+		{name : "ㅡ", v : 5}, {name : "ㅢ", v : 5}, 
+		{name : "ㅣ", v : 6}, 
 	];
 
 	function f1(element) {
@@ -55,9 +59,18 @@ split[3].value ㅣ
 			return true;
 		}
 	}
-	const a1 = arr1.find(f1);
-	var result = document.writeln(a1.v);
-	document.getElementsByTagName("input")[1].value=result;
+	function f2(element) {
+		if(element.name === split[3]){
+			return true;
+		}
+	}
+	if (arr1.find(f1).v == "8"){
+		s3 = arr3.find(f2).v;
+	}else{
+		s3 = arr2.find(f2).v;
+	}
+	var result = split[0] + "-" + split[1] + arr1.find(f1).v + s3 + s4;
+	document.getElementsByTagName("input")[2].value=result;
 	
 }
 </script>
@@ -65,6 +78,7 @@ split[3].value ㅣ
 <body>
 띄어쓰기로 구분해주세요.<br/>
 <input type="text" placeholder="325.04 김 ㅁ ㅣ" /><br/>
+<input type="text" placeholder="대한민국" /><br/>
 </div>
 <button onclick="showResult()">생성</button><p>
 <input type="text" /><br/>
