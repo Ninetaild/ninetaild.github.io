@@ -6,9 +6,7 @@
 var showResult = function(){
 	var num = document.getElementsByTagName("input")[0].value;
 	
-	char n1 = ' ';
-	char n2 = ' ';
-	char n3 = ' ';
+	
 	n1 = document.getElementsByTagName("input")[1].value;
 	n2 = document.getElementsByTagName("input")[2].value;
 	n3 = document.getElementsByTagName("input")[3].value;
@@ -51,12 +49,12 @@ var showResult = function(){
 	];
 
 	function fn1(n1) {
-		if(element.name === n1) {
+		if(n1.name === n1) {
 			return true;
 		}
 	}
 	function fn2(n2) {
-		if(element.name === n2) {
+		if(n2.name === n2) {
 			return true;
 		}
 	}
