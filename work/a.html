@@ -55,10 +55,15 @@ var showResult = function(){
 			return true;
 		}
 	}
+	function fn2(n2) {
+		if(element.name === n2) {
+			return true;
+		}
+	}
 	const array_n1 = arr1.find(fn1);
+	const array_n2 = arr2.find(fn2);
 	
-	
-	console.log(parselnt(first_name) + array_n1.value);
+	console.log(parselnt(first_name) + array_n1.value + array_n2.value);
 	
 }
 </script>
