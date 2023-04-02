@@ -5,29 +5,31 @@
 <script>
 var showResult = function(){
 	var str = document.getElementsByTagName("input")[0].value;
-	var split = str.split(" ");
+	var split = str.split(' ');
 	
-	var n1, n2, n3, num1, num2, num3;
-	n1 = split[0].value; //325.04
-	n2 = split[1].value; //김
-	n3 = split[2].value; //ㅁ
-	n4 = split[3].value; //ㅣ
+	var num1, num2, num3;
+/*
+split[0].value 325.04
+split[1].value 김
+split[2].value ㅁ
+split[3].value ㅣ
+*/
 	
 	const arr1 = [
-		{name : "ㄱ", value : 1}, {name : "ㄲ", value : 1},
-		{name : "ㄴ", value : 19},
-		{name : "ㄷ", value : 2}, {name : "ㄸ", value : 2},
-		{name : "ㄹ", value : 29}, 
-		{name : "ㅁ", value : 3},
-		{name : "ㅂ", value : 4}, {name : "ㅃ", value : 4},
-		{name : "ㅅ", value : 5}, {name : "ㅆ", value : 5},
-		{name : "ㅇ", value : 6}, 
-		{name : "ㅈ", value : 7}, {name : "ㅉ", value : 7},
-		{name : "ㅊ", value : 8},
-		{name : "ㅋ", value : 87},
-		{name : "ㅌ", value : 88},
-		{name : "ㅍ", value : 89}, 
-		{name : "ㅎ", value : 9},
+		{name : "ㄱ", v : 1}, {name : "ㄲ", v : 1},
+		{name : "ㄴ", v : 19},
+		{name : "ㄷ", v : 2}, {name : "ㄸ", v : 2},
+		{name : "ㄹ", v : 29}, 
+		{name : "ㅁ", v : 3},
+		{name : "ㅂ", v : 4}, {name : "ㅃ", v : 4},
+		{name : "ㅅ", v : 5}, {name : "ㅆ", v : 5},
+		{name : "ㅇ", v : 6}, 
+		{name : "ㅈ", v : 7}, {name : "ㅉ", v : 7},
+		{name : "ㅊ", v : 8},
+		{name : "ㅋ", v : 87},
+		{name : "ㅌ", v : 88},
+		{name : "ㅍ", v : 89}, 
+		{name : "ㅎ", v : 9},
 	];
 	
 	const arr2 = [
@@ -48,13 +50,20 @@ var showResult = function(){
 		{name : "ㅣ", value : 6}, 
 	];
 
-	var result = split[3];
+	function f1(element) {
+		if(element.name === split[2]){
+			return true;
+		}
+	}
+	const a1 = arr1.find(f1);
+	var result = document.writeln(a1.v);
 	document.getElementsByTagName("input")[1].value=result;
 	
 }
 </script>
 </head>
 <body>
+띄어쓰기로 구분해주세요.<br/>
 <input type="text" placeholder="325.04 김 ㅁ ㅣ" /><br/>
 </div>
 <button onclick="showResult()">생성</button><p>
