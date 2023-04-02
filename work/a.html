@@ -8,6 +8,7 @@ var showResult = function(){
 	var name1 = document.getElementsByTagName("input")[1].value;
 	var name2 = document.getElementsByTagName("input")[2].value;
 	var name3 = document.getElementsByTagName("input")[3].value;
+	var name4 = document.getElementsByTagName("input")[4].value;
 	
 	var name1 = parselnt(name1);
 	var name2 = parselnt(name2);
@@ -16,17 +17,20 @@ var showResult = function(){
 	if(parseInt(name1) = "ㅊ"){
 		
 	}else{
-		var drop1_ = 1;
+		
 	}
         
 	var result = parseInt(num);
-	document.getElementsByTagName("input")[4].value=result;
+	document.getElementsByTagName("input")[5].value=result;
 }
 </script>
 </head>
 <body>
 <input type="text" placeholder="325.04" /><br/>
-<input type="text" placeholder="김미리" /><br/>
+<input type="text" placeholder="김" /><br/>
+<input type="text" placeholder="ㅁ" /><br/>
+<input type="text" placeholder="ㅣ" /><br/>
+<input type="text" placeholder="" /><br/>
 </div>
 <button onclick="showResult()">계산</button><p>
 <input type="text" placeholder="" /><br/>
