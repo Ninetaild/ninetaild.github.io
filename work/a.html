@@ -64,6 +64,8 @@ var showResult = function(){
 	const array_n2 = arr2.find(fn2);
 	
 	var num1 = array_n1.value;
+	var result = num1;
+	document.getElementsByTagName("input")[5].value=result;
 	
 }
 </script>
@@ -75,6 +77,8 @@ var showResult = function(){
 <input type="text" placeholder="ㅣ" /><br/>
 <input type="text" placeholder="" /><br/>
 </div>
-
+<button onclick="showResult()">생성</button><p>
+<input type="text" /><br/>
+	
 </body>
 </html>
