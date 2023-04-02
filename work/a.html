@@ -4,14 +4,14 @@
 <title>청구기호 생성기</title>
 <script>
 var showResult = function(){
-	var num = document.getElementsByTagName("input")[0].value;
+	var str = document.getElementsByTagName("input")[0].value;
+	var split = str.split(" ");
 	
-	
-	n1 = document.getElementsByTagName("input")[1].value;
-	n2 = document.getElementsByTagName("input")[2].value;
-	n3 = document.getElementsByTagName("input")[3].value;
-	
-	var num1, num2, num3;
+	var n1, n2, n3, num1, num2, num3;
+	n1 = split[0].value; //325.04
+	n2 = split[1].value; //김
+	n3 = split[2].value; //ㅁ
+	n4 = split[3].value; //ㅣ
 	
 	const arr1 = [
 		{name : "ㄱ", value : 1}, {name : "ㄲ", value : 1},
@@ -48,31 +48,28 @@ var showResult = function(){
 		{name : "ㅣ", value : 6}, 
 	];
 
-	function fn1(n1) {
-		if(n1.name === n1) {
+	function fn1(n3) {
+		if(n3.name === n3) {
 			return true;
 		}
 	}
-	function fn2(n2) {
-		if(n2.name === n2) {
+	function fn2(n4) {
+		if(n3.name === n3) {
 			return true;
 		}
 	}
-	const array_n1 = arr1.find(fn1);
-	const array_n2 = arr2.find(fn2);
+	const array_n3 = arr1.find(fn1);
+	const array_n4 = arr2.find(fn2);
 	
-	var num1 = array_n1;
+	var n3 = array_n3;
 	var result = n1;
-	document.getElementsByTagName("input")[4].value=result;
+	document.getElementsByTagName("input")[1].value=result;
 	
 }
 </script>
 </head>
 <body>
-<input type="text" placeholder="325.04" /><br/>
-<input type="text" placeholder="김" /><br/>
-<input type="text" placeholder="ㅁ" /><br/>
-<input type="text" placeholder="ㅣ" /><br/>
+<input type="text" placeholder="325.04 김 ㅁ ㅣ" /><br/>
 </div>
 <button onclick="showResult()">생성</button><p>
 <input type="text" /><br/>
