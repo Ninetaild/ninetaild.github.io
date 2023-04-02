@@ -10,9 +10,9 @@ var showResult = function(){
 	var name2 = document.getElementsByTagName("input")[3].value;
 	var name3 = document.getElementsByTagName("input")[4].value;
 	
-	var name1 = parselnt(name1);
-	var name2 = parselnt(name2);
-	var name3 = parselnt(name3);
+	var n1 = parselnt(name1);
+	var n2 = parselnt(name2);
+	var n3 = parselnt(name3);
 	var num1, num2, num3;
 	
 	const arr1 = [
@@ -31,18 +31,14 @@ var showResult = function(){
 		{name : "ㅍ", value : 89}, 
 		{name : "ㅎ", value : 9},
 	];
-	
-	if(name1 = "ㅊ"){
-		}
-	}else{
-		}
-	}
-        
-	function name1(name1) {
-		if(element.name === name1) {
+
+	function fn1(n1) {
+		if(element.name === n1) {
 			return true;
 		}
 	}
+	const array_n1 = arr1.find(fn1);
+	console.log(array_n1.value);
 		
 	var result = ;
 	document.getElementsByTagName("input")[5].value=result;
