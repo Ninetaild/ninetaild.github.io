@@ -1,0 +1,27 @@
+<!DOCTYPE html><html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>토벌물약 손익분기점</title>
+<script>
+var showResult = function(){
+	var n1 = document.getElementsByTagName("input")[0].value;
+	var n2 = document.getElementsByTagName("input")[1].value;
+  
+  for(i=1;i<1440;i++){
+    if(n2 / n1 * i * 300000 < 15000000000){
+      var t = i;
+    }
+  }
+	document.getElementsByTagName("input")[3].value=t;
+}
+</script>
+</head>
+<body>
+*토벌물약 150억, 불코 30만 기준*
+토벌 소요시간(분) : <input type="text" placeholder="15" /><br/>
+토벌 획득코인(개) : <input type="text" placeholder="300" /><br/>
+</div>
+<button onclick="showResult()">계산</button><p>
+<input type="text" placeholder="손익분기 시간(분)" /><br/>
+</body>
+</html>
