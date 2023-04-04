@@ -16,22 +16,28 @@ var showResult = function(){
 	50000000000 + n * 100 / 100 / 3900
 	];
 	
-	for(i=0;i<8;i++){
-	document.getElementsByTagName("input")[i+1]= arr1[i] + ": 1원당" + arr2[i] + "골드";
+	for(i=0;i<10;i++){
+	document.getElementsByTagName("input")[i*2+1].value = arr1[i];
+	document.getElementsByTagName("input")[i*2+2].value = arr2[i];
 	}
-	
 }
 </script>
 </head>
 <body>
-100 토끼코인(수수료 x)<br/><input type="text" placeholder="30000000000" /><br/>
+<br/><input type="text" placeholder="토끼토큰 100개당 가격 입력 : 30000000000" size="51"/><br/>
 </div>
 <button onclick="showResult()">계산</button><p>
-<input type="text"/><br/>
-<input type="text"/><br/>
-<input type="text"/><br/>
-<input type="text"/><br/>
-<input type="text"/><br/>
-<input type="text"/><br/>
+<input type="text" size="5" placeholder="곡괭이명"/>
+<input type="text" size="40" placeholder="1원당 골드"/><br/>
+<input type="text" size="5" placeholder="곡괭이명"/>
+<input type="text" size="40" placeholder="1원당 골드"/><br/>
+<input type="text" size="5" placeholder="곡괭이명"/>
+<input type="text" size="40" placeholder="1원당 골드"/><br/>
+<input type="text" size="5" placeholder="곡괭이명"/>
+<input type="text" size="40" placeholder="1원당 골드"/><br/>
+<input type="text" size="5" placeholder="곡괭이명"/>
+<input type="text" size="40" placeholder="1원당 골드"/><br/>
+<input type="text" size="5" placeholder="곡괭이명"/>
+<input type="text" size="40" placeholder="1원당 골드" /><br/>
 </body>
 </html>
