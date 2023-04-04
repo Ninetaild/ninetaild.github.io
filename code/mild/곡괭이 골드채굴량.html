@@ -4,10 +4,14 @@
 <title>곡괭이 골드채굴량</title>
 <script>
 var showResult = function(){
-	var num = document.getElementsByTagName("input")[0].value;
-  
-	document.getElementsByTagName("input")[1].value=30000000000/500*num;
-  document.getElementsByTagName("input")[2].value=10000000000/500*num;
+var num = document.getElementsByTagName("input")[0].value;
+ 
+var r1 = 30000000000/500*num;
+var r2 = 10000000000/500*num;
+var r1_ = r1.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+var r2_ = r2.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+document.getElementsByTagName("input")[1].value=r1_;
+document.getElementsByTagName("input")[2].value=r2_;
 }
 </script>
 </head>
