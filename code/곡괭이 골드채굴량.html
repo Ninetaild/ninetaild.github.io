@@ -1,0 +1,21 @@
+<!DOCTYPE html><html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>곡괭이 골드채굴량</title>
+<script>
+var showResult = function(){
+	var num = document.getElementsByTagName("input")[0].value;
+  
+	document.getElementsByTagName("input")[1].value=30000000000/500*num;
+  document.getElementsByTagName("input")[2].value=10000000000/500*num;
+}
+</script>
+</head>
+<body>
+레벨 : <input type="text" placeholder="100" /><br/>
+</div>
+<button onclick="showResult()">계산</button><p>
+<input type="text" placeholder="나무곡괭이" /><br/>
+<input type="text" placeholder="월던곡괭이" /><br/>
+</body>
+</html>
