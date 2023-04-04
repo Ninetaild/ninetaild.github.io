@@ -8,11 +8,12 @@ var showResult = function(){
 	var n2 = document.getElementsByTagName("input")[1].value;
   
   for(i=1;i<1440;i++){
-    if(n2 / n1 * i * 300000 < 15000000000){
+    if(n2 / n1 * i * 300000 > 15000000000){
       var t = i;
+      break;
     }
   }
-	document.getElementsByTagName("input")[3].value=t;
+	document.getElementsByTagName("input")[2].value=t;
 }
 </script>
 </head>
