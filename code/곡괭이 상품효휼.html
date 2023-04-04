@@ -6,28 +6,22 @@
 var showResult = function(){
 	var n = document.getElementsByTagName("input")[0].value * 0.9;
  
-	const arr = {"다곡", "옵곡", "루곡", "석곡", "은곡", "돌곡"};
-	
-	const arr1 = [
-		{name : "다곡", g : 1200000000000 + n * 5000 / 100 / 110000},
-		{name : "옵곡", g : 600000000000 + n * 2500 / 100 / 55000}, 
-		{name : "루곡", g : 300000000000 + n * 1500 / 100 / 33000},
-		{name : "석곡", g : 110000000000 + n * 500 / 100 / 11000},
-		{name : "은곡", g : 80000000000 + n * 200 / 100 / 5900},
-		{name : "돌곡", g : 50000000000 + n * 100 / 100 / 3900}, 
-	];
+	const arr1 = ["다곡", "옵곡", "루곡", "석곡", "은곡", "돌곡"];
+	const arr2 = [1200000000000 + n * 5000 / 100 / 110000, 600000000000 + n * 2500 / 100 / 55000,
+	300000000000 + n * 1500 / 100 / 33000, 110000000000 + n * 500 / 100 / 11000,
+	80000000000 + n * 200 / 100 / 5900, 50000000000 + n * 100 / 100 / 3900];
 	
 	for(i=0;i<8;i++){
-	var result1 = arr1[i].name;
-	var result2 = arr1[i].g;
-	document.getElementsByTagName("input")[i+1]=result1 + result2;
+	var result1 = arr1[i];
+	var result2 = arr2[i];
+	document.getElementsByTagName("input")[i+1]= result1 + result2;
 	}
 	
 }
 </script>
 </head>
 <body>
-100 토끼코인(수수료 x) : <input type="text" placeholder="30000000000" /><br/>
+100 토끼코인(수수료 x)<br/><input type="text" placeholder="30000000000" /><br/>
 </div>
 <button onclick="showResult()">계산</button><p>
 <input type="text"/><br/>
