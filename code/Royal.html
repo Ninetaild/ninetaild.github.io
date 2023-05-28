@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    
+    .button {
+      display: inline-block;
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #4287f5;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+    
+    .result {
+      font-size: 20px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <button class="button" id="single-button">1회 뽑기</button>
+  <button class="button" id="eleven-button">11회 뽑기</button>
+  <div class="result" id="result"></div>
+  
+  <script>
+    const singleButton = document.getElementById('single-button');
+    const elevenButton = document.getElementById('eleven-button');
+    const resultElement = document.getElementById('result');
+    
+    const items = [
+      { name: '[스페셜 라벨] 빛의 오브제', probability: 2.5 },
+      { name: '[스페셜 라벨] 빛의 아뜰리에', probability: 3.0 },
+      { name: '[스페셜 라벨] 영광의 투영체 (남) / 영예의 피사체 (여)', probability: 3.2 },
+      { name: '[스페셜 라벨] 고귀한 걸작 (남) / 고상한 명작 (여)', probability: 3.2 },
+      { name: '[스페셜 라벨] 빛의 인상 (남자만 획득가능) / 빛의 향연 (여자만 획득가능)', probability: 3.1 },
+      { name: '내 볼에 클렌징폼 (남자만 획득가능) / 내 볼에 오이팩 (여자만 획득가능)', probability: 5.0 },
+      { name: '클린래빗 블루 (남자만 획득가능) / 클린래빗 퍼플 (여자만 획득가능)', probability: 4.0 },
+      { name: '굿나잇 블루 파자마 (남자만 획득가능) / 굿나잇 퍼플 파자마 (여자만 획득가능)', probability: 4.0 },
+      { name: '굿나잇 블루 실내화 (남자만 획득가능) / 굿나잇 퍼플 실내화 (여자만 획득가능)', probability: 5.0 },
+      { name: '치카푸카 양치 시간', probability: 2.5 },
+      { name: '버블버블 래빗', probability: 5.0 },
+      { name: '블랙 이어 마이크 (남자만 획득가능) / 화이트 이어 마이크 (여자만 획득가능)', probability: 1.5 },
+      { name: '아이돌 링캡', probability: 4.0 },
+      { name: '눈부신 데뷔 (남) / 찬란한 데뷔 (여)', probability: 2.5 },
+      { name: '가벼운 스텝', probability: 5.0 },
+      { name: '첫번째 팬미팅', probability: 3.5 },
+      { name: '아이돌 스파클', probability: 4.0 },
+      { name: '헤어롤', probability: 5.0 },
+      { name: '방울방울 무지개', probability: 4.0 },
+      { name: '핑핑하트 스키니', probability: 5.0 },
+      { name: '핑크바니 스웨터', probability: 5.0 },
+      { name: '[30일] 데스티니 말풍선반지 교환권', probability: 5.0 },
+      { name: '[30일] 데스티니 명찰반지 교환권', probability: 5.0 },
+      { name: '꿀잠 베개', probability: 5.0 },
+      { name: '스카우터', probability: 5.0 }
+    ];
+    
+    singleButton.addEventListener('click', () => {
+      const result = drawItem();
+      resultElement.innerText = result;
+    });
+    
+    elevenButton.addEventListener('click', () => {
+      let result = '';
+      for (let i = 0; i < 11; i++) {
+        result += drawItem() + '<br>';
+      }
+      resultElement.innerHTML = result;
+    });
+    
+    function drawItem() {
+      const random = Math.random() * 100;
+      let cumulativeProbability = 0;
+      
+      for (let i = 0; i < items.length; i++) {
+        cumulativeProbability += items[i].probability;
+        if (random <= cumulativeProbability) {
+          return items[i].name;
+        }
+      }
+      
+      return '';
+    }
+  </script>
+</body>
+</html>
