@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>색상 필터 페이지</title>
+  <style>
+    /* 스타일링 */
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    #color-input {
+      width: 200px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    #file-label {
+      display: inline-block;
+      padding: 10px;
+      background-color: #f2f2f2;
+      cursor: pointer;
+    }
+
+    #file-name {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    #output-image {
+      display: none;
+      margin-top: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>색상 필터 페이지</h1>
+
+    <!-- 입력 영역 -->
+    <div>
+      <input type="text" id="color-input" placeholder="색상 코드 입력 (6자리)">
+      <button id="apply-filter-btn">확인</button>
+    </div>
+
+    <!-- 사진 업로드 영역 -->
+    <div>
+      <p id="file-text">파일을 선택해 주세요</p>
+      <input type="file" id="file-input">
+      <label for="file-input" id="file-label">파일 선택</label>
+      <p id="file-name"></p>
+    </div>
+
+    <!-- 출력 영역 -->
+    <div id="output-image">
+      <img id="filtered-image" src="" alt="Filtered Image">
+    </div>
+  </div>
+
+  <script>
+    // 입력 영역 요소들 가져오기
+    const colorInput = document.getElementById('color-input');
+    const applyFilterBtn = document.getElementById('apply-filter-btn');
+
+    // 사진 업로드 영역 요소들 가져오기
+    const fileInput = document.getElementById('file-input');
+    const fileLabel = document.getElementById('file-label');
+    const fileText = document.getElementById('file-text');
+    const fileName = document.getElementById('file-name');
+
+    // 출력 영역 요소들 가져오기
+    const outputImage = document.getElementById('output-image');
+    const filteredImage = document.getElementById('filtered-image');
+
+    // 확인 버튼 클릭 시 이벤트 핸들러
+    applyFilterBtn.addEventListener('click', function() {
+      const colorCode = colorInput.value;
+
+      // 색상 필터 적용
+      applyColorFilter(colorCode);
+    });
+
+    // 파일 선택 시 이벤트 핸들러
+    fileInput.addEventListener('change', function() {
+      const selectedFile = fileInput.files[0];
+      fileName.textContent = selectedFile.name;
+      outputImage.style.display = 'block';
+
+      // 파일 업로드 및 필터 적용
+      applyFilterToImage(selectedFile);
+    });
+
+    // 색상 필터 적용 함수
+    function applyColorFilter(colorCode) {
+      // 색상 필터 적용 로직
+      filteredImage.style.filter = `hue-rotate(${calculateHueRotateValue(colorCode)}deg)`;
+    }
+
+    // 파일 업로드 및 필터 적용 함수
+    function applyFilterToImage(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        filteredImage.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // 6자리 색상 코드를 받아 hue-rotate 값으로 변환하는 함수
+    function calculateHueRotateValue(colorCode) {
+      // 16진수를 10진수로 변환
+      const decimalValue = parseInt(colorCode, 16);
+      // hue-rotate 값 계산
+      const hueRotateValue = (decimalValue % 360);
+      return hueRotateValue;
+    }
+  </script>
+</body>
+</html>
