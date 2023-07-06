@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>놀긍 시뮬레이션</title>
+</head>
+<body>
+  <h1>놀긍 시뮬레이션</h1>
+  <button onclick="performAction()">지르기!</button>
+  <div id="result"></div>
+
+  <script>
+    function getRandomNumber(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function performAction() {
+      var randomValue = Math.random();
+
+      if (randomValue <= 0.4) {
+        document.getElementById('result').innerText = "실패!";
+      } else {
+        var stats = ["STR", "DEX", "INT", "LUK", "공격력", "마력"];
+        var probabilities = [18.92, 33.01, 23.87, 13.87, 4.94, 5.93];
+        var result = "";
+
+        for (var i = 0; i < stats.length; i++) {
+          var randomNumber = getRandomNumber(0, 100);
+
+          if (randomNumber <= probabilities[i] * 100) {
+            var randomValueInRange = getRandomNumber(0, 6);
+            result += stats[i] + ": " + randomValueInRange + "<br>";
+          }
+        }
+
+        document.getElementById('result').innerHTML = result;
+      }
+    }
+  </script>
+</body>
+</html>
