@@ -27,7 +27,12 @@
           var randomNumber = getRandomNumber(0, 100);
 
           if (randomNumber <= probabilities[i] * 100) {
-            var randomValueInRange = getRandomNumber(0, 6);
+            var randomValueInRange = getRandomNumber(0, 5); // 0부터 5까지의 랜덤 수 생성
+
+            if (randomValueInRange === 5) {
+              randomValueInRange = 6; // 5가 나왔을 때 6으로 변경
+            }
+
             result += stats[i] + ": " + randomValueInRange + "<br>";
           }
         }
