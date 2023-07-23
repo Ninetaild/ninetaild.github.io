@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>게임 결과</title>
+  <style>
+    label {
+      display: inline-block;
+      text-align: center;
+      width: 150px;
+    }
+  </style>
+</head>
+<body>
+  <h1>게임 결과</h1>
+  <form>
+    <label for="capital">원금</label>
+    <input type="text" id="capital" required>
+    <br>
+    <label for="winProbability">승리 확률(%)</label>
+    <input type="text" id="winProbability" required>
+    <br>
+    <label for="winProfit">승리 시 수익률(%)</label>
+    <input type="text" id="winProfit" required>
+    <br>
+    <label for="loseLoss">패배 시 손실률(%)</label>
+    <input type="text" id="loseLoss" required>
+    <br>
+    <label for="numTrials">시행 횟수</label>
+    <input type="text" id="numTrials" required>
+    <br>
+    <button type="button" onclick="playGames()">게임 진행</button>
+  </form>
+  <br>
+  <div id="results">
+    <!-- 결과가 이 곳에 출력될 것입니다. -->
+  </div>
+
+  <script>
+    function numberWithCommas(x) {
+      return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function playGames() {
+      const capital = Math.round(parseFloat(document.getElementById("capital").value.replace(/,/g, '')));
+      const winProbability = Math.round(parseFloat(document.getElementById("winProbability").value.replace(/,/g, '')));
+      const winProfit = Math.round(parseFloat(document.getElementById("winProfit").value.replace(/,/g, '')));
+      const loseLoss = Math.round(parseFloat(document.getElementById("loseLoss").value.replace(/,/g, '')));
+      const numTrials = Math.round(parseInt(document.getElementById("numTrials").value.replace(/,/g, '')));
+
+      let currentCapital = capital;
+      let winCount = 0;
+      let lossCount = 0;
+
+      for (let i = 1; i <= numTrials; i++) {
+        const randomValue = Math.random() * 100; // 0~99 사이의 난수 생성
+        const isWin = randomValue < winProbability;
+
+        if (isWin) {
+          const profitAmount = Math.round(currentCapital * (winProfit / 100));
+          currentCapital += profitAmount;
+          winCount++;
+        } else {
+          const lossAmount = Math.round(currentCapital * (loseLoss / 100));
+          currentCapital -= lossAmount;
+          lossCount++;
+        }
+      }
+
+      const remainingCapital = numberWithCommas(currentCapital);
+
+      let resultText = "<h2>게임 결과 요약</h2>";
+      resultText += `<p>승리 횟수: ${numberWithCommas(winCount)}회</p>`;
+      resultText += `<p>패배 횟수: ${numberWithCommas(lossCount)}회</p>`;
+      resultText += `<p>남은 원금: ${remainingCapital}</p>`;
+
+      document.getElementById("results").innerHTML = resultText;
+    }
+  </script>
+</body>
+</html>
