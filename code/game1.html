@@ -9,8 +9,10 @@
       width: 150px;
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+  <h1>게임 결과</h1>
   <form>
     <label for="capital">원금</label>
     <input type="text" id="capital" required>
@@ -34,12 +36,17 @@
     <!-- 결과가 이 곳에 출력될 것입니다. -->
   </div>
 
+  <button type="button" onclick="viewDetails()">자세히 보기</button>
+
   <script>
     function numberWithCommas(x) {
       return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
     function playGames() {
+      // Clear previous game data from localStorage
+      localStorage.removeItem('gameData');
+
       const capital = Math.round(parseFloat(document.getElementById("capital").value.replace(/,/g, '')));
       const winProbability = Math.round(parseFloat(document.getElementById("winProbability").value.replace(/,/g, '')));
       const winProfit = Math.round(parseFloat(document.getElementById("winProfit").value.replace(/,/g, '')));
@@ -50,6 +57,8 @@
       let winCount = 0;
       let lossCount = 0;
 
+      const gameData = []; // Array to store detailed data for each round
+
       for (let i = 1; i <= numTrials; i++) {
         const randomValue = Math.random() * 100; // 0~99 사이의 난수 생성
         const isWin = randomValue < winProbability;
@@ -58,10 +67,12 @@
           const profitAmount = Math.round(currentCapital * (winProfit / 100));
           currentCapital += profitAmount;
           winCount++;
+          gameData.push({ round: i, result: '승리', profit: numberWithCommas(profitAmount), capital: numberWithCommas(currentCapital) });
         } else {
           const lossAmount = Math.round(currentCapital * (loseLoss / 100));
           currentCapital -= lossAmount;
           lossCount++;
+          gameData.push({ round: i, result: '패배', loss: numberWithCommas(lossAmount), capital: numberWithCommas(currentCapital) });
         }
       }
 
@@ -73,6 +84,101 @@
       resultText += `<p>남은 원금: ${remainingCapital}</p>`;
 
       document.getElementById("results").innerHTML = resultText;
+
+      // Store gameData in localStorage for access in the viewDetails function
+      localStorage.setItem('gameData', JSON.stringify(gameData));
+
+      // Render the chart
+      renderChart(gameData);
+    }
+
+    function viewDetails() {
+      // Retrieve gameData from localStorage
+      const gameData = JSON.parse(localStorage.getItem('gameData'));
+
+      if (!gameData || gameData.length === 0) {
+        alert('먼저 게임 진행을 클릭하여 결과를 얻어주세요.');
+        return;
+      }
+
+      let detailsText = '<h2>게임 결과 상세</h2>';
+      detailsText += '<table>';
+      detailsText += '<tr><th>회차</th><th>결과</th><th>수익</th><th>현재 원금</th></tr>';
+
+      gameData.forEach((roundData) => {
+        detailsText += `<tr><td>${roundData.round}</td><td>${roundData.result}</td>`;
+        if (roundData.result === '승리') {
+          detailsText += `<td>${roundData.profit}</td><td>${roundData.capital}</td></tr>`;
+        } else {
+          detailsText += `<td>- ${roundData.loss}</td><td>${roundData.capital}</td></tr>`;
+        }
+      });
+
+      detailsText += '</table>';
+
+      const newWindow = window.open('', '_blank', 'width=600,height=400');
+      newWindow.document.write(detailsText);
+
+      // Create a canvas element to render the chart
+      const canvas = newWindow.document.createElement('canvas');
+      canvas.id = 'chart';
+      newWindow.document.body.appendChild(canvas);
+
+      // Render the chart
+      renderChart(gameData, canvas);
+    }
+
+    function renderChart(gameData, canvas) {
+      // Create arrays to store data for the chart
+      const roundLabels = [];
+      const profitData = [];
+      const capitalData = [];
+
+      gameData.forEach((roundData) => {
+        if (roundData.result === '승리') {
+          profitData.push(parseFloat(roundData.profit.replace(/,/g, '')));
+        } else {
+          profitData.push(-parseFloat(roundData.loss.replace(/,/g, '')));
+        }
+        capitalData.push(parseFloat(roundData.capital.replace(/,/g, '')));
+        roundLabels.push(roundData.round);
+      });
+
+      const ctx = canvas.getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: roundLabels,
+          datasets: [
+            {
+              label: '수익',
+              data: profitData,
+              borderColor: 'green',
+              backgroundColor: 'rgba(0, 128, 0, 0.2)',
+              fill: true,
+            },
+            {
+              label: '원금',
+              data: capitalData,
+              borderColor: 'blue',
+              backgroundColor: 'rgba(0, 0, 255, 0.2)',
+              fill: true,
+            },
+          ],
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function (value) {
+                  return value.toLocaleString();
+                },
+              },
+            },
+          },
+        },
+      });
     }
   </script>
 </body>
