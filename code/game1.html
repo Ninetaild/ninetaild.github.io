@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>게임 결과</title>
+  <title>!도박!</title>
   <style>
     label {
       display: inline-block;
@@ -12,7 +12,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <h1>게임 결과</h1>
   <form>
     <label for="capital">원금</label>
     <input type="text" id="capital" required>
@@ -33,7 +32,7 @@
   </form>
   <br>
   <div id="results">
-    <!-- 결과가 이 곳에 출력될 것입니다. -->
+
   </div>
 
   <button type="button" onclick="viewDetails()">자세히 보기</button>
@@ -44,7 +43,6 @@
     }
 
     function playGames() {
-      // Clear previous game data from localStorage
       localStorage.removeItem('gameData');
 
       const capital = Math.round(parseFloat(document.getElementById("capital").value.replace(/,/g, '')));
@@ -78,7 +76,7 @@
 
       const remainingCapital = numberWithCommas(currentCapital);
 
-      let resultText = "<h2>게임 결과 요약</h2>";
+      let resultText = "<h2>결과</h2>";
       resultText += `<p>승리 횟수: ${numberWithCommas(winCount)}회</p>`;
       resultText += `<p>패배 횟수: ${numberWithCommas(lossCount)}회</p>`;
       resultText += `<p>남은 원금: ${remainingCapital}</p>`;
@@ -101,7 +99,7 @@
         return;
       }
 
-      let detailsText = '<h2>게임 결과 상세</h2>';
+      let detailsText = '<h2>결과 상세세</h2>';
       detailsText += '<table>';
       detailsText += '<tr><th>회차</th><th>결과</th><th>수익</th><th>현재 원금</th></tr>';
 
