@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>세전 예금이율 비교 계산기</title>
+<style>
+  /* 스타일링 */
+</style>
+</head>
+<body>
+<h1>세전 예금이율 비교 계산기</h1>
+<form id="calculator-form">
+  <label for="numPayments">납입 횟수:</label>
+  <select id="numPayments" name="numPayments">
+    <option value="12">12회</option>
+    <option value="24">24회</option>
+    <option value="36">36회</option>
+  </select><br><br>
+  
+  <div id="paymentAmountsContainer">
+    <!-- 납입 금액 입력 텍스트박스들이 여기에 동적으로 생성될 것입니다. -->
+  </div>
+  
+  <label for="annualInterestRate">연 복리 금리 (%):</label>
+  <input type="number" id="annualInterestRate" name="annualInterestRate" step="0.01" required><br><br>
+  
+  <label for="taxRate">세율 (%):</label>
+  <select id="taxRate" name="taxRate">
+    <option value="0">0%</option>
+    <option value="15.4">15.4%</option>
+  </select><br><br>
+  
+  <button type="button" id="calculateBtn">계산하기</button>
+</form>
+
+<div id="result" style="display:none;">
+  <h2>결과</h2>
+  <p>실제 년 이율: <span id="actualInterestRate"></span>%</p>
+  <p>세금을 고려한 수령액: <span id="afterTaxAmount"></span>원</p>
+</div>
+
+<script>
+document.getElementById("calculateBtn").addEventListener("click", function() {
+  // 폼 데이터 가져오기
+  const numPayments = parseInt(document.getElementById("numPayments").value);
+  const paymentAmounts = [];
+  for (let i = 1; i <= numPayments; i++) {
+    const amount = parseFloat(document.getElementById("paymentAmount_" + i).value);
+    paymentAmounts.push(amount);
+  }
+  const annualInterestRate = parseFloat(document.getElementById("annualInterestRate").value);
+  const taxRate = parseFloat(document.getElementById("taxRate").value);
+
+  // 연 복리 금리를 월 복리 금리로 변환
+  const monthlyInterestRate = Math.pow(1 + (annualInterestRate / 100), 1 / 12) - 1;
+
+  // 이자 및 수령액 계산
+  let totalPrincipal = 0;
+  let totalInterest = 0;
+  for (let i = 0; i < numPayments; i++) {
+    const interest = totalPrincipal * monthlyInterestRate;
+    totalInterest += interest;
+    totalPrincipal += paymentAmounts[i];
+  }
+  const beforeTaxInterest = totalInterest;
+  const afterTaxInterest = beforeTaxInterest * (1 - (taxRate / 100));
+  const afterTaxAmount = totalPrincipal + afterTaxInterest;
+
+  // 결과 출력
+  const actualInterestRate = ((afterTaxInterest / totalPrincipal) * 100).toFixed(2);
+  const afterTaxAmountFormatted = Math.ceil(afterTaxAmount);
+  
+  document.getElementById("actualInterestRate").textContent = actualInterestRate;
+  document.getElementById("afterTaxAmount").textContent = afterTaxAmountFormatted.toLocaleString('en-US');
+  document.getElementById("result").style.display = "block";
+});
+
+// 납입 횟수에 따라 납입 금액 입력 텍스트박스 생성
+document.getElementById("numPayments").addEventListener("change", function() {
+  const numPayments = parseInt(this.value);
+  const paymentAmountsContainer = document.getElementById("paymentAmountsContainer");
+  paymentAmountsContainer.innerHTML = ""; // 기존 내용 초기화
+  
+  for (let i = 1; i <= numPayments; i++) {
+    const label = document.createElement("label");
+    label.innerHTML = "납입 금액 " + i + ":";
+    
+    const input = document.createElement("input");
+    input.type = "number";
+    input.id = "paymentAmount_" + i;
+    input.name = "paymentAmount_" + i;
+    input.step = "0.01";
+    input.required = true;
+    
+    paymentAmountsContainer.appendChild(label);
+    paymentAmountsContainer.appendChild(input);
+    paymentAmountsContainer.appendChild(document.createElement("br"));
+  }
+});
+</script>
+</body>
+</html>
