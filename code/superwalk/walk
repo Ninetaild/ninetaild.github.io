@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>신발 족수 계산기</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .input-container {
+            text-align: left;
+        }
+        .input-container h2 {
+            margin: 0;
+            padding: 10px 0;
+        }
+        .input-container input {
+            width: 100%;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>신발 족수 계산기</h1>
+        <form id="calculator-form">
+            <div class="input-container">
+                <h2>신발 족수</h2>
+                <div>
+                    <label for="common">Common 신발 족수:</label>
+                    <input type="number" id="common" name="common" required>
+                </div>
+                <div>
+                    <label for="rare">Rare 신발 족수:</label>
+                    <input type="number" id="rare" name="rare" required>
+                </div>
+                <div>
+                    <label for="epic">Epic 신발 족수:</label>
+                    <input type="number" id="epic" name="epic" required>
+                </div>
+            </div>
+
+            <div class="input-container">
+                <h2>스탯 입력</h2>
+                <div>
+                    <label for="performance">퍼포먼스:</label>
+                    <input type="number" id="performance" name="performance" required>
+                </div>
+                <div>
+                    <label for="comfort">착용감:</label>
+                    <input type="number" id="comfort" name="comfort" required>
+                </div>
+            </div>
+
+            <div class="input-container">
+                <h2>기타 입력</h2>
+                <div>
+                    <label for="energy_cost">에너지당 수리비:</label>
+                    <input type="number" id="energy_cost" name="energy_cost" required>
+                </div>
+                <div>
+                    <label for="ratio">비율 (기본: 0.53):</label>
+                    <input type="number" id="ratio" name="ratio" value="0.53" required>
+                </div>
+            </div><br/>
+        <div>
+            <button type="button" onclick="calculate()">계산</button>
+        </form>
+        <div id="result" style="margin-top: 20px;"></div>
+    </div></div>
+
+    <script>
+        function calculate() {
+            const common = parseFloat(document.getElementById("common").value);
+            const rare = parseFloat(document.getElementById("rare").value);
+            const epic = parseFloat(document.getElementById("epic").value);
+            const performance = parseFloat(document.getElementById("performance").value);
+            const comfort = parseFloat(document.getElementById("comfort").value);
+            const energyCost = parseFloat(document.getElementById("energy_cost").value);
+            const ratio = parseFloat(document.getElementById("ratio").value);
+
+            // Calculate sum1
+            const sum1 = common + rare + epic;
+
+            // Calculate E
+            let E = 0;
+            if (sum1 >= 0) E = 3 + rare * 1 + epic * 2;
+            if (sum1 >= 3) E = 5 + rare * 1 + epic * 2;
+            if (sum1 >= 7) E = 8 + rare * 1 + epic * 2;
+            if (sum1 >= 12) E = 12 + rare * 1 + epic * 2;
+            if (sum1 >= 20) E = 15 + rare * 1 + epic * 2;
+            if (sum1 >= 30) E = 20 + rare * 1 + epic * 2;
+
+            // Define performanceArray and matchingArray
+            const performanceArray = [0, 6, 9, 10, 24, 26, 32, 38, 40, 54, 56, 91, 94, 98, 100, 103, 106, 115, 116, 119, 121, 124, 127, 130, 132, 135, 138, 141, 144, 146, 149, 152, 154, 158, 160, 164, 167, 171, 174, 177, 180, 183, 187, 190, 194, 196, 200, 203, 207, 211, 214, 217, 221, 224, 228, 232, 235];
+            const matchingArray = [0, 0.29, 0.33, 0.36, 0.49, 0.51, 0.55, 0.59, 0.61, 0.68, 0.71, 0.88, 0.89, 0.91, 0.92, 0.92, 0.94, 0.97, 0.98, 0.99, 1, 1.01, 1.02, 1.03, 1.04, 1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.11, 1.12, 1.13, 1.14, 1.15, 1.16, 1.17, 1.18, 1.19, 1.2, 1.21, 1.22, 1.23, 1.24, 1.25, 1.26, 1.27, 1.28, 1.29, 1.3, 1.31, 1.32, 1.33, 1.34, 1.35, 1.36];
+
+            // Find the closest matching performance value
+            function findClosestMatchingValue(array, value) {
+                return array.reduce(function(prev, curr) {
+                    return curr <= value ? curr : prev;
+                });
+            }
+
+            // Calculate closest matching performance
+            const closestPerformance = findClosestMatchingValue(performanceArray, performance);
+
+            // Find the index of the closest matching performance
+            const performanceIndex = performanceArray.indexOf(closestPerformance);
+
+            // Use the matching value from the array
+            const matchingValue = matchingArray[performanceIndex];
+
+            // Calculate ps
+            const ps = matchingValue * (E / (0.2 - 0.0004 * comfort));
+
+            // Calculate walk
+            const walk = ps * ratio - E * energyCost;
+
+            // Display the result
+            const resultElement = document.getElementById("result");
+            resultElement.innerHTML = `Walk: ${walk.toFixed(2)}`;
+        }
+    </script>
+</body>
+</html>
