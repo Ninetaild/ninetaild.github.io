@@ -53,6 +53,10 @@
             <div class="input-container">
                 <h2>기타 입력</h2>
                 <div>
+                    <label for="energy_cost">메인신발 세대:</label>
+                    <input type="number" id="gen" name="gen" required>
+                </div>
+                <div>
                     <label for="energy_cost">에너지당 수리비:</label>
                     <input type="number" id="energy_cost" name="energy_cost" required>
                 </div>
@@ -72,6 +76,7 @@
             const E = parseFloat(document.getElementById("E").value);
             const performance = parseFloat(document.getElementById("performance").value);
             const comfort = parseFloat(document.getElementById("comfort").value);
+            const gen = parseFloat(document.getElementById("gen").value);
             const energyCost = parseFloat(document.getElementById("energy_cost").value);
             const ratio = parseFloat(document.getElementById("ratio").value);
 
@@ -99,7 +104,7 @@
             const ps = matchingValue * (E / (0.2 - 0.0004 * comfort));
 
             // Calculate walk
-            const walk = ps * ratio - E * energyCost;
+            const walk = (ps * ratio - E * energyCost) * (1 - gen * 0.02);
 
             // Display the result
             const resultElement = document.getElementById("result");
