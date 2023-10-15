@@ -70,15 +70,15 @@
                     <input type="number" id="energy_cost" name="energy_cost" required>
                 </div>
                 <div>
-                    <label for "ratio">비율 (기본: 0.53):</label>
-                    <input type="number" id="ratio" name="ratio" value="0.53" required>
+                    <label for "ratio">비율(%) (기본: 53%):</label>
+                    <input type="number" id="ratio" name="ratio" value="53" required>
                 </div>
                 <div>
                     <label for="comfort">크리티컬 확률(%):</label>
                     <input type="number" id="cri" name="cri" value="0" required>
                 </div
                 <div>
-                    <label for="comfort">크리티컬 데미지:</label>
+                    <label for="comfort">크리티컬 데미지(%):</label>
                     <input type="number" id="cri_d" name="cri_d" required>
                 </div
             </div><br/>
@@ -130,7 +130,7 @@
             }
 
             // Calculate walk
-            const walk = (ps * ratio * (1 + cri * cri_d / 10000)- E * energyCost) * (1 - gen * 0.02);
+            const walk = (ps * (ratio / 100) * (1 + cri * cri_d / 10000)- E * energyCost) * (1 - gen * 0.02);
 
             // Display the result
             const resultElement = document.getElementById("result");
