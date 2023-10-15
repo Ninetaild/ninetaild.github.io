@@ -53,6 +53,14 @@
             <div class="input-container">
                 <h2>기타 입력</h2>
                 <div>
+                    <label for="shoe-type">신발 종류:</label>
+                    <select id="shoe-type" name="shoe-type">
+                        <option value="1">워커/올라운더</option>
+                        <option value="2">조거</option>
+                        <option value="3">러너</option>
+                    </select>
+                </div>
+                <div>
                     <label for="energy_cost">메인신발 세대:</label>
                     <input type="number" id="gen" name="gen" required>
                 </div>
@@ -61,7 +69,7 @@
                     <input type="number" id="energy_cost" name="energy_cost" required>
                 </div>
                 <div>
-                    <label for="ratio">비율 (기본: 0.53):</label>
+                    <label for "ratio">비율 (기본: 0.53):</label>
                     <input type="number" id="ratio" name="ratio" value="0.53" required>
                 </div>
             </div><br/>
@@ -69,8 +77,7 @@
             <button type="button" onclick="calculate()">계산</button>
         </form>
         <div id="result" style="margin-top: 20px;"></div>
-    </div></div>
-
+    </div>
     <script>
         function calculate() {
             const E = parseFloat(document.getElementById("E").value);
@@ -79,6 +86,7 @@
             const gen = parseFloat(document.getElementById("gen").value);
             const energyCost = parseFloat(document.getElementById("energy_cost").value);
             const ratio = parseFloat(document.getElementById("ratio").value);
+            const shoeType = document.getElementById("shoe-type").value;
 
             // Define performanceArray and matchingArray
             const performanceArray = [0, 6, 9, 10, 24, 26, 32, 38, 40, 54, 56, 91, 94, 98, 100, 103, 106, 115, 116, 119, 121, 124, 127, 130, 132, 135, 138, 141, 144, 146, 149, 152, 154, 158, 160, 164, 167, 171, 174, 177, 180, 183, 187, 190, 194, 196, 200, 203, 207, 211, 214, 217, 221, 224, 228, 232, 235];
@@ -101,7 +109,14 @@
             const matchingValue = matchingArray[performanceIndex];
 
             // Calculate ps
-            const ps = matchingValue * (E / (0.2 - 0.0004 * comfort));
+            let ps;
+            if (shoeType === "2") {
+                ps = matchingValue * (E / (0.2 - 0.0004 * comfort)) * (1 + 0.03);
+            } else if (shoeType === "3") {
+                ps = matchingValue * (E / (0.2 - 0.0004 * comfort)) * (1 + 0.06);
+            } else {
+                ps = matchingValue * (E / (0.2 - 0.0004 * comfort));
+            }
 
             // Calculate walk
             const walk = (ps * ratio - E * energyCost) * (1 - gen * 0.02);
