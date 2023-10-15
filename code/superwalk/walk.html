@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>walk 계산기</title>
+    <title>신발 족수 계산기</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -29,20 +29,12 @@
 </head>
 <body>
     <div class="container">
+        <h1>walk 계산기</h1>
         <form id="calculator-form">
             <div class="input-container">
-                <h2>신발 족수</h2>
                 <div>
-                    <label for="common">Common 신발 족수:</label>
-                    <input type="number" id="common" name="common" required>
-                </div>
-                <div>
-                    <label for="rare">Rare 신발 족수:</label>
-                    <input type="number" id="rare" name="rare" required>
-                </div>
-                <div>
-                    <label for="epic">Epic 신발 족수:</label>
-                    <input type="number" id="epic" name="epic" required>
+                    <label for="common">에너지:</label>
+                    <input type="number" id="E" name="E" required>
                 </div>
             </div>
 
@@ -77,25 +69,11 @@
 
     <script>
         function calculate() {
-            const common = parseFloat(document.getElementById("common").value);
-            const rare = parseFloat(document.getElementById("rare").value);
-            const epic = parseFloat(document.getElementById("epic").value);
+            const E = parseFloat(document.getElementById("E").value);
             const performance = parseFloat(document.getElementById("performance").value);
             const comfort = parseFloat(document.getElementById("comfort").value);
             const energyCost = parseFloat(document.getElementById("energy_cost").value);
             const ratio = parseFloat(document.getElementById("ratio").value);
-
-            // Calculate sum1
-            const sum1 = common + rare + epic;
-
-            // Calculate E
-            let E = 0;
-            if (sum1 >= 0) E = 3 + rare * 1 + epic * 2;
-            if (sum1 >= 3) E = 5 + rare * 1 + epic * 2;
-            if (sum1 >= 7) E = 8 + rare * 1 + epic * 2;
-            if (sum1 >= 12) E = 12 + rare * 1 + epic * 2;
-            if (sum1 >= 20) E = 15 + rare * 1 + epic * 2;
-            if (sum1 >= 30) E = 20 + rare * 1 + epic * 2;
 
             // Define performanceArray and matchingArray
             const performanceArray = [0, 6, 9, 10, 24, 26, 32, 38, 40, 54, 56, 91, 94, 98, 100, 103, 106, 115, 116, 119, 121, 124, 127, 130, 132, 135, 138, 141, 144, 146, 149, 152, 154, 158, 160, 164, 167, 171, 174, 177, 180, 183, 187, 190, 194, 196, 200, 203, 207, 211, 214, 217, 221, 224, 228, 232, 235];
