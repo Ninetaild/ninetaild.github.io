@@ -130,7 +130,7 @@
             }
 
             // Calculate walk
-            const walk = (ps * (ratio / 100) * (1 + cri * cri_d / 10000)- E * energyCost) * (1 - gen * 0.02);
+            const walk = (ps * (ratio / 100) * (1 - gen * 0.02) * (1 + cri * cri_d / 10000) - E * energyCost);
 
             // Display the result
             const resultElement = document.getElementById("result");
