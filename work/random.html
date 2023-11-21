@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Numbers</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .number-container {
+            width: 200px;
+        }
+        .number-item {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1></h1>
+
+    <label for="countInput">생성 개수:</label>
+    <input type="number" id="countInput" value="5" min="1" max="100">
+    <button onclick="generateRandomNumbers()">생성</button><br/><br/>
+
+    <div class="number-container" id="numberContainer"></div>
+
+    <script>
+        function generateRandomNumber(min, max) {
+            return (Math.random() * (max - min) + min).toFixed(2);
+        }
+
+        function generateRandomKoreanSyllable() {
+            const initials = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+            const vowels = ['ㅏ', 'ㅑ', 'ㅓ', 'ㅕ', 'ㅗ', 'ㅛ', 'ㅜ', 'ㅠ', 'ㅡ', 'ㅣ'];
+            const finals = ['', 'ㄱ', 'ㄲ', 'ㄱㅅ', 'ㄴ', 'ㄴㅈ', 'ㄴㅎ', 'ㄷ', 'ㄹ', 'ㄹㄱ', 'ㄹㅁ', 'ㄹㅂ', 'ㄹㅅ', 'ㄹㅌ', 'ㄹㅍ', 'ㄹㅎ', 'ㅁ', 'ㅂ', 'ㅂㅅ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+
+            const randomInitialIndex = Math.floor(Math.random() * initials.length);
+            const randomVowelIndex = Math.floor(Math.random() * vowels.length);
+            const randomFinalIndex = Math.floor(Math.random() * finals.length);
+
+            const randomInitial = initials[randomInitialIndex];
+            const randomVowel = vowels[randomVowelIndex];
+            const randomFinal = finals[randomFinalIndex];
+
+            return String.fromCharCode(44032 + (randomInitialIndex * 21 + randomVowelIndex) * 28 + randomFinalIndex);
+        }
+
+        function generateRandomInteger(min, max) {
+            return Math.floor(Math.random() * (max - min + 1) + min);
+        }
+
+        function generateRandomNumbers() {
+            const container = document.getElementById('numberContainer');
+            const countInput = document.getElementById('countInput');
+            const count = parseInt(countInput.value, 10);
+
+            container.innerHTML = '';
+
+            for (let i = 1; i <= count; i++) {
+                const inputElement = document.createElement('input');
+                inputElement.type = 'number';
+                inputElement.value = '';
+                inputElement.placeholder = 'Enter a number';
+                inputElement.name = `number_${i}`;
+
+                const resultX = generateRandomNumber(0, 999.99);
+                const resultY = generateRandomKoreanSyllable();
+                const resultZ = generateRandomInteger(1, 99);
+                const result = `${resultX}${resultY}${resultZ}`;
+
+                const numberItem = document.createElement('div');
+                numberItem.classList.add('number-item');
+                numberItem.innerHTML = result;
+                
+                container.appendChild(inputElement);
+                container.appendChild(numberItem);
+
+                // Add <br/> for line break
+                if (i < count) {
+                    const lineBreak = document.createElement('br');
+                    container.appendChild(lineBreak);
+                }
+            }
+        }
+
+        // Generate random numbers on page load
+        generateRandomNumbers();
+    </script>
+</body>
+</html>
