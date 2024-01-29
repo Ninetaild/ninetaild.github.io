@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주식 포트폴리오 계산기</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 50%;
+            margin: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        #result {
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+<table id="portfolioTable">
+    <thead>
+        <tr>
+            <th>비중(%)</th>
+            <th>투자 배당율(세후)(%)</th>
+            <th>배당 성장률(%)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td contenteditable="true">100.00</td>
+            <td contenteditable="true">1.34</td>
+            <td contenteditable="true">6.06</td>
+        </tr>
+    </tbody>
+</table>
+
+<button onclick="addRow()">행 추가</button>
+<button onclick="calculate()">계산하기</button>
+
+<div id="result">
+    <p>비율 합계: <span id="totalRatio">0%</span></p>
+    <p>투자 배당율(세후) 합계: <span id="totalDividendAfterTax">0%</span></p>
+    <p>배당 성장률 합계: <span id="totalDividendGrowth">0%</span></p>
+</div>
+
+<script>
+    function calculate() {
+        const table = document.getElementById('portfolioTable');
+        const rows = table.getElementsByTagName('tr');
+        let totalRatio = 0;
+        let totalDividendAfterTax = 0;
+        let totalDividendGrowth = 0;
+
+        for (let i = 1; i < rows.length; i++) {
+            const cells = rows[i].getElementsByTagName('td');
+            const ratio = parseFloat(cells[0].innerText);
+            const dividendAfterTax = parseFloat(cells[1].innerText);
+            const dividendGrowth = parseFloat(cells[2].innerText);
+
+            totalRatio += ratio;
+            totalDividendAfterTax += ratio * dividendAfterTax;
+            totalDividendGrowth += ratio * dividendGrowth;
+        }
+
+        document.getElementById('totalRatio').innerText = totalRatio.toFixed(2) + '%';
+        document.getElementById('totalDividendAfterTax').innerText = totalDividendAfterTax.toFixed(2) / 100 + '%';
+        document.getElementById('totalDividendGrowth').innerText = totalDividendGrowth.toFixed(2) / 100 + '%';
+    }
+
+    function addRow() {
+        const table = document.getElementById('portfolioTable').getElementsByTagName('tbody')[0];
+        const newRow = table.insertRow(table.rows.length);
+
+        for (let i = 0; i < 3; i++) {
+            const cell = newRow.insertCell(i);
+            cell.contentEditable = true;
+            cell.innerText = '0.00';
+        }
+    }
+</script>
+
+</body>
+</html>
