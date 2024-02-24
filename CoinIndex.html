@@ -57,6 +57,7 @@
                     <th>종목명</th>
                     <th>가격</th>
                     <th>보유 수</th>
+                    <th>비중</th>
                 </tr>
             </thead>
             <tbody>
@@ -64,27 +65,35 @@
                     <td>bronze coin</td>
                     <td>392,300</td>
                     <td>1</td>
+                    <td id="bronzeWeight"></td>
                 </tr>
                 <tr>
                     <td>silver coin</td>
                     <td>3,922,600</td>
                     <td>1</td>
+                    <td id="silverWeight"></td>
                 </tr>
                 <tr>
                     <td>gold coin</td>
                     <td>39,226,200</td>
                     <td>1</td>
+                    <td id="goldWeight"></td>
                 </tr>
                 <tr>
                     <td>Dia coin</td>
                     <td>392,262,000</td>
                     <td>1</td>
+                    <td id="diaWeight"></td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="text-align: right;">가격 총합</td>
+                    <td id="totalPrice"></td>
                 </tr>
             </tbody>
         </table>
         
         <h2>차트</h2>
-        <canvas id="lineChart" class="chart"></canvas>
+        <canvas id="line_chart" class="chart"></canvas>
         
         <h2>수수료</h2>
         <div class="fee">
@@ -98,13 +107,13 @@
         var data = [10000, 10762, 11075, 11207];
 
         // 차트 그리기
-        var ctx = document.getElementById('lineChart').getContext('2d');
+        var ctx = document.getElementById('line_chart').getContext('2d');
         var myChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'UMAC 가격 추이',
+                    label: 'Maplestory Coin Index 가격 추이',
                     data: data,
                     backgroundColor: 'rgba(54, 162, 235, 0.2)',
                     borderColor: 'rgba(54, 162, 235, 1)',
