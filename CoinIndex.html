@@ -135,7 +135,7 @@
         var prices = [392300, 3922600, 39226200, 392262000]; // 코인별 가격
         var quantities = [1, 1, 1, 1]; // 코인별 보유 수
         var totalPrice = prices.reduce((acc, price, index) => acc + (price * quantities[index]), 0);
-        document.getElementById('totalPrice').innerText = numberWithCommas(totalPrice) + '원';
+        document.getElementById('totalPrice').innerText = numberWithCommas(totalPrice);
 
         // 각 코인의 비중 계산
         var weights = prices.map((price, index) => ((price * quantities[index]) / totalPrice) * 100);
