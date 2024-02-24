@@ -93,7 +93,7 @@
         </table>
         
         <h2>차트</h2>
-        <canvas id="line_chart" class="chart"></canvas>
+        <canvas id="lineChart" class="chart"></canvas>
         
         <h2>수수료</h2>
         <div class="fee">
@@ -107,7 +107,7 @@
         var data = [10000, 10762, 11075, 11207];
 
         // 차트 그리기
-        var ctx = document.getElementById('line_chart').getContext('2d');
+        var ctx = document.getElementById('lineChart').getContext('2d');
         var myChart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -130,6 +130,26 @@
                 }
             }
         });
+
+        // 가격 총합 계산
+        var prices = [392300, 3922600, 39226200, 392262000]; // 코인별 가격
+        var quantities = [1, 1, 1, 1]; // 코인별 보유 수
+        var totalPrice = prices.reduce((acc, price, index) => acc + (price * quantities[index]), 0);
+        document.getElementById('totalPrice').innerText = numberWithCommas(totalPrice) + '원';
+
+        // 각 코인의 비중 계산
+        var weights = prices.map((price, index) => ((price * quantities[index]) / totalPrice) * 100);
+
+        // 비중 표시
+        document.getElementById('bronzeWeight').innerText = weights[0].toFixed(2) + '%';
+        document.getElementById('silverWeight').innerText = weights[1].toFixed(2) + '%';
+        document.getElementById('goldWeight').innerText = weights[2].toFixed(2) + '%';
+        document.getElementById('diaWeight').innerText = weights[3].toFixed(2) + '%';
+
+        // 콤마 추가 함수
+        function numberWithCommas(x) {
+            return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
     </script>
 </body>
 </html>
