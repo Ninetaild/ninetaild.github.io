@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Maplestory Coin - UMAC</title>
+    <!-- Chart.js 로드 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        h1, h2, h3 {
+            text-align: center;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .chart {
+            width: 100%;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        .fee {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>User Maplestory Coin - UMAC</h1>
+        
+        <h2>포트폴리오</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>종목명</th>
+                    <th>가격</th>
+                    <th>보유 수</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>bronze coin</td>
+                    <td>392,300</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>silver coin</td>
+                    <td>3,922,600</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>gold coin</td>
+                    <td>39,226,200</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>Dia coin</td>
+                    <td>392,262,000</td>
+                    <td>1</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <h2>차트</h2>
+        <canvas id="lineChart" class="chart"></canvas>
+        
+        <h2>수수료</h2>
+        <div class="fee">
+            <p>총 보수: 0.09%</p>
+        </div>
+    </div>
+
+    <script>
+        // 데이터 설정
+        var labels = ['24.02.21', '24.02.22', '24.02.23', '24.02.24'];
+        var data = [10000, 10762, 11075, 11207];
+
+        // 차트 그리기
+        var ctx = document.getElementById('lineChart').getContext('2d');
+        var myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'UMAC 가격 추이',
+                    data: data,
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }]
+                }
+            }
+        });
+    </script>
+</body>
+</html>
