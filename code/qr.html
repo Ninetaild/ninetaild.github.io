@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>QR 코드 URL 디코더</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; border: 1px solid #ccc; padding: 20px; border-radius: 8px; }
+        #output { margin-top: 20px; padding: 10px; border: 1px dashed #007bff; background-color: #f0f8ff; min-height: 50px; text-align: left; word-break: break-all; }
+        input[type="file"] { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📸 QR 코드 URL 디코더</h1>
+    <p>QR 코드 이미지를 업로드하면 인코딩된 URL이 아래에 표시됩니다.</p>
+    
+    <input type="file" id="qrFile" accept="image/*">
+    
+    <h2>🔑 디코드된 URL:</h2>
+    <div id="output">
+        QR 코드를 선택해주세요.
+    </div>
+
+    <canvas id="qrCanvas" style="display:none;"></canvas>
+</div>
+
+<script>
+    // 1. 필요한 HTML 요소들을 변수에 저장
+    const fileInput = document.getElementById('qrFile');
+    const outputDiv = document.getElementById('output');
+    const canvas = document.getElementById('qrCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 2. 파일 입력에 변화(파일 업로드)가 있을 때 실행되는 이벤트 리스너
+    fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+            outputDiv.textContent = 'QR 코드를 선택해주세요.';
+            return;
+        }
+
+        outputDiv.textContent = '...QR 코드를 읽는 중...';
+
+        // 3. 파일 리더 객체를 생성하여 이미지 파일을 읽음
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                // 4. 이미지가 로드되면 캔버스 크기를 이미지 크기에 맞춤
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // 5. 이미지를 캔버스에 그림
+                ctx.drawImage(img, 0, 0, img.width, img.height);
+
+                // 6. 캔버스에서 이미지 데이터를 추출
+                const imageData = ctx.getImageData(0, 0, img.width, img.height);
+                
+                // 7. jsQR 라이브러리를 사용하여 QR 코드를 디코드
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                // 8. 디코드 결과에 따라 출력 메시지 결정
+                if (code) {
+                    // 성공: URL(data) 출력
+                    outputDiv.innerHTML = `<a href="${code.data}" target="_blank">${code.data}</a>`;
+                } else {
+                    // 실패: QR 코드를 찾지 못함
+                    outputDiv.textContent = '⚠️ 이 이미지에서 QR 코드를 찾거나 디코드할 수 없습니다.';
+                }
+            };
+            // 9. 이미지 소스를 로드
+            img.src = e.target.result;
+        };
+        // 10. 파일 읽기 시작 (Data URL 형식으로)
+        reader.readAsDataURL(file);
+    });
+</script>
+
+</body>
+</html>

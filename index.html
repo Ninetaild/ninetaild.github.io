@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이벤트 도우미 🛠️</title> 
+    <style>
+        /* Common & Layout Styles */
+        body { font-family: 'Inter', Arial, sans-serif; margin: 0; line-height: 1.6; padding-top: 60px; background-color: #f4f4f4; }
+        .main-nav { background-color: #333; color: white; padding: 10px 20px; position: fixed; top: 0; left: 0; width: 100%; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); z-index: 1000; }
+        .nav-list { list-style: none; padding: 0; margin: 0; display: flex; justify-content: flex-start; }
+        .nav-item { position: relative; padding: 10px 15px; cursor: pointer; border-radius: 4px; transition: background-color 0.3s; }
+        .nav-item:hover { background-color: #555; }
+        .nav-item a { color: white; text-decoration: none; display: block; font-weight: bold; }
+        .dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background-color: #444; min-width: 150px; border-radius: 4px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); list-style: none; padding: 0; margin: 0; z-index: 1010; }
+        .nav-item:hover .dropdown-menu { display: block; }
+        .dropdown-menu li { padding: 0; border-bottom: 1px solid #555; }
+        .dropdown-menu li:last-child { border-bottom: none; }
+        .dropdown-menu li a { padding: 10px 15px; font-weight: normal; white-space: nowrap; display: block; }
+        .dropdown-menu li:hover { background-color: #666; }
+        
+        /* main-container 제거됨: 기본 body 영역만 남음 */
+
+        /* Modal Specific Styles */
+        .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1999; }
+        .modal { 
+            display: none; position: fixed; z-index: 2000; background-color: white; border-radius: 10px; 
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4); flex-direction: column; min-width: 300px; min-height: 200px;
+            box-sizing: border-box; width: 500px; height: 300px; 
+            top: 60px; 
+            left: 20px;
+        }
+        #tool-modal { width: 90%; height: 90%; max-width: 95%; max-height: 95vh; }
+        .modal-header { 
+            padding: 15px 20px; background-color: #333; color: white; font-size: 1.2em; font-weight: bold; 
+            display: flex; justify-content: space-between; align-items: center; cursor: grab; flex-shrink: 0; 
+        }
+        .modal-close { cursor: pointer; font-size: 1.8em; line-height: 1; padding: 0 10px; border: none; 
+            background-color: transparent; color: white; transition: color 0.3s; margin-left: 15px; font-weight: normal;
+        }
+        .modal-close:hover { color: #ccc; }
+        
+        /* Modal Resize Handle (확장된 크기 20px) */
+        .modal-resize-handle {
+            position: absolute; right: 0; bottom: 0; width: 20px; height: 20px;
+            cursor: nwse-resize; background-color: transparent; z-index: 2050; 
+        }
+
+        /* Modal Content */
+        #tool-modal iframe { width: 100%; height: 100%; border: none; flex-grow: 1; min-height: 0; }
+        .modal-content { padding: 20px; overflow-y: auto; flex-grow: 1; box-sizing: border-box; }
+        .patch-notes-text { white-space: pre-wrap; font-family: monospace; line-height: 1.4; }
+
+        /* Mobile */
+        @media (max-width: 900px) {
+            #tool-modal { width: 100%; height: 100%; border-radius: 0; max-width: none; max-height: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="main-nav">
+        <ul class="nav-list">
+            
+            <li class="nav-item">
+                <a href="#" onclick="return false;">외부 사이트</a>
+                <ul class="dropdown-menu">
+                    <li><a href="https://www.suto.co.kr/cpevent?now_filter=622&cat1=M14xXjReOV4xOF4xMV43XjE0XjEzXjE1XjE2XjEwXjI&cat3=MTQzXjE0NF4xNTBeMTU2&pm=50&isActive=1" target="_blank">슈퍼투데이</a></li>
+                    <li><a href="https://arca.live/b/apptech" target="_blank">아카라이브</a></li>
+                    <li><a href="https://gemini.google.com/?hl=ko" target="_blank">잼민이</a></li>
+                    <li><a href="https://ncnc.app/" target="_blank">니콘내콘</a></li>
+                </ul>
+            </li>
+
+            <li class="nav-item" id="tool-menu-item">
+                <a href="#" onclick="return false;">도구</a>
+                <ul class="dropdown-menu">
+                    <li><a href="#" class="tool-link" data-url="https://ninetaild.github.io/code/qr.html" data-title="QR 디코더">QR 디코더</a></li>
+                    <li><a href="#" class="tool-link" data-url="https://ninetaild.github.io/code/account.html" data-title="가계부">가계부</a></li>
+                    <li><a href="#" class="tool-link" data-url="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0VAG_sf5QnhKqKNc1QCOQT8Kl-WA_SN9ZR_jIf8gGHnJWBjp9lKnsbmiFn1yPXAa1F73Uh1aBtcMT/pubhtml?gid=1968152210&single=true" data-title="앱테크">앱테크</a></li>
+                </ul>
+            </li>
+            
+            <li class="nav-item">
+                <a href="#" id="patch-notes-link">패치내역</a>
+            </li>
+
+        </ul>
+    </nav>
+    
+    <div id="modal-backdrop" class="modal-backdrop"></div>
+    
+    <div id="patch-notes-modal" class="modal">
+        <div class="modal-header">
+            <span>패치내역</span>
+            <span class="modal-close" onclick="closeModal('patch-notes-modal')">&times;</span>
+        </div>
+        <div class="modal-content">
+            <pre id="patch-notes-content" class="patch-notes-text">패치 노트를 불러오는 중...</pre>
+        </div>
+        <div class="modal-resize-handle"></div>
+    </div>
+    
+    <div id="tool-modal" class="modal">
+        <div class="modal-header">
+            <span id="tool-modal-title">도구</span>
+            <span class="modal-close" onclick="closeModal('tool-modal')">&times;</span>
+        </div>
+        <iframe id="tool-modal-iframe" src="about:blank" sandbox="allow-scripts allow-forms allow-popups allow-same-origin"></iframe>
+        <div class="modal-resize-handle"></div>
+    </div>
+
+
+    <script>
+        // Constants & DOM Selectors
+        const PATCH_NOTES_URL = 'https://ninetaild.github.io/code/patch.txt';
+        const $ = id => document.getElementById(id);
+        const $$ = selector => document.querySelectorAll(selector);
+
+        // Modal Elements
+        const MODALS = {
+            backdrop: $('modal-backdrop'),
+            patch: {
+                el: $('patch-notes-modal'),
+                content: $('patch-notes-content'),
+                link: $('patch-notes-link')
+            },
+            tool: {
+                el: $('tool-modal'),
+                iframe: $('tool-modal-iframe'),
+                title: $('tool-modal-title')
+            }
+        };
+
+        let maxZIndex = 2000;
+        let activeModal = null;
+
+        const updateBackdrop = () => {
+            const hasOpenModal = Array.from($$('.modal')).some(m => m.style.display === 'flex');
+            MODALS.backdrop.style.display = hasOpenModal ? 'block' : 'none';
+        };
+
+        const focusModal = m => {
+            maxZIndex++;
+            m.style.zIndex = maxZIndex;
+        };
+
+        const getModal = el => el.closest('.modal');
+
+        const openModal = id => {
+            const m = $(id);
+            if (!m) return;
+            
+            m.style.display = 'flex';
+            focusModal(m);
+            updateBackdrop();
+        };
+
+        const closeModal = id => {
+            const m = $(id);
+            if (!m) return;
+            m.style.display = 'none';
+            if (id === 'tool-modal') MODALS.tool.iframe.src = 'about:blank';
+            updateBackdrop();
+        };
+
+        // Patch Notes Logic
+        const loadPatchNotes = () => {
+            if (MODALS.patch.content.dataset.loaded === 'true') return;
+            fetch(PATCH_NOTES_URL)
+                .then(r => r.ok ? r.text() : Promise.reject(new Error(`HTTP error! status: ${r.status}`)))
+                .then(data => {
+                    MODALS.patch.content.textContent = data;
+                    MODALS.patch.content.dataset.loaded = 'true';
+                })
+                .catch(e => MODALS.patch.content.textContent = '불러오기 실패: ' + e.message);
+        };
+        
+        MODALS.patch.link.addEventListener('click', e => {
+            e.preventDefault(); 
+            loadPatchNotes(); 
+            openModal('patch-notes-modal');
+        });
+
+        // Tool Links Logic
+        $$('.tool-link').forEach(link => {
+            link.addEventListener('click', e => {
+                e.preventDefault();
+                const { url, title } = e.currentTarget.dataset;
+                if (url && title) {
+                    MODALS.tool.title.textContent = title;
+                    MODALS.tool.iframe.src = url;
+                    openModal('tool-modal'); 
+                    $('tool-menu-item').blur();
+                }
+            });
+        });
+
+        // Modal Drag & Resize Logic
+        let isDragging = false, isResizing = false, startX, startY, startW, startH;
+
+        document.addEventListener('mousedown', e => {
+            const modal = getModal(e.target);
+            if (modal && modal.style.display === 'flex') focusModal(modal); // 포커스만
+
+            if (e.target.classList.contains('modal-header')) {
+                // Drag start
+                activeModal = modal;
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                e.preventDefault();
+                
+            } else if (e.target.classList.contains('modal-resize-handle')) {
+                // Resize start
+                activeModal = modal;
+                isResizing = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startW = activeModal.offsetWidth;
+                startH = activeModal.offsetHeight;
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('mousemove', e => {
+            if (isDragging && activeModal) {
+                // Dragging
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                
+                activeModal.style.left = (activeModal.offsetLeft + dx) + 'px';
+                activeModal.style.top = (activeModal.offsetTop + dy) + 'px';
+                
+                startX = e.clientX;
+                startY = e.clientY;
+                
+            } else if (isResizing && activeModal) {
+                // Resizing
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                
+                const style = window.getComputedStyle(activeModal);
+                const minW = parseInt(style.minWidth);
+                const minH = parseInt(style.minHeight);
+                
+                const newW = Math.max(startW + dx, minW);
+                const newH = Math.max(startH + dy, minH);
+
+                activeModal.style.width = newW + 'px';
+                activeModal.style.height = newH + 'px';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            isResizing = false;
+            activeModal = null;
+        });
+        
+        // Backdrop Click Logic (Close Top Modal)
+        MODALS.backdrop.addEventListener('click', () => {
+            let topModal = null;
+            let currentMaxZ = -1;
+
+            $$('.modal').forEach(m => {
+                if (m.style.display === 'flex') {
+                    const z = parseInt(m.style.zIndex) || 2000;
+                    if (z > currentMaxZ) {
+                        currentMaxZ = z;
+                        topModal = m;
+                    }
+                }
+            });
+            
+            if (topModal) closeModal(topModal.id);
+        });
+    </script>
+
+</body>
+</html>
