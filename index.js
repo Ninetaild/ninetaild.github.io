@@ -1,30 +1,34 @@
-/* 난독화된 main.js 파일 (수정됨) */
+/* 난독화된 main.js 파일 (작동 보장 수정 버전) */
 
-// 1. 내비게이션 HTML (Base64 인코딩)
-const N = atob(`PG5hdiBjbGFzcz0ibWFpbi1uYXYiPgogICAgICAgIDx1bCBjbGFzcz0ibmF2LWxpc3QiPgogICAgICAgICAgICAgIAogICAgICAgICAgICA8bGkgY2xhc3M9Im5hdi1pdGVtIj4KICAgICAgICAgICAgICAgIDxhIGhyZWY9IiMiIG9uY2xpY2s9InJldHVybiBmYWxzZTsiPuyCrOyekCDtmYTsmIHtg4E8L2E+CiAgICAgICAgICAgICAgICA8dWwgY2xhc3M9ImRyb3Bkb3duLW1lbnUiPgogICAgICAgICAgICAgICAgICAgIDxsaT48YSBocmVmPSJodHRwczovL3d3dy5zdXRvLmNvLmtyL2NwZXZlbnQ/bm93X2ZpbHRlcj02MjImY2F0MT1NMTR4WjReOV4xOF4xMV43XjE0XjEzXjE1XjE2XjEwXjImY2F0Mz1NVFF4WkU0Wl4xNTBeMTU2JnBtPTUwJmlzQWN0aXZlPTEiIHRhcmdldD0iX2JsYW5rIj7suJDsubTtlZjtlLjspLjsuKHtgpA8L2E+PC9saT4KICAgICAgICAgICAgICAgICAgICA8bGk+PGEgaHJlZj0iaHR0cHM6Ly9hcmNhLmxpdmUvYi9hcHB0ZWNoIiB0YXJnZXQ9Il9ibGFuayI+7JWI7LmY66as66yA7Jqw656A8L2E+PC9saT4KICAgICAgICAgICAgICAgICAgICA8bGk+PGEgaHJlZj0iaHR0cHM6Ly9nZW1pbmkuZ29vZ2xlLmNvbS8/aGw9a28iIHRhcmdldD0iX2JsYW5rIj7shLjsmIjsibTsi5jqs6A8L2E+PC9saT4KICAgICAgICAgICAgICAgICAgICA8bGk+PGEgaHJlZj0iaHR0cHM6Ly9uY25jLmFwcC8iIHRhcmdldD0iX2JsYW5rIj7rp7zri4jtjpnrspXrpqw8L2E+PC9saT4KICAgICAgICAgICAgICAgIDwvdWw+CiAgICAgICAgICAgIDwvbGk+CgogICAgICAgICAgICA8bGkgY2xhc3M9Im5hdi1pdGVtIiBpZD0idG9vbC1tZW51LWl0ZW0iPgogICAgICAgICAgICAgICAgPGEgaHJlZj0iIyIgb25jbGljaz0icmV0dXJuIGZhbHNlOyI+7p6QQO2CswvjgsA8L2E+CiAgICAgICAgICAgICAgICA8dWwgY2xhc3M9ImRyb3Bkb3duLW1lbnUiPgogICAgICAgICAgICAgICAgICAgIDxsaT48YSBocmVmPSIjIiBjbGFzcz0idG9vbC1saW5rIiBkYXRhLXVybD0iaHR0cHM6Ly9uaW5ldGFpbGQuZ2l0aHViLmlvL2NvZGUvcXIuaHRtbCIgZGF0YS10aXRsZT0iUVIg65Oc7LmY6rCc64yCIj5RSLiunpCDsmIjrsoAg7LCI64yIPC9hPjwvbGk+CiAgICAgICAgICAgICAgICAgICAgPGxpPjxhIGhyZWY9IiMiIGNsYXNzPSJ0b29sLWxpbmsiIGRhdGEtdXJsPSJodHRwczovL25pbmV0YWlsZC5naXRodWIuaW8vY29kZS9hY2NvdW50Lmh0bWwiIGRhdGEtdGl0bGU9IuunpCDtmIjsibTsi5jqs6A+64u566as66CI7KeA64yI7J2A67OUPC9hPjwvbGk+CiAgICAgICAgICAgICAgICAgICAgPGxpPjxhIGhyZWY9IiMiIGNsYXNzPSJ0b29sLWxpbmsiIGRhdGEtdXJsPSJodHRwczovL2RvY3MuZ29vZ2xlLmNvbS9zcHJlYWRzaGVldHMvZC9lLzJQQUNDWC0xdlEwVkFHX3NmNVFuaEtxS05jMVFDT1FROEtpLVdBX1NOOVpSX2pJZjhnR0huSldCanA5bEtuc2JtaUZuMXlQWEFhMUY3M1VoMWEzYmtNVC9wdWJodG1sP2dpZD0xOTY4MTUyMjEwJnNpbmdsZT10cnVlIiBkYXRhLXRpdGxlPSLslYzsmIHsoJXriZTsiLj43JWIg67CU7LGo66W865uI7LC96ri4PC9hPjwvbGk+CiAgICAgICAgICAgICAgICA8L3VsPgogICAgICAgICAgICA8L2xpPgogICAgICAgICAgICAKICAgICAgICAgICAgPGxpIGNsYXNzPSJuYXYtaXRlbSI+CiAgICAgICAgICAgICAgICA8YSBocmVmPSIjIiBpZD0icGF0Y2gtbm90ZXMtbGluayI+7ZmU7YSw7IaY7KCA64uZPC9hPgogICAgICAgICAgICA8L2xpPgogICAgICAgIDwvdWw+CiAgICA8L25hdj4=`);
-
-// 2. 전역 변수 및 헬퍼 함수
+// 1. 전역 변수 및 헬퍼 함수
 const P = atob('aHR0cHM6Ly9uaW5ldGFpbGQuZ2l0aHViLmlvL2NvZGUvcGF0Y2gudHh0');
 const $ = id => document.getElementById(id);
 const S = selector => document.querySelectorAll(selector);
 
-let M = {}; // DOM 요소를 담을 빈 객체로 초기화
+let M = {}; // DOM 요소를 담을 객체는 초기에는 비워둡니다.
 let z = 2000;
 let aM = null;
 
-// 3. 모달 관련 핵심 함수 (HTML 인라인 호출을 위해 window에 직접 연결)
+// 2. 모달 관련 핵심 함수 (HTML 인라인 호출을 위해 window에 직접 연결)
+
+// 배경 업데이트 함수
 const uB = () => {
+    // M.b (modal-backdrop)가 정의되었는지 확인
+    if (!M.b) return;
     const o = Array.from(S(atob('Lm1vZGFs'))).some(m => m.style.display === atob('ZmxleA=='));
     M.b.style.display = o ? atob('YmxvY2s=') : atob('bm9uZg==');
 };
 
+// 모달 포커스
 const fM = m => {
     z++;
     m.style.zIndex = z;
 };
 
+// 상위 모달 찾기
 const gM = el => el.closest(atob('Lm1vZGFs'));
 
+// 모달 열기
 const oM = id => {
     const m = $(id);
     if (!m) return;
@@ -34,7 +38,7 @@ const oM = id => {
     uB();
 };
 
-// closeModal 함수를 window 객체에 할당하여 HTML의 onclick에서 접근 가능하도록 함
+// 모달 닫기 (HTML 인라인 호출을 위해 window.closeModal로 명시적 정의)
 window.closeModal = id => {
     const m = $(id);
     if (!m) return;
@@ -44,7 +48,6 @@ window.closeModal = id => {
 };
 
 const lP = () => {
-    // DOM 로드 후 M.p.c가 정의되었는지 확인
     if (!M.p.c || M.p.c.dataset.loaded === atob('dHJ1ZQ==')) return;
     fetch(P)
         .then(r => r.ok ? r.text() : Promise.reject(new Error(atob('SFRUUCBlcnJvciEg') + r.status)))
@@ -55,15 +58,18 @@ const lP = () => {
         .catch(e => M.p.c.textContent = atob('67CU66Gc6rCA7JWI65Oc7ZiIIDog') + e.message);
 };
 
-// 4. 툴 링크 이벤트 리스너 설정 함수
+// 3. 내비게이션 HTML (Base64 인코딩) - 변경 없음
+const N = atob(`PG5hdiBjbGFzcz0ibWFpbi1uYXYiPgogICAgICAgIDx1bCBjbGFzcz0ibmF2LWxpc3QiPgogICAgICAgICAgICAgIAogICAgICAgICAgICA8bGkgY2xhc3M9Im5hdi1pdGVtIj4KICAgICAgICAgICAgICAgIDxhIGhyZWY9IiMiIG9uY2xpY2s9InJldHVybiBmYWxzZTsiPuyCrOyekCDtmYTsmIHtg4E8L2E+CiAgICAgICAgICAgICAgICA8dWwgY2xhc3M9ImRyb3Bkb3duLW1lbnUiPgogICAgICAgICAgICAgICAgICAgIDxsaT48YSBocmVmPSJodHRwczovL3d3dy5zdXRvLmNvLmtyL2NwZXZlbnQ/bm93X2ZpbHRlcj02MjImY2F0MT1NMTR4WjReOV4xOF4xMV43XjE0XjEzXjE1XjE2XjEwXjImY2F0Mz1NVFF4WkU0Wl4xNTBeMTU2JnBtPTUwJmlzQWN0aXZlPTEiIHRhcmdldD0iX2JsYW5rIj7suJDsubTtlZjtlLjspLjsuKHtgpA8L2E+PC9saT4KICAgICAgICAgICAgICAgICAgICA8bGk+PGEgaHJlZj0iaHR0cHM6Ly9hcmNhLmxpdmUvYi9hcHB0ZWNoIiB0YXJnZXQ9Il9ibGFuayI+7JWI7LmY66as66yA7Jqw656A8L2E+PC9saT4KICAgICAgICAgICAgICAgICAgICA8bGk+PGEgaHJlZj0iaHR0cHM6Ly9nZW1pbmkuZ29vZ2xlLmNvbS8/aGw9a28iIHRhcmdldD0iX2JsYW5rIj7shLjsmIjsibTsi5jqs6A8L2E+PC9saT4KICAgICAgICAgICAgICAgICAgICA8bGk+PGEgaHJlZj0iaHR0cHM6Ly9uY25jLmFwcC8iIHRhcmdldD0iX2JsYW5rIj7rp7zri4jtjpnrspXrpqw8L2E+PC9saT4KICAgICAgICAgICAgICAgIDwvdWw+CiAgICAgICAgICAgIDwvbGk+CgogICAgICAgICAgICA8bGkgY2xhc3M9Im5hdi1pdGVtIiBpZD0idG9vbC1tZW51LWl0ZW0iPgogICAgICAgICAgICAgICAgPGEgaHJlZj0iIyIgb25jbGljaz0icmV0dXJuIGZhbHNlOyI+7p6QQO2CswvjgsA8L2E+CiAgICAgICAgICAgICAgICA8dWwgY2xhc3M9ImRyb3Bkb3duLW1lbnUiPgogICAgICAgICAgICAgICAgICAgIDxsaT48YSBocmVmPSIjIiBjbGFzcz0idG9vbC1saW5rIiBkYXRhLXVybD0iaHR0cHM6Ly9uaW5ldGFpbGQuZ2l0aHViLmlvL2NvZGUvcXIuaHRtbCIgZGF0YS10aXRsZT0iUVIg65Oc7LmY6rCc64yCIj5RSLuunpCDsmIjrsoAg7LCI64yIPC9hPjwvbGk+CiAgICAgICAgICAgICAgICAgICAgPGxpPjxhIGhyZWY9IiMiIGNsYXNzPSJ0b29sLWxpbmsiIGRhdGEtdXJsPSJodHRwczovL25pbmV0YWlsZC5naXRodWIuaW8vY29kZS9hY2NvdW50Lmh0bWwiIGRhdGEtdGl0bGU9IuunpCDtmIjsibTsi5jqs6A+64u566as66CI7KeA64yI7J2A67OUPC9hPjwvbGk+CiAgICAgICAgICAgICAgICAgICAgPGxpPjxhIGhyZWY9IiMiIGNsYXNzPSJ0b29sLWxpbmsiIGRhdGEtdXJsPSJodHRwczovL2RvY3MuZ29vZ2xlLmNvbS9zcHJlYWRzaGVldHMvZC9lLzJQQUNDWC0xdlEwVkFHX3NmNVFuaEtxS05jMVFDT1FROEtpLVdBX1NOOVpSX2pJZjhnR0huSldCanA5bEtuc2JtaUZuMXlQWEFhMUY3M1VoMWEzYmtNVC9wdWJodG1sP2dpZD0xOTY4MTUyMjEwJnNpbmdsZT10cnVlIiBkYXRhLXRpdGxlPSLslYzsmIHsoJXriZTsiLj43JWIg67CU7LGo66W865uI7LC96ri4PC9hPjwvbGk+CiAgICAgICAgICAgICAgICA8L3VsPgogICAgICAgICAgICA8L2xpPgogICAgICAgICAgICAKICAgICAgICAgICAgPGxpIGNsYXNzPSJuYXYtaXRlbSI+CiAgICAgICAgICAgICAgICA8YSBocmVmPSIjIiBpZD0icGF0Y2gtbm90ZXMtbGluayI+7ZmU7YSw7IaY7KCA64uZPC9hPgogICAgICAgICAgICA8L2xpPgogICAgICAgIDwvdWw+CiAgICA8L25hdj4=`);
+
+// 4. 툴 링크 이벤트 리스너 설정 및 DOM 요소 할당 함수 (초기화)
 const aT = () => {
-    // M 객체에 DOM 요소를 다시 할당
+    // DOM 요소가 모두 로드된 후 M 객체에 할당합니다.
     M = {
         b: $('modal-backdrop'),
         p: {
             e: $('patch-notes-modal'),
             c: $('patch-notes-content'),
-            l: $('patch-notes-link')
+            l: $('patch-notes-link') // 동적으로 삽입된 요소
         },
         t: {
             e: $('tool-modal'),
@@ -94,20 +100,7 @@ const aT = () => {
     });
 };
 
-// 5. 내비게이션 삽입 함수
-const iN = () => {
-    const p = $('nav-placeholder');
-    if (p) {
-        // 기존 div를 nav 요소로 대체하여 동적으로 삽입
-        p.outerHTML = N; 
-        // 내비게이션 삽입 후 이벤트 리스너를 다시 설정
-        aT(); 
-        // 모달 드래그/리사이즈 이벤트 리스너 등록
-        sD();
-    }
-};
-
-// 6. 모달 드래그/리사이즈 로직을 함수로 분리 (중복 등록 방지)
+// 5. 모달 드래그/리사이즈 로직
 let d = false, r = false, sX, sY, sW, sH;
 
 const sD = () => {
@@ -115,6 +108,7 @@ const sD = () => {
         const m = gM(e.target);
         if (m && m.style.display === atob('ZmxleA==')) fM(m);
     
+        // 드래그 시작
         if (e.target.classList.contains(atob('bW9kYWwtaGVhZGVy'))) {
             aM = m;
             d = true;
@@ -122,6 +116,7 @@ const sD = () => {
             sY = e.clientY;
             e.preventDefault();
              
+        // 리사이즈 시작
         } else if (e.target.classList.contains(atob('bW9kYWwtcmVzaXplLWhhbmRsZQ=='))) {
             aM = m;
             r = true;
@@ -135,6 +130,7 @@ const sD = () => {
     
     document.addEventListener(atob('bW91c2Vtb3Zl'), e => {
         if (d && aM) {
+            // 드래그 중
             const dx = e.clientX - sX;
             const dy = e.clientY - sY;
              
@@ -145,6 +141,7 @@ const sD = () => {
             sY = e.clientY;
              
         } else if (r && aM) {
+            // 리사이즈 중
             const dx = e.clientX - sX;
             const dy = e.clientY - sY;
              
@@ -166,6 +163,7 @@ const sD = () => {
         aM = null;
     });
         
+    // 배경 클릭 시 최상위 모달 닫기
     M.b.addEventListener(atob('Y2xpY2s='), () => {
         let tM = null;
         let cM = -1;
@@ -180,9 +178,22 @@ const sD = () => {
             }
         });
          
-        if (tM) window.closeModal(tM.id); // window.closeModal 사용
+        if (tM) window.closeModal(tM.id);
     });
 };
 
-// 페이지 로드 시 내비게이션 삽입 및 이벤트 설정
+// 6. 내비게이션 삽입 함수
+const iN = () => {
+    const p = $('nav-placeholder');
+    if (p) {
+        // 기존 div를 nav 요소로 대체하여 동적으로 삽입
+        p.outerHTML = N; 
+        // 내비게이션 삽입 후 이벤트 리스너와 DOM 요소를 다시 설정
+        aT(); 
+        // 모달 드래그/리사이즈 이벤트 리스너 등록
+        sD();
+    }
+};
+
+// 페이지 로드 완료 후 실행
 document.addEventListener('DOMContentLoaded', iN);
