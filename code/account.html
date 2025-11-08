@@ -13,19 +13,28 @@
             font-family: 'Inter', sans-serif;
             background-color: #f7f7f9;
         }
-        .card {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        /* ✅ 압축된 스타일: 세 번 반복되던 카드 스타일 통합 */
+        .card-style {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2p x rgba(0, 0, 0, 0.05);
+            background-color: white; 
+            padding: 1.5rem; 
+            border-radius: 0.75rem; 
+            border: 1px solid #e5e7eb;
         }
         input[type="date"]::-webkit-calendar-picker-indicator {
             cursor: pointer;
             filter: invert(0.8); 
+        }
+        /* 입력 필드 스타일은 Tailwind 기본 클래스를 유지하여 focus 스타일을 활용합니다. */
+        .input-common-style {
+            @apply w-full rounded-md border border-gray-300 p-2.5 bg-white text-gray-700 focus:ring-indigo-500 focus:border-indigo-500;
         }
     </style>
 </head>
 <body class="p-4 md:p-8 min-h-screen flex items-start justify-center">
     <div id="app" class="w-full max-w-4xl space-y-8">
 
-        <div id="sampleFileArea" class="card bg-white p-6 rounded-xl border border-gray-200">
+        <div id="sampleFileArea" class="card-style">
             <h3 class="text-lg font-bold text-gray-700 mb-3 flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -41,7 +50,7 @@
             </a>
         </div>
         
-        <div class="card bg-white p-6 rounded-xl border border-gray-200">
+        <div class="card-style">
           
             <div class="mb-6">
                 <label for="sheetUrlInput" class="block text-sm font-medium text-gray-700 mb-2">
@@ -49,7 +58,7 @@
                 </label>
                 <div class="flex flex-col sm:flex-row gap-2">
                     <input type="url" id="sheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv"
-                           class="flex-1 rounded-md border border-gray-300 p-2.5 bg-white text-gray-700 focus:ring-indigo-500 focus:border-indigo-500">
+                           class="flex-1 input-common-style">
                     <button onclick="handleSheetUrl()"
                             class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-md hover:bg-indigo-700 transition duration-200 flex-shrink-0">
                         데이터 가져오기
@@ -60,19 +69,19 @@
                 <div class="flex-1">
                     <label for="startDate" class="block text-sm font-medium text-gray-700 mb-2">시작일</label>
                     <input type="date" id="startDate" 
-                        class="w-full rounded-md border border-gray-300 p-2.5 bg-white text-gray-700 focus:ring-indigo-500 focus:border-indigo-500"
+                        class="input-common-style"
                         onchange="validateAndProcess()">
                 </div>
                 <div class="flex-1">
                     <label for="endDate" class="block text-sm font-medium text-gray-700 mb-2">종료일</label>
                     <input type="date" id="endDate" 
-                        class="w-full rounded-md border border-gray-300 p-2.5 bg-white text-gray-700 focus:ring-indigo-500 focus:border-indigo-500"
+                        class="input-common-style"
                         onchange="validateAndProcess()">
                 </div>
             </div>
         </div>
 
-        <div class="card bg-white p-6 rounded-xl border border-gray-200">
+        <div class="card-style">
 
             <div id="statusMessage" class="text-center text-gray-500 mb-4">
                 URL을 입력하고 기간을 설정해주세요.
@@ -466,6 +475,45 @@
         };
 
         /**
+         * ✅ 압축된 로직: 수입/소비 목록을 생성하고 컨테이너에 추가하는 헬퍼 함수
+         * @param {Array<object>} data - 수입 또는 소비 데이터 배열
+         * @param {HTMLElement} container - 데이터를 추가할 DOM 요소
+         * @param {string} type - 'income' 또는 'expense'
+         */
+        const renderItemList = (data, container, type) => {
+            container.innerHTML = ''; // 초기화
+            
+            if (data.length === 0) {
+                const message = type === 'income' ? '기간 내 수입 데이터가 없습니다.' : '기간 내 소비 데이터가 없습니다.';
+                container.innerHTML = `<p class="text-gray-500 italic text-sm">${message}</p>`;
+                return;
+            }
+
+            const isIncome = type === 'income';
+            const colorClass = isIncome ? 'green' : 'red';
+            const textColor = `text-${colorClass}-600`;
+            const borderColor = `border-${colorClass}-500`;
+
+            data.forEach(item => {
+                const li = document.createElement('div');
+                // 색상 관련 클래스만 동적으로 처리
+                li.className = `flex justify-between items-center p-3 rounded-lg border border-gray-100 bg-white shadow-sm border-l-4 ${borderColor}`;
+                li.innerHTML = `
+                    <div class="flex items-baseline min-w-0 flex-1 pr-4">
+                        <span class="text-base font-semibold text-gray-800 mr-4 whitespace-nowrap">${item.content}</span>
+                        <span class="text-lg font-extrabold ${textColor} truncate">${formatAmount(item.amount)}</span>
+                        <span class="text-gray-500 ml-1 text-xs whitespace-nowrap">원</span>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <span class="text-lg font-bold text-gray-700">${item.percentage}%</span>
+                    </div>
+                `;
+                container.appendChild(li);
+            });
+        };
+
+
+        /**
          * 결과를 UI에 렌더링합니다.
          */
         const renderResults = () => {
@@ -483,47 +531,9 @@
             netAssetDisplay.classList.toggle('text-red-700', netAsset < 0);
 
 
-            // 수입 목록 렌더링
-            if (incomeData.length > 0) {
-                incomeData.forEach(item => {
-                    const li = document.createElement('div');
-                    li.className = 'flex justify-between items-center p-3 rounded-lg border border-gray-100 bg-white shadow-sm border-l-4 border-green-500';
-                    li.innerHTML = `
-                        <div class="flex items-baseline min-w-0 flex-1 pr-4">
-                            <span class="text-base font-semibold text-gray-800 mr-4 whitespace-nowrap">${item.content}</span>
-                            <span class="text-lg font-extrabold text-green-600 truncate">${formatAmount(item.amount)}</span>
-                            <span class="text-gray-500 ml-1 text-xs whitespace-nowrap">원</span>
-                        </div>
-                        <div class="text-right flex-shrink-0">
-                            <span class="text-lg font-bold text-gray-700">${item.percentage}%</span>
-                        </div>
-                    `;
-                    incomeContainer.appendChild(li);
-                });
-            } else {
-                 incomeContainer.innerHTML = '<p class="text-gray-500 italic text-sm">기간 내 수입 데이터가 없습니다.</p>';
-            }
-
-            // 소비 목록 렌더링
-            if (expenseData.length > 0) {
-                 expenseData.forEach(item => {
-                    const li = document.createElement('div');
-                    li.className = 'flex justify-between items-center p-3 rounded-lg border border-gray-100 bg-white shadow-sm border-l-4 border-red-500';
-                    li.innerHTML = `
-                        <div class="flex items-baseline min-w-0 flex-1 pr-4">
-                            <span class="text-base font-semibold text-gray-800 mr-4 whitespace-nowrap">${item.content}</span>
-                            <span class="text-lg font-extrabold text-red-600 truncate">${formatAmount(item.amount)}</span>
-                            <span class="text-gray-500 ml-1 text-xs whitespace-nowrap">원</span>
-                        </div>
-                        <div class="text-right flex-shrink-0">
-                            <span class="text-lg font-bold text-gray-700">${item.percentage}%</span>
-                        </div>
-                    `;
-                    expenseContainer.appendChild(li);
-                });
-            } else {
-                 expenseContainer.innerHTML = '<p class="text-gray-500 italic text-sm">기간 내 소비 데이터가 없습니다.</p>';
-            }
+            // ✅ 압축된 로직 사용: 수입/소비 목록 렌더링
+            renderItemList(incomeData, incomeContainer, 'income');
+            renderItemList(expenseData, expenseContainer, 'expense');
 
 
             // UI 업데이트
@@ -575,15 +585,15 @@
                         </tr>
                         <tr class="total-income">
                             <td colspan="2">총 수입 합계</td>
-                            <td style="text-align: right; mso-number-format:\\#\\,\\#\\#0">${formatAmount(totalIncome)} 원</td>
+                            <td style="text-align: right; mso-number-format:\\#\\,\\#\\#0">${totalIncome} 원</td>
                         </tr>
                         <tr class="total-expense">
                             <td colspan="2">총 소비 합계</td>
-                            <td style="text-align: right; mso-number-format:\\#\\,\\#\\#0">${formatAmount(totalExpense)} 원</td>
+                            <td style="text-align: right; mso-number-format:\\#\\,\\#\\#0">${totalExpense} 원</td>
                         </tr>
                         <tr class="net-asset">
                             <td colspan="2">순자산 (수입 - 소비)</td>
-                            <td style="text-align: right; mso-number-format:\\#\\,\\#\\#0">${formatAmount(netAsset)} 원 (${netAsset >= 0 ? '흑자' : '적자'})</td>
+                            <td style="text-align: right; mso-number-format:\\#\\,\\#\\#0">${netAsset} 원 (${netAsset >= 0 ? '흑자' : '적자'})</td>
                         </tr>
                     </thead>
                     <tbody>
@@ -653,13 +663,30 @@
 
         // 초기 설정: 페이지 로드 시 상태 메시지 초기화 및 저장된 URL 로드
         window.onload = () => {
-             // **✅ 추가된 로직: localStorage에서 URL 불러와 채우기**
+             // **localStorage에서 URL 불러와 채우기**
              const savedUrl = localStorage.getItem('googleSheetsUrl');
              if (savedUrl) {
                  sheetUrlInput.value = savedUrl;
                  showStatusMessage('저장된 URL이 자동으로 채워졌습니다. 기간을 설정하고 "데이터 가져오기" 버튼을 누르세요.');
              } else {
                  showStatusMessage();
+             }
+             
+             // 🎯 시작일(2025-01-01)과 종료일(오늘 날짜) 기본값 설정
+             // 종료일: 오늘 날짜
+             const today = new Date();
+             const year = today.getFullYear();
+             const month = String(today.getMonth() + 1).padStart(2, '0');
+             const day = String(today.getDate()).padStart(2, '0');
+             const todayStr = `${year}-${month}-${day}`;
+             
+             endDateInput.value = todayStr;
+             
+             // 시작일: 2025-01-01
+             startDateInput.value = '2025-01-01';
+             
+             if (sheetUrlInput.value && startDateInput.value && endDateInput.value) {
+                 // 데이터 로드 전이므로 validateAndProcess는 호출하지 않습니다.
              }
         };
 
