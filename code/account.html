@@ -478,7 +478,7 @@
             // 총 합계 및 순저축 표시
             totalIncomeDisplay.textContent = `총 수입: ${formatAmount(totalIncome)} 원`;
             totalExpenseDisplay.textContent = `총 소비: ${formatAmount(totalExpense)} 원`;
-            netAssetDisplay.textContent = `순저축: (${netAsset >= 0 ? '' : '-'}) ${formatAmount(netAsset)} 원 `;
+            netAssetDisplay.textContent = `순저축: ${netAsset >= 0 ? '' : '-'} ${formatAmount(netAsset)} 원 `;
             netAssetDisplay.classList.toggle('text-green-700', netAsset >= 0);
             netAssetDisplay.classList.toggle('text-red-700', netAsset < 0);
 
