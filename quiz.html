@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>일본어 단어 퀴즈</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;500;700&display=swap');
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            background-color: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        .option-button {
+            transition: all 0.2s;
+            border: 2px solid #e5e7eb;
+        }
+        .option-button:hover:not(.disabled):not(.correct):not(.incorrect) {
+            background-color: #f3f4f6;
+            border-color: #9ca3af;
+        }
+        .correct {
+            background-color: #d1fae5;
+            border-color: #10b981;
+            font-weight: 600;
+        }
+        .incorrect {
+            background-color: #fee2e2;
+            border-color: #ef4444;
+            font-weight: 600;
+        }
+        .disabled {
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+        .header-bg {
+            background-color: #4f46e5;
+            color: white;
+        }
+        /* 라디오 버튼 선택 시 라벨 스타일 변경 */
+        input[type="radio"]:checked + span {
+            color: #4f46e5;
+            font-weight: 600;
+        }
+        input[type="radio"]:checked + span::before {
+            border-color: #4f46e5;
+        }
+        #default-source-label.active, #file-upload-source-label.active {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 1px #4f46e5;
+        }
+    </style>
+</head>
+<body class="p-4">
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header-bg p-6 mb-6 rounded-xl shadow-lg">
+            <h1 class="text-3xl font-bold text-center">일본어 단어 퀴즈</h1>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="app-container" class="space-y-6">
+            <!-- Data Source Selection Section -->
+            <div id="file-upload-section" class="card">
+                <h2 class="text-xl font-semibold mb-6 text-gray-700">1. 퀴즈 데이터 소스 선택</h2>
+
+                <!-- Radio Group for Source Selection -->
+                <div class="flex space-x-4 mb-4" id="data-source-selector">
+                    <!-- Default URL Option -->
+                    <label class="flex items-center p-3 rounded-lg border border-gray-300 cursor-pointer w-1/2 active" id="default-source-label" for="radio-default">
+                        <input type="radio" name="data_source" value="default_url" checked id="radio-default"
+                            class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                        <span class="ml-2 font-medium text-gray-700">기본 단어 사용</span>
+                    </label>
+                    
+                    <!-- File Upload Option -->
+                    <label class="flex items-center p-3 rounded-lg border border-gray-300 cursor-pointer w-1/2" id="file-upload-source-label" for="radio-upload">
+                        <input type="radio" name="data_source" value="file_upload" id="radio-upload"
+                            class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                        <span class="ml-2 font-medium text-gray-700">새 파일 업로드</span>
+                    </label>
+                </div>
+
+                <!-- Input Area (Dynamically changing) -->
+                <div id="input-area" class="space-y-4 p-4 border rounded-lg bg-gray-50">
+                    <!-- Default URL Info (Visible initially) -->
+                    <div id="default-url-info">
+                        <p class="text-sm font-medium text-gray-700 mb-2">기본 URL (로드 완료 시 퀴즈 시작 가능):</p>
+                        <input type="text" id="default-url-display" readonly 
+                               class="w-full p-2 border rounded-md bg-white text-gray-600 text-sm" 
+                               value="https://ninetaild.github.io/src/1.csv">
+                        <p id="default-loading-message" class="text-xs mt-2 text-gray-500"></p>
+                    </div>
+                    
+                    <!-- File Input (Hidden initially) -->
+                    <div id="file-input-wrapper" class="hidden">
+                        <input type="file" id="csv-file-input" accept=".csv" class="w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-full file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-indigo-50 file:text-indigo-700
+                            hover:file:bg-indigo-100">
+                        <p class="text-xs text-gray-500 mt-2">첫 행을 제외한 모든 행을 단어 데이터로 사용합니다. (단어, 발음, 한자, 뜻 순서)</p>
+                    </div>
+                </div>
+                
+                <!-- Main Start Button -->
+                <div class="mt-6 pt-4 border-t text-center">
+                    <button id="start-quiz-button" class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-700 transition duration-150 disabled:opacity-50" disabled>
+                        퀴즈 시작 (총 20문제)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quiz & Results Section -->
+            <div id="quiz-section" class="hidden">
+                <div class="card space-y-6">
+                    <!-- Progress and Question -->
+                    <div>
+                        <p id="quiz-progress" class="text-lg font-medium text-indigo-600 mb-4 text-center"></p>
+                        <div id="question-card" class="bg-indigo-50 p-6 rounded-lg shadow-inner text-center">
+                            <h3 class="text-2xl font-bold text-gray-800" id="question-text"></h3>
+                        </div>
+                    </div>
+                    
+                    <!-- Options -->
+                    <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Option buttons will be injected here -->
+                    </div>
+
+                    <!-- Feedback -->
+                    <div id="feedback-message" class="hidden p-3 rounded-lg text-center font-medium"></div>
+                    
+                    <!-- Next Button -->
+                    <div class="text-center">
+                        <button id="next-button" class="hidden px-6 py-2 bg-indigo-600 text-white font-semibold rounded-full hover:bg-indigo-700 transition duration-150" disabled>
+                            다음 문제
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results-section" class="hidden card space-y-6">
+                <h2 class="text-2xl font-bold text-center text-gray-700">퀴즈 완료!</h2>
+                <div class="text-center space-y-2">
+                    <p class="text-xl text-gray-600">총 20문제 중:</p>
+                    <p id="final-score" class="text-3xl font-extrabold text-indigo-600"></p>
+                </div>
+                
+                <div id="incorrect-answers-summary" class="border-t pt-4">
+                    <h3 class="text-xl font-semibold text-red-600 mb-3">오답 정리 (복습 필요!)</h3>
+                    <ul id="incorrect-list" class="space-y-3">
+                        <!-- Incorrect answers will be listed here -->
+                    </ul>
+                    <p id="no-incorrect-message" class="text-gray-500 hidden italic">정답률 100%! 완벽합니다!</p>
+                </div>
+                
+                <div class="text-center pt-4 border-t">
+                    <button id="restart-button" class="px-8 py-3 bg-green-500 text-white font-bold rounded-full hover:bg-green-600 transition duration-150">
+                        다시 퀴즈 시작 (20회)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Error Message Box -->
+            <div id="error-box" class="hidden card bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
+                <p class="font-bold">오류 발생</p>
+                <p id="error-message"></p>
+            </div>
+
+        </main>
+    </div>
+
+    <script type="module">
+        // 전역 변수 설정
+        let vocabulary = []; // 현재 퀴즈에 사용될 단어 데이터
+        let defaultVocabulary = []; // 기본 URL에서 로드된 단어 데이터
+        let quizQuestions = []; // 이번 퀴즈에 사용될 20개의 문제
+        let currentQuestionIndex = 0; // 현재 문제 인덱스
+        let incorrectAnswers = []; // 오답 기록
+        let isDefaultDataReady = false; // 기본 데이터 로드 완료 여부
+        
+        const QUIZ_COUNT = 20; // 총 퀴즈 횟수
+        const INITIAL_CSV_URL = 'https://ninetaild.github.io/src/1.csv'; 
+
+        // DOM 요소 캐싱
+        const fileUploadSection = document.getElementById('file-upload-section');
+        const quizSection = document.getElementById('quiz-section');
+        const resultsSection = document.getElementById('results-section');
+        const csvFileInput = document.getElementById('csv-file-input');
+        const nextButton = document.getElementById('next-button');
+        const restartButton = document.getElementById('restart-button');
+        const startQuizButton = document.getElementById('start-quiz-button');
+        
+        // 데이터 선택 관련 요소
+        const dataSourceSelector = document.getElementById('data-source-selector');
+        const defaultUrlInfo = document.getElementById('default-url-info');
+        const fileInputWrapper = document.getElementById('file-input-wrapper');
+        const defaultLoadingMessage = document.getElementById('default-loading-message');
+        const defaultSourceLabel = document.getElementById('default-source-label');
+        const fileUploadSourceLabel = document.getElementById('file-upload-source-label');
+
+        // 퀴즈/결과 관련 요소
+        const questionTextElement = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const quizProgressElement = document.getElementById('quiz-progress');
+        const finalScoreElement = document.getElementById('final-score');
+        const incorrectListElement = document.getElementById('incorrect-list');
+        const feedbackMessage = document.getElementById('feedback-message');
+        const errorBox = document.getElementById('error-box');
+        const errorMessage = document.getElementById('error-message');
+        const noIncorrectMessage = document.getElementById('no-incorrect-message');
+
+        // ----------------------------------------------------------------------
+        // UI & State Management Functions
+        // ----------------------------------------------------------------------
+
+        function updateStartButtonState(isEnabled, message = '퀴즈 시작 (총 20문제)') {
+            startQuizButton.disabled = !isEnabled;
+            startQuizButton.textContent = message;
+        }
+
+        // 오류 메시지 표시 함수 (전체 화면 전환)
+        function displayError(message) {
+            errorMessage.textContent = message;
+            errorBox.classList.remove('hidden');
+            fileUploadSection.classList.add('hidden');
+            quizSection.classList.add('hidden');
+            resultsSection.classList.add('hidden');
+            updateStartButtonState(false);
+        }
+
+        // 데이터 소스 선택에 따라 UI 전환
+        function switchDataSourceUI(source) {
+            errorBox.classList.add('hidden');
+            
+            // 라벨 활성화 스타일 토글
+            defaultSourceLabel.classList.toggle('active', source === 'default_url');
+            fileUploadSourceLabel.classList.toggle('active', source === 'file_upload');
+
+            if (source === 'default_url') {
+                defaultUrlInfo.classList.remove('hidden');
+                fileInputWrapper.classList.add('hidden');
+                
+                // 기본 데이터가 로드된 경우에만 시작 버튼 활성화
+                updateStartButtonState(isDefaultDataReady);
+                
+                // 로컬 파일 입력 필드를 리셋하여 실수로 파일이 남아있는 것을 방지
+                csvFileInput.value = null;
+
+            } else if (source === 'file_upload') {
+                defaultUrlInfo.classList.add('hidden');
+                fileInputWrapper.classList.remove('hidden');
+                
+                // 파일이 선택되었는지 확인하여 시작 버튼 활성화 (선택 전에는 비활성화)
+                updateStartButtonState(csvFileInput.files.length > 0, csvFileInput.files.length > 0 ? '퀴즈 시작 (총 20문제)' : '파일을 선택하세요');
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        // Data Loading & Parsing Functions
+        // ----------------------------------------------------------------------
+
+        // CSV 텍스트를 파싱하여 단어 데이터 배열로 변환하는 범용 함수
+        function parseCSVText(text) {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            
+            // 1행(헤더) 제외
+            if (lines.length <= 1) {
+                throw new Error("CSV 파일에 헤더를 제외한 유효한 단어 데이터가 없습니다.");
+            }
+            
+            const data = [];
+            // 헤더(첫 줄)를 건너뛰고 시작
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                // 쉼표와 따옴표를 고려한 파싱
+                const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.trim().replace(/^"|"$/g, ''));
+                
+                // CSV 형식: 단어 (히라가나),한글 발음,한자 표기,뜻 (한국어)
+                if (parts.length >= 4) {
+                    data.push({
+                        hiragana: parts[0],
+                        koreanPronunciation: parts[1],
+                        kanji: parts[2] === '(조사)' ? parts[2] : parts[2], 
+                        koreanMeaning: parts[3],
+                    });
+                }
+            }
+            return data;
+        }
+
+        // 파일 입력(input)에서 파일을 읽어 파싱하는 함수
+        function parseFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const text = e.target.result;
+                        resolve(parseCSVText(text));
+                    } catch (error) {
+                        reject(new Error("CSV 파일 파싱 중 오류가 발생했습니다: " + error.message));
+                    }
+                };
+                reader.onerror = () => reject(new Error("파일을 읽는 도중 오류가 발생했습니다."));
+                reader.readAsText(file, 'utf-8'); // UTF-8로 읽기
+            });
+        }
+        
+        // ----------------------------------------------------------------------
+        // Quiz Core Logic (createQuiz, displayQuestion, handleAnswer, etc.)
+        // ----------------------------------------------------------------------
+
+        // 문제 생성 함수 (이전과 동일)
+        function createQuiz(data) {
+            if (data.length < 4) {
+                console.error("단어 데이터가 부족하여 퀴즈를 생성할 수 없습니다.");
+                return [];
+            }
+            
+            const questions = [];
+            const dataToUse = [...data].sort(() => 0.5 - Math.random());
+            
+            for (let i = 0; i < QUIZ_COUNT; i++) {
+                const correctWord = dataToUse[i % dataToUse.length]; 
+                const questionTypes = ['meaning_match', 'hiragana_meaning_match', 'pronunciation_match', 'hiragana_pronunciation_match'];
+                const quizType = questionTypes[Math.floor(Math.random() * questionTypes.length)]; 
+
+                let question = {};
+                let optionsSourceField = ''; 
+
+                // 퀴즈 유형별 설정
+                if (quizType === 'meaning_match') {
+                    question.type = 'meaning_match';
+                    const kanjiDisplay = correctWord.kanji && correctWord.kanji !== '(조사)' ? `(${correctWord.kanji})` : '';
+                    question.text = `다음 단어의 뜻은? [${correctWord.hiragana} ${kanjiDisplay}]`;
+                    question.correctAnswer = correctWord.koreanMeaning;
+                    optionsSourceField = 'koreanMeaning';
+                } else if (quizType === 'hiragana_meaning_match') {
+                    question.type = 'hiragana_meaning_match';
+                    question.text = `다음 뜻에 해당하는 단어는? [${correctWord.koreanMeaning}]`;
+                    question.correctAnswer = correctWord.hiragana;
+                    optionsSourceField = 'hiragana';
+                } else if (quizType === 'pronunciation_match') {
+                    question.type = 'pronunciation_match';
+                    const kanjiDisplay = correctWord.kanji && correctWord.kanji !== '(조사)' ? `(${correctWord.kanji})` : '';
+                    question.text = `다음 단어의 한글 발음은? [${correctWord.hiragana} ${kanjiDisplay}]`;
+                    question.correctAnswer = correctWord.koreanPronunciation;
+                    optionsSourceField = 'koreanPronunciation';
+                } else if (quizType === 'hiragana_pronunciation_match') {
+                    question.type = 'hiragana_pronunciation_match';
+                    question.text = `다음 한글 발음에 해당하는 단어는? [${correctWord.koreanPronunciation}]`;
+                    question.correctAnswer = correctWord.hiragana;
+                    optionsSourceField = 'hiragana';
+                }
+                
+                // 옵션 생성 로직 (이전과 동일)
+                const options = [];
+                const incorrectOptionsTexts = [];
+                const potentialIncorrects = data.filter(item => 
+                    item[optionsSourceField] !== question.correctAnswer
+                );
+                
+                while (incorrectOptionsTexts.length < 3 && potentialIncorrects.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * potentialIncorrects.length);
+                    const selected = potentialIncorrects.splice(randomIndex, 1)[0]; 
+                    const incorrectText = selected[optionsSourceField];
+                    if (incorrectText && !incorrectOptionsTexts.includes(incorrectText)) {
+                        incorrectOptionsTexts.push(incorrectText);
+                    }
+                }
+                
+                options.push({ text: question.correctAnswer, isCorrect: true });
+                incorrectOptionsTexts.forEach(text => options.push({ text: text, isCorrect: false }));
+                
+                while (options.length < 4) {
+                    const fillerWord = data[Math.floor(Math.random() * data.length)];
+                    let fillerText = fillerWord[optionsSourceField];
+                    
+                    if (fillerText && !options.some(opt => opt.text === fillerText)) {
+                        options.push({ text: fillerText, isCorrect: false });
+                    } else {
+                         options.push({ text: (fillerWord.koreanMeaning || fillerWord.hiragana) + ' (오답' + (options.length) + ')' , isCorrect: false }); 
+                    }
+                }
+
+                options.sort(() => 0.5 - Math.random());
+                
+                questions.push({
+                    ...question,
+                    options: options,
+                    fullData: correctWord 
+                });
+            }
+            
+            return questions;
+        }
+
+        // 퀴즈 화면에 현재 문제 표시
+        function displayQuestion(question) {
+            const currentNumber = currentQuestionIndex + 1;
+            quizProgressElement.textContent = `문제 ${currentNumber} / ${QUIZ_COUNT}`;
+            questionTextElement.innerHTML = question.text;
+            optionsContainer.innerHTML = '';
+            feedbackMessage.classList.add('hidden');
+            nextButton.classList.add('hidden');
+            nextButton.disabled = true;
+
+            question.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.textContent = option.text;
+                button.className = 'option-button w-full p-4 text-left rounded-lg text-gray-700 font-medium hover:bg-indigo-50 hover:shadow-md';
+                button.onclick = () => handleAnswer(button, option.isCorrect, question.fullData);
+                button.disabled = false;
+                button.dataset.index = index;
+                optionsContainer.appendChild(button);
+            });
+        }
+
+        // 정답 선택 처리
+        function handleAnswer(selectedButton, isCorrect, correctWordData) {
+            document.querySelectorAll('.option-button').forEach(btn => btn.disabled = true);
+            feedbackMessage.classList.remove('hidden');
+            
+            if (isCorrect) {
+                selectedButton.classList.add('correct');
+                feedbackMessage.className = 'p-3 rounded-lg text-center font-medium bg-green-100 text-green-700';
+                feedbackMessage.textContent = '정답입니다! 잘하셨어요.';
+            } else {
+                selectedButton.classList.add('incorrect');
+                feedbackMessage.className = 'p-3 rounded-lg text-center font-medium bg-red-100 text-red-700';
+                feedbackMessage.textContent = '오답입니다. 정답을 확인하세요!';
+
+                if (!incorrectAnswers.some(a => a.hiragana === correctWordData.hiragana)) {
+                     incorrectAnswers.push(correctWordData);
+                }
+
+                document.querySelectorAll('.option-button').forEach(btn => {
+                    const optionIndex = parseInt(btn.dataset.index);
+                    if (quizQuestions[currentQuestionIndex].options[optionIndex].isCorrect) {
+                        btn.classList.add('correct');
+                    }
+                });
+            }
+
+            nextButton.disabled = false;
+            nextButton.classList.remove('hidden');
+        }
+
+        // 다음 문제 또는 결과 화면으로 이동
+        function nextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < QUIZ_COUNT) {
+                displayQuestion(quizQuestions[currentQuestionIndex]);
+            } else {
+                showResults();
+            }
+        }
+
+        // 결과 화면 표시
+        function showResults() {
+            fileUploadSection.classList.add('hidden');
+            quizSection.classList.add('hidden');
+            resultsSection.classList.remove('hidden');
+            errorBox.classList.add('hidden');
+
+            const score = QUIZ_COUNT - incorrectAnswers.length;
+            finalScoreElement.textContent = `${score} / ${QUIZ_COUNT} (정답률: ${Math.round((score / QUIZ_COUNT) * 100)}%)`;
+
+            // 오답 리스트 출력
+            incorrectListElement.innerHTML = '';
+            if (incorrectAnswers.length > 0) {
+                incorrectAnswers.forEach(word => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'p-3 bg-gray-50 rounded-lg border-l-4 border-red-400 shadow-sm';
+                    listItem.innerHTML = `
+                        <p class="font-bold text-gray-800">${word.hiragana} (${word.kanji})</p>
+                        <p class="text-sm text-gray-600 ml-2">발음: ${word.koreanPronunciation}, 뜻: ${word.koreanMeaning}</p>
+                    `;
+                    incorrectListElement.appendChild(listItem);
+                });
+                noIncorrectMessage.classList.add('hidden');
+            } else {
+                noIncorrectMessage.classList.remove('hidden');
+            }
+        }
+
+        // 퀴즈 시작 (재시작 포함)
+        async function startQuiz() {
+            // 현재 선택된 데이터 소스에 따라 vocabulary 설정
+            const selectedSource = document.querySelector('input[name="data_source"]:checked').value;
+
+            if (selectedSource === 'default_url') {
+                if (!isDefaultDataReady) {
+                    // 버튼이 활성화되지 않았다면 로드가 실패한 것
+                    displayError("기본 단어 데이터 로드에 실패하여 퀴즈를 시작할 수 없습니다. 파일을 직접 업로드해 주세요.");
+                    return;
+                }
+                vocabulary = defaultVocabulary;
+            } else if (selectedSource === 'file_upload') {
+                const file = csvFileInput.files[0];
+                if (!file) {
+                    // 이미 버튼이 비활성화되었겠지만, 안전 장치
+                    alert('퀴즈를 시작하려면 CSV 파일을 선택하세요.'); 
+                    return;
+                }
+                
+                updateStartButtonState(false, '파일 로드 중...');
+                try {
+                    // 로컬 파일 파싱 및 vocabulary 설정
+                    vocabulary = await parseFile(file);
+                } catch (error) {
+                    displayError(error.message);
+                    return;
+                } finally {
+                    updateStartButtonState(true);
+                }
+            }
+            
+            if (vocabulary.length < 4) {
+                 displayError(`퀴즈를 시작하기 위해 최소 4개 이상의 유효한 단어가 필요합니다. 현재 유효 단어 수: ${vocabulary.length}`);
+                return;
+            }
+            
+            // 퀴즈 데이터 초기화 및 생성
+            incorrectAnswers = [];
+            currentQuestionIndex = 0;
+            quizQuestions = createQuiz(vocabulary); 
+            
+            if (quizQuestions.length > 0) {
+                // UI 전환
+                fileUploadSection.classList.add('hidden');
+                resultsSection.classList.add('hidden');
+                errorBox.classList.add('hidden');
+                quizSection.classList.remove('hidden');
+                
+                displayQuestion(quizQuestions[currentQuestionIndex]);
+            }
+        }
+        
+        // ----------------------------------------------------------------------
+        // Initialization & Event Listeners
+        // ----------------------------------------------------------------------
+
+        // 기본 URL에서 CSV 파일을 로드하는 초기 함수
+        async function loadDefaultVocabulary() {
+            defaultLoadingMessage.textContent = `기본 단어 (${INITIAL_CSV_URL}) 로딩 중...`;
+            updateStartButtonState(false);
+            isDefaultDataReady = false;
+
+            try {
+                const response = await fetch(INITIAL_CSV_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP 상태 ${response.status}`);
+                }
+                
+                const text = await response.text();
+                const data = parseCSVText(text);
+
+                if (data.length < 4) {
+                    throw new Error(`최소 단어(4개)가 부족합니다. 현재: ${data.length}개`);
+                }
+                
+                defaultVocabulary = data;
+                isDefaultDataReady = true;
+                
+                defaultLoadingMessage.textContent = `기본 단어 ${defaultVocabulary.length}개 로드 완료.`;
+                updateStartButtonState(true);
+
+            } catch (error) {
+                defaultLoadingMessage.textContent = `기본 단어 로드 실패: ${error.message}.`;
+                defaultLoadingMessage.classList.add('text-red-500');
+                isDefaultDataReady = false;
+                updateStartButtonState(false, '기본 단어 로드 실패');
+            }
+        }
+
+        // 이벤트 리스너 등록
+        function setupEventListeners() {
+            // 데이터 소스 선택 라디오 버튼 리스너
+            dataSourceSelector.addEventListener('change', (event) => {
+                switchDataSourceUI(event.target.value);
+            });
+
+            // 파일 선택 입력 변경 리스너
+            csvFileInput.addEventListener('change', () => {
+                const selectedSource = document.querySelector('input[name="data_source"]:checked').value;
+                if (selectedSource === 'file_upload') {
+                    // 파일 업로드 모드일 때만 버튼 상태 업데이트
+                    updateStartButtonState(csvFileInput.files.length > 0, csvFileInput.files.length > 0 ? '퀴즈 시작 (총 20문제)' : '파일을 선택하세요');
+                }
+            });
+
+            // 퀴즈 시작 버튼 리스너
+            startQuizButton.addEventListener('click', startQuiz);
+            
+            // 다음 버튼 리스너
+            nextButton.addEventListener('click', nextQuestion);
+
+            // 다시 시작 버튼 리스너 (결과 화면에서 메인 화면으로 돌아가기 위해 startQuiz 대신 location.reload 사용)
+            // startQuiz를 사용하면 현재 로드된 데이터로 재시작
+            restartButton.addEventListener('click', startQuiz);
+        }
+
+        // 초기화
+        window.onload = function() {
+            setupEventListeners();
+            loadDefaultVocabulary();
+            
+            // 초기 UI는 'default_url' 선택 상태로 표시
+            switchDataSourceUI('default_url');
+        };
+
+    </script>
+</body>
+</html>
