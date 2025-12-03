@@ -206,7 +206,7 @@
             fileUploadSection.classList.add('hidden');
             quizSection.classList.add('hidden');
             resultsSection.classList.add('hidden');
-            updateStartButtonState(false); // 오류 발생 시 퀴즈 시작 버튼 비활성화
+            updateStartButtonState(false); 
         }
 
         // ----------------------------------------------------------------------
@@ -298,75 +298,95 @@
                 let question = {};
                 let optionsSourceField = ''; 
 
-                // 퀴즈 유형별 설정 (이전과 동일)
+                // 퀴즈 유형별 설정
                 if (quizType === 'meaning_match') {
                     question.type = 'meaning_match';
                     const kanjiDisplay = correctWord.kanji && correctWord.kanji !== '(조사)' ? `(${correctWord.kanji})` : '';
                     question.text = `다음 단어의 뜻은? [${correctWord.hiragana} ${kanjiDisplay}]`;
-                    question.correctAnswer = correctWord.koreanMeaning;
+                    question.correctAnswerText = correctWord.koreanMeaning;
                     optionsSourceField = 'koreanMeaning';
                 } else if (quizType === 'hiragana_meaning_match') {
                     question.type = 'hiragana_meaning_match';
                     question.text = `다음 뜻에 해당하는 단어는? [${correctWord.koreanMeaning}]`;
-                    question.correctAnswer = correctWord.hiragana;
+                    question.correctAnswerText = correctWord.hiragana;
                     optionsSourceField = 'hiragana';
                 } else if (quizType === 'pronunciation_match') {
                     question.type = 'pronunciation_match';
                     const kanjiDisplay = correctWord.kanji && correctWord.kanji !== '(조사)' ? `(${correctWord.kanji})` : '';
                     question.text = `다음 단어의 한글 발음은? [${correctWord.hiragana} ${kanjiDisplay}]`;
-                    question.correctAnswer = correctWord.koreanPronunciation;
+                    question.correctAnswerText = correctWord.koreanPronunciation;
                     optionsSourceField = 'koreanPronunciation';
                 } else if (quizType === 'hiragana_pronunciation_match') {
                     question.type = 'hiragana_pronunciation_match';
                     question.text = `다음 한글 발음에 해당하는 단어는? [${correctWord.koreanPronunciation}]`;
-                    question.correctAnswer = correctWord.hiragana;
+                    question.correctAnswerText = correctWord.hiragana;
                     optionsSourceField = 'hiragana';
                 }
                 
-                // 옵션 생성 로직 (이전과 동일)
+                // 옵션 생성 로직 (각 옵션에 해당 단어의 fullData를 연결)
                 const options = [];
-                const incorrectOptionsTexts = [];
+                const incorrectOptions = [];
+                // 정답 옵션 추가
+                options.push({ 
+                    text: question.correctAnswerText, 
+                    isCorrect: true, 
+                    fullData: correctWord // 정답 단어의 전체 데이터
+                });
+
+                // 오답 옵션 3개 선택 및 추가
                 const potentialIncorrects = data.filter(item => 
-                    item[optionsSourceField] !== question.correctAnswer
+                    item[optionsSourceField] !== question.correctAnswerText && item.hiragana !== correctWord.hiragana
                 );
                 
-                while (incorrectOptionsTexts.length < 3 && potentialIncorrects.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * potentialIncorrects.length);
-                    const selected = potentialIncorrects.splice(randomIndex, 1)[0]; 
-                    const incorrectText = selected[optionsSourceField];
-                    if (incorrectText && !incorrectOptionsTexts.includes(incorrectText)) {
-                        incorrectOptionsTexts.push(incorrectText);
-                    }
-                }
-                
-                options.push({ text: question.correctAnswer, isCorrect: true });
-                incorrectOptionsTexts.forEach(text => options.push({ text: text, isCorrect: false }));
-                
-                while (options.length < 4) {
-                    const fillerWord = data[Math.floor(Math.random() * data.length)];
-                    let fillerText = fillerWord[optionsSourceField];
-                    
-                    if (fillerText && !options.some(opt => opt.text === fillerText)) {
-                        options.push({ text: fillerText, isCorrect: false });
-                    } else {
-                         // Fallback for cases where generating unique incorrect options is hard
-                         options.push({ text: (fillerWord.koreanMeaning || fillerWord.hiragana) + ' (오답' + (options.length) + ')' , isCorrect: false }); 
-                    }
-                }
+                // Shuffled incorrect candidates
+                const shuffledIncorrects = [...potentialIncorrects].sort(() => 0.5 - Math.random());
 
+                for (let j = 0; j < 3; j++) {
+                    let distractor;
+                    if (j < shuffledIncorrects.length) {
+                        distractor = shuffledIncorrects[j];
+                    } else {
+                         // Fallback: If not enough unique words, use a random one and append an indicator
+                         const fillerWord = data[Math.floor(Math.random() * data.length)];
+                         distractor = { 
+                             ...fillerWord, 
+                             // 텍스트는 보기의 값이 되도록 함
+                             [optionsSourceField]: (fillerWord[optionsSourceField] || fillerWord.koreanMeaning) + ' (오답)',
+                         }; 
+                    }
+
+                    let optionText = distractor[optionsSourceField];
+                    // 텍스트 중복 방지 체크
+                    if (!options.some(opt => opt.text === optionText)) {
+                         options.push({ 
+                            text: optionText, 
+                            isCorrect: false, 
+                            fullData: distractor // 오답 단어의 전체 데이터
+                        });
+                    } else {
+                        // 중복된 경우, 텍스트를 고유하게 만들고 재시도
+                        options.push({
+                            text: optionText + ' (중복)',
+                            isCorrect: false,
+                            fullData: distractor
+                        });
+                    }
+                }
+                
+                // 옵션 섞기
                 options.sort(() => 0.5 - Math.random());
                 
                 questions.push({
                     ...question,
-                    options: options,
-                    fullData: correctWord 
+                    options: options, // 각 옵션에 fullData 포함
+                    correctFullData: correctWord 
                 });
             }
             
             return questions;
         }
 
-        // 퀴즈 화면에 현재 문제 표시 (이전과 동일)
+        // 퀴즈 화면에 현재 문제 표시
         function displayQuestion(question) {
             const currentNumber = currentQuestionIndex + 1;
             quizProgressElement.textContent = `문제 ${currentNumber} / ${QUIZ_COUNT}`;
@@ -381,17 +401,18 @@
                 // 버튼 내부에 텍스트를 감싸서 나중에 상세 정보와 분리되도록 함
                 button.innerHTML = `<span class="option-text font-medium">${option.text}</span>`;
                 button.className = 'option-button w-full text-left rounded-lg text-gray-700 hover:bg-indigo-50 hover:shadow-md';
-                button.onclick = () => handleAnswer(button, option.isCorrect, question.fullData);
+                // handleAnswer 호출 시 전체 질문 객체와 옵션 인덱스를 전달
+                button.onclick = () => handleAnswer(button, option.isCorrect, question, index);
                 button.disabled = false;
-                button.dataset.index = index;
+                button.dataset.optionIndex = index; // 인덱스를 data 속성에 저장
                 optionsContainer.appendChild(button);
             });
         }
 
-        // 정답 선택 처리 (모든 보기에 상세 학습 정보 표시 로직 반영)
-        function handleAnswer(selectedButton, isCorrect, correctWordData) {
+        // 정답 선택 처리 (모든 보기에 해당 단어의 상세 학습 정보 표시 로직 반영)
+        function handleAnswer(selectedButton, isCorrect, currentQuestion, selectedOptionIndex) {
             // 1. 모든 버튼 비활성화
-            document.querySelectorAll('.option-button').forEach(btn => {
+            document.querySelectorAll('#options-container button').forEach(btn => {
                 btn.disabled = true;
                 btn.classList.add('disabled');
             });
@@ -400,41 +421,47 @@
             let feedbackText = '';
             let feedbackClass = '';
 
-            // 2. 정답/오답 처리 및 스타일링
+            // 2. 피드백 메시지 설정
             if (isCorrect) {
-                selectedButton.classList.add('correct');
                 feedbackClass = 'p-3 rounded-lg text-center font-medium bg-green-100 text-green-700';
                 feedbackText = '정답입니다! 잘하셨어요.';
             } else {
-                selectedButton.classList.add('incorrect');
                 feedbackClass = 'p-3 rounded-lg text-center font-medium bg-red-100 text-red-700';
-                feedbackText = '오답입니다. 정답을 확인하세요!';
+                feedbackText = '오답입니다. 정답과 오답 단어의 정보를 비교해 보세요.';
 
                 // 오답 기록
+                const correctWordData = currentQuestion.correctFullData;
                 if (!incorrectAnswers.some(a => a.hiragana === correctWordData.hiragana)) {
                      incorrectAnswers.push(correctWordData);
                 }
-
-                // 정답 표시 (정답 버튼에 스타일 적용)
-                document.querySelectorAll('.option-button').forEach(btn => {
-                    const optionIndex = parseInt(btn.dataset.index);
-                    if (quizQuestions[currentQuestionIndex].options[optionIndex].isCorrect) {
-                        // 스타일만 추가하고, 상세 정보는 아래의 전체 반복문에서 추가합니다.
-                        btn.classList.remove('disabled'); // 정답도 표시해야 하므로 disabled 해제
-                        btn.classList.add('correct');
-                    }
-                });
             }
-
-            // 3. 핵심 수정: 모든 보기에 정답 상세 정보 추가
-            const correctWordDetailHtml = createDetailHtml(correctWordData);
-            document.querySelectorAll('.option-button').forEach(btn => {
-                // 기존 옵션 텍스트를 유지하고 그 아래에 상세 정보를 추가합니다.
-                const originalOptionText = btn.querySelector('.option-text').textContent;
-                btn.innerHTML = `<span class="option-text font-medium">${originalOptionText}</span>${correctWordDetailHtml}`;
-            });
             
-            // 4. 피드백 메시지 컨테이너에 텍스트만 표시
+            // 3. CORE CHANGE: 모든 보기에 해당 단어의 상세 정보 추가 및 스타일 적용
+            document.querySelectorAll('#options-container button').forEach(btn => {
+                const optionIndex = parseInt(btn.dataset.optionIndex);
+                const optionData = currentQuestion.options[optionIndex]; // 해당 옵션의 전체 데이터 (fullData 포함)
+
+                // 스타일 적용
+                if (optionData.isCorrect) {
+                     // 정답은 항상 초록색 스타일
+                     btn.classList.remove('disabled'); 
+                     btn.classList.add('correct');
+                } else if (btn === selectedButton) {
+                     // 선택된 오답은 빨간색 스타일
+                     btn.classList.add('incorrect');
+                }
+                
+                // 해당 옵션이 가진 단어의 상세 정보 HTML 생성
+                // optionData.fullData는 해당 보기의 텍스트가 파생된 원본 단어 객체임
+                const wordDetailHtml = createDetailHtml(optionData.fullData);
+                const originalOptionText = btn.querySelector('.option-text').textContent;
+                
+                // 상세 정보 삽입
+                btn.innerHTML = `<span class="option-text font-medium">${originalOptionText}</span>${wordDetailHtml}`;
+            });
+
+
+            // 4. 피드백 메시지 컨테이너에 텍스트 표시
             feedbackMessage.className = feedbackClass;
             feedbackMessage.innerHTML = `<p class="text-center">${feedbackText}</p>`;
 
@@ -444,22 +471,23 @@
         }
         
         // 상세 학습 정보 HTML 생성 함수 (재사용을 위해 분리)
-        function createDetailHtml(correctWordData) {
-             const kanjiDisplay = correctWordData.kanji && correctWordData.kanji !== '(조사)' ? 
-                                 `<p><span class="font-semibold">한자 표기:</span> ${correctWordData.kanji}</p>` : '';
+        function createDetailHtml(wordData) {
+             const kanjiDisplay = wordData.kanji && wordData.kanji !== '(조사)' ? 
+                                 `<p><span class="font-semibold">한자 표기:</span> ${wordData.kanji}</p>` : '';
             
+            // "단어 상세 정보"로 변경하여 중립적으로 만듭니다.
             return `
                 <div class="word-detail mt-3 pt-3 w-full border-t border-gray-300 space-y-1 text-xs">
-                    <h5 class="font-bold text-indigo-700">정답 단어 정보:</h5>
-                    <p><span class="font-semibold">히라가나:</span> <span class="text-sm font-extrabold">${correctWordData.hiragana}</span></p>
+                    <h5 class="font-bold text-indigo-700">단어 상세 정보:</h5>
+                    <p><span class="font-semibold">히라가나:</span> <span class="text-sm font-extrabold">${wordData.hiragana}</span></p>
                     ${kanjiDisplay}
-                    <p><span class="font-semibold">발음:</span> ${correctWordData.koreanPronunciation}</p>
-                    <p><span class="font-semibold">뜻:</span> ${correctWordData.koreanMeaning}</p>
+                    <p><span class="font-semibold">발음:</span> ${wordData.koreanPronunciation}</p>
+                    <p><span class="font-semibold">뜻:</span> ${wordData.koreanMeaning}</p>
                 </div>
             `;
         }
 
-        // 다음 문제 또는 결과 화면으로 이동 (이전과 동일)
+        // 다음 문제 또는 결과 화면으로 이동
         function nextQuestion() {
             currentQuestionIndex++;
             if (currentQuestionIndex < QUIZ_COUNT) {
@@ -469,13 +497,13 @@
             }
         }
 
-        // 결과 화면 표시 (이전과 동일)
+        // 결과 화면 표시
         function showResults() {
             fileUploadSection.classList.add('hidden');
             quizSection.classList.add('hidden');
             resultsSection.classList.remove('hidden');
             errorBox.classList.add('hidden');
-            updateStartButtonState(false); // 결과 화면에서는 시작 버튼 비활성화
+            updateStartButtonState(false); 
 
             const score = QUIZ_COUNT - incorrectAnswers.length;
             finalScoreElement.textContent = `${score} / ${QUIZ_COUNT} (정답률: ${Math.round((score / QUIZ_COUNT) * 100)}%)`;
@@ -529,14 +557,11 @@
             } catch (error) {
                 // 로드 실패 또는 데이터 부족 시 처리
                 updateStartButtonState(false, '퀴즈 시작'); // 버튼 비활성화 해제
-                // 로딩 함수에서 이미 메시지를 출력했으므로, 여기서는 전체 화면 에러만 표시
                 if (fileUploadSection.classList.contains('hidden')) {
-                    // 퀴즈 중이 아니었으면, 메인 화면으로 복귀시키고 에러 표시
                     fileUploadSection.classList.remove('hidden');
                 }
                 urlStatusMessage.textContent = error.message;
                 urlStatusMessage.classList.add('text-red-500');
-                
             }
         }
         
