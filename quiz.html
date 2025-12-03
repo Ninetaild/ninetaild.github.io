@@ -25,6 +25,14 @@
         .option-button {
             transition: all 0.2s;
             border: 2px solid #e5e7eb;
+            /* 최소 높이 설정 및 flex 속성으로 내부 요소 제어 */
+            min-height: 100px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: flex-start; 
+            justify-content: flex-start; /* 상단 정렬 */
+            text-align: left;
+            padding: 1rem; /* p-4 */
         }
         .option-button:hover:not(.disabled):not(.correct):not(.incorrect) {
             background-color: #f3f4f6;
@@ -47,6 +55,16 @@
         .header-bg {
             background-color: #4f46e5;
             color: white;
+        }
+        /* 상세 정보 섹션의 텍스트 색상을 버튼 색상에 따라 조정 */
+        .option-button .word-detail {
+            color: #4b5563; /* Gray-600 */
+        }
+        .correct .word-detail {
+            border-top-color: #a7f3d0; /* Green-200 */
+        }
+        .incorrect .word-detail {
+            border-top-color: #fca5a5; /* Red-300 */
         }
     </style>
 </head>
@@ -98,7 +116,7 @@
                         <!-- Option buttons will be injected here -->
                     </div>
 
-                    <!-- Feedback -->
+                    <!-- Feedback and Detailed Answer -->
                     <div id="feedback-message" class="hidden p-3 rounded-lg text-center font-medium"></div>
                     
                     <!-- Next Button -->
@@ -188,7 +206,7 @@
             fileUploadSection.classList.add('hidden');
             quizSection.classList.add('hidden');
             resultsSection.classList.add('hidden');
-            updateStartButtonState(false); // 오류 발생 시 퀴즈 시작 버튼 비활성화 (결과 확인 후 다시 활성화)
+            updateStartButtonState(false); // 오류 발생 시 퀴즈 시작 버튼 비활성화
         }
 
         // ----------------------------------------------------------------------
@@ -331,6 +349,7 @@
                     if (fillerText && !options.some(opt => opt.text === fillerText)) {
                         options.push({ text: fillerText, isCorrect: false });
                     } else {
+                         // Fallback for cases where generating unique incorrect options is hard
                          options.push({ text: (fillerWord.koreanMeaning || fillerWord.hiragana) + ' (오답' + (options.length) + ')' , isCorrect: false }); 
                     }
                 }
@@ -359,8 +378,9 @@
 
             question.options.forEach((option, index) => {
                 const button = document.createElement('button');
-                button.textContent = option.text;
-                button.className = 'option-button w-full p-4 text-left rounded-lg text-gray-700 font-medium hover:bg-indigo-50 hover:shadow-md';
+                // 버튼 내부에 텍스트를 감싸서 나중에 상세 정보와 분리되도록 함
+                button.innerHTML = `<span class="option-text font-medium">${option.text}</span>`;
+                button.className = 'option-button w-full text-left rounded-lg text-gray-700 hover:bg-indigo-50 hover:shadow-md';
                 button.onclick = () => handleAnswer(button, option.isCorrect, question.fullData);
                 button.disabled = false;
                 button.dataset.index = index;
@@ -368,34 +388,75 @@
             });
         }
 
-        // 정답 선택 처리 (이전과 동일)
+        // 정답 선택 처리 (모든 보기에 상세 학습 정보 표시 로직 반영)
         function handleAnswer(selectedButton, isCorrect, correctWordData) {
-            document.querySelectorAll('.option-button').forEach(btn => btn.disabled = true);
+            // 1. 모든 버튼 비활성화
+            document.querySelectorAll('.option-button').forEach(btn => {
+                btn.disabled = true;
+                btn.classList.add('disabled');
+            });
             feedbackMessage.classList.remove('hidden');
             
+            let feedbackText = '';
+            let feedbackClass = '';
+
+            // 2. 정답/오답 처리 및 스타일링
             if (isCorrect) {
                 selectedButton.classList.add('correct');
-                feedbackMessage.className = 'p-3 rounded-lg text-center font-medium bg-green-100 text-green-700';
-                feedbackMessage.textContent = '정답입니다! 잘하셨어요.';
+                feedbackClass = 'p-3 rounded-lg text-center font-medium bg-green-100 text-green-700';
+                feedbackText = '정답입니다! 잘하셨어요.';
             } else {
                 selectedButton.classList.add('incorrect');
-                feedbackMessage.className = 'p-3 rounded-lg text-center font-medium bg-red-100 text-red-700';
-                feedbackMessage.textContent = '오답입니다. 정답을 확인하세요!';
+                feedbackClass = 'p-3 rounded-lg text-center font-medium bg-red-100 text-red-700';
+                feedbackText = '오답입니다. 정답을 확인하세요!';
 
+                // 오답 기록
                 if (!incorrectAnswers.some(a => a.hiragana === correctWordData.hiragana)) {
                      incorrectAnswers.push(correctWordData);
                 }
 
+                // 정답 표시 (정답 버튼에 스타일 적용)
                 document.querySelectorAll('.option-button').forEach(btn => {
                     const optionIndex = parseInt(btn.dataset.index);
                     if (quizQuestions[currentQuestionIndex].options[optionIndex].isCorrect) {
+                        // 스타일만 추가하고, 상세 정보는 아래의 전체 반복문에서 추가합니다.
+                        btn.classList.remove('disabled'); // 정답도 표시해야 하므로 disabled 해제
                         btn.classList.add('correct');
                     }
                 });
             }
 
+            // 3. 핵심 수정: 모든 보기에 정답 상세 정보 추가
+            const correctWordDetailHtml = createDetailHtml(correctWordData);
+            document.querySelectorAll('.option-button').forEach(btn => {
+                // 기존 옵션 텍스트를 유지하고 그 아래에 상세 정보를 추가합니다.
+                const originalOptionText = btn.querySelector('.option-text').textContent;
+                btn.innerHTML = `<span class="option-text font-medium">${originalOptionText}</span>${correctWordDetailHtml}`;
+            });
+            
+            // 4. 피드백 메시지 컨테이너에 텍스트만 표시
+            feedbackMessage.className = feedbackClass;
+            feedbackMessage.innerHTML = `<p class="text-center">${feedbackText}</p>`;
+
+            // 5. 다음 버튼 활성화
             nextButton.disabled = false;
             nextButton.classList.remove('hidden');
+        }
+        
+        // 상세 학습 정보 HTML 생성 함수 (재사용을 위해 분리)
+        function createDetailHtml(correctWordData) {
+             const kanjiDisplay = correctWordData.kanji && correctWordData.kanji !== '(조사)' ? 
+                                 `<p><span class="font-semibold">한자 표기:</span> ${correctWordData.kanji}</p>` : '';
+            
+            return `
+                <div class="word-detail mt-3 pt-3 w-full border-t border-gray-300 space-y-1 text-xs">
+                    <h5 class="font-bold text-indigo-700">정답 단어 정보:</h5>
+                    <p><span class="font-semibold">히라가나:</span> <span class="text-sm font-extrabold">${correctWordData.hiragana}</span></p>
+                    ${kanjiDisplay}
+                    <p><span class="font-semibold">발음:</span> ${correctWordData.koreanPronunciation}</p>
+                    <p><span class="font-semibold">뜻:</span> ${correctWordData.koreanMeaning}</p>
+                </div>
+            `;
         }
 
         // 다음 문제 또는 결과 화면으로 이동 (이전과 동일)
