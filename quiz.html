@@ -48,18 +48,6 @@
             background-color: #4f46e5;
             color: white;
         }
-        /* 라디오 버튼 선택 시 라벨 스타일 변경 */
-        input[type="radio"]:checked + span {
-            color: #4f46e5;
-            font-weight: 600;
-        }
-        input[type="radio"]:checked + span::before {
-            border-color: #4f46e5;
-        }
-        #default-source-label.active, #file-upload-source-label.active {
-            border-color: #4f46e5;
-            box-shadow: 0 0 0 1px #4f46e5;
-        }
     </style>
 </head>
 <body class="p-4">
@@ -72,53 +60,23 @@
 
         <!-- Main Content Area -->
         <main id="app-container" class="space-y-6">
-            <!-- Data Source Selection Section -->
+            <!-- Data Source Configuration Section -->
             <div id="file-upload-section" class="card">
-                <h2 class="text-xl font-semibold mb-6 text-gray-700">1. 퀴즈 데이터 소스 선택</h2>
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">1. CSV 데이터 URL 설정</h2>
 
-                <!-- Radio Group for Source Selection -->
-                <div class="flex space-x-4 mb-4" id="data-source-selector">
-                    <!-- Default URL Option -->
-                    <label class="flex items-center p-3 rounded-lg border border-gray-300 cursor-pointer w-1/2 active" id="default-source-label" for="radio-default">
-                        <input type="radio" name="data_source" value="default_url" checked id="radio-default"
-                            class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
-                        <span class="ml-2 font-medium text-gray-700">기본 단어 사용</span>
-                    </label>
-                    
-                    <!-- File Upload Option -->
-                    <label class="flex items-center p-3 rounded-lg border border-gray-300 cursor-pointer w-1/2" id="file-upload-source-label" for="radio-upload">
-                        <input type="radio" name="data_source" value="file_upload" id="radio-upload"
-                            class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
-                        <span class="ml-2 font-medium text-gray-700">새 파일 업로드</span>
-                    </label>
-                </div>
-
-                <!-- Input Area (Dynamically changing) -->
+                <!-- URL Input Area -->
                 <div id="input-area" class="space-y-4 p-4 border rounded-lg bg-gray-50">
-                    <!-- Default URL Info (Visible initially) -->
-                    <div id="default-url-info">
-                        <p class="text-sm font-medium text-gray-700 mb-2">기본 URL (로드 완료 시 퀴즈 시작 가능):</p>
-                        <input type="text" id="default-url-display" readonly 
-                               class="w-full p-2 border rounded-md bg-white text-gray-600 text-sm" 
-                               value="https://ninetaild.github.io/src/1.csv">
-                        <p id="default-loading-message" class="text-xs mt-2 text-gray-500"></p>
-                    </div>
-                    
-                    <!-- File Input (Hidden initially) -->
-                    <div id="file-input-wrapper" class="hidden">
-                        <input type="file" id="csv-file-input" accept=".csv" class="w-full text-sm text-gray-500
-                            file:mr-4 file:py-2 file:px-4
-                            file:rounded-full file:border-0
-                            file:text-sm file:font-semibold
-                            file:bg-indigo-50 file:text-indigo-700
-                            hover:file:bg-indigo-100">
-                        <p class="text-xs text-gray-500 mt-2">첫 행을 제외한 모든 행을 단어 데이터로 사용합니다. (단어, 발음, 한자, 뜻 순서)</p>
-                    </div>
+                    <p class="text-sm font-medium text-gray-700 mb-2">CSV 파일 경로를 입력하거나 기본값을 사용하세요:</p>
+                    <input type="text" id="csv-url-input" 
+                           class="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500" 
+                           value="https://ninetaild.github.io/src/1.csv"
+                           placeholder="유효한 CSV 파일 URL을 입력하세요">
+                    <p id="url-status-message" class="text-xs mt-2 text-gray-500"></p>
                 </div>
                 
                 <!-- Main Start Button -->
                 <div class="mt-6 pt-4 border-t text-center">
-                    <button id="start-quiz-button" class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-700 transition duration-150 disabled:opacity-50" disabled>
+                    <button id="start-quiz-button" class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-700 transition duration-150 disabled:opacity-50">
                         퀴즈 시작 (총 20문제)
                     </button>
                 </div>
@@ -187,32 +145,22 @@
     <script type="module">
         // 전역 변수 설정
         let vocabulary = []; // 현재 퀴즈에 사용될 단어 데이터
-        let defaultVocabulary = []; // 기본 URL에서 로드된 단어 데이터
         let quizQuestions = []; // 이번 퀴즈에 사용될 20개의 문제
         let currentQuestionIndex = 0; // 현재 문제 인덱스
         let incorrectAnswers = []; // 오답 기록
-        let isDefaultDataReady = false; // 기본 데이터 로드 완료 여부
         
         const QUIZ_COUNT = 20; // 총 퀴즈 횟수
-        const INITIAL_CSV_URL = 'https://ninetaild.github.io/src/1.csv'; 
 
         // DOM 요소 캐싱
         const fileUploadSection = document.getElementById('file-upload-section');
         const quizSection = document.getElementById('quiz-section');
         const resultsSection = document.getElementById('results-section');
-        const csvFileInput = document.getElementById('csv-file-input');
+        const csvUrlInput = document.getElementById('csv-url-input');
         const nextButton = document.getElementById('next-button');
         const restartButton = document.getElementById('restart-button');
         const startQuizButton = document.getElementById('start-quiz-button');
+        const urlStatusMessage = document.getElementById('url-status-message');
         
-        // 데이터 선택 관련 요소
-        const dataSourceSelector = document.getElementById('data-source-selector');
-        const defaultUrlInfo = document.getElementById('default-url-info');
-        const fileInputWrapper = document.getElementById('file-input-wrapper');
-        const defaultLoadingMessage = document.getElementById('default-loading-message');
-        const defaultSourceLabel = document.getElementById('default-source-label');
-        const fileUploadSourceLabel = document.getElementById('file-upload-source-label');
-
         // 퀴즈/결과 관련 요소
         const questionTextElement = document.getElementById('question-text');
         const optionsContainer = document.getElementById('options-container');
@@ -228,8 +176,8 @@
         // UI & State Management Functions
         // ----------------------------------------------------------------------
 
-        function updateStartButtonState(isEnabled, message = '퀴즈 시작 (총 20문제)') {
-            startQuizButton.disabled = !isEnabled;
+        function updateStartButtonState(isDisabled, message = '퀴즈 시작 (총 20문제)') {
+            startQuizButton.disabled = isDisabled;
             startQuizButton.textContent = message;
         }
 
@@ -240,34 +188,7 @@
             fileUploadSection.classList.add('hidden');
             quizSection.classList.add('hidden');
             resultsSection.classList.add('hidden');
-            updateStartButtonState(false);
-        }
-
-        // 데이터 소스 선택에 따라 UI 전환
-        function switchDataSourceUI(source) {
-            errorBox.classList.add('hidden');
-            
-            // 라벨 활성화 스타일 토글
-            defaultSourceLabel.classList.toggle('active', source === 'default_url');
-            fileUploadSourceLabel.classList.toggle('active', source === 'file_upload');
-
-            if (source === 'default_url') {
-                defaultUrlInfo.classList.remove('hidden');
-                fileInputWrapper.classList.add('hidden');
-                
-                // 기본 데이터가 로드된 경우에만 시작 버튼 활성화
-                updateStartButtonState(isDefaultDataReady);
-                
-                // 로컬 파일 입력 필드를 리셋하여 실수로 파일이 남아있는 것을 방지
-                csvFileInput.value = null;
-
-            } else if (source === 'file_upload') {
-                defaultUrlInfo.classList.add('hidden');
-                fileInputWrapper.classList.remove('hidden');
-                
-                // 파일이 선택되었는지 확인하여 시작 버튼 활성화 (선택 전에는 비활성화)
-                updateStartButtonState(csvFileInput.files.length > 0, csvFileInput.files.length > 0 ? '퀴즈 시작 (총 20문제)' : '파일을 선택하세요');
-            }
+            updateStartButtonState(false); // 오류 발생 시 퀴즈 시작 버튼 비활성화 (결과 확인 후 다시 활성화)
         }
 
         // ----------------------------------------------------------------------
@@ -280,7 +201,7 @@
             
             // 1행(헤더) 제외
             if (lines.length <= 1) {
-                throw new Error("CSV 파일에 헤더를 제외한 유효한 단어 데이터가 없습니다.");
+                throw new Error("CSV 데이터에 헤더를 제외한 유효한 단어 데이터가 없습니다.");
             }
             
             const data = [];
@@ -305,33 +226,48 @@
             return data;
         }
 
-        // 파일 입력(input)에서 파일을 읽어 파싱하는 함수
-        function parseFile(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const text = e.target.result;
-                        resolve(parseCSVText(text));
-                    } catch (error) {
-                        reject(new Error("CSV 파일 파싱 중 오류가 발생했습니다: " + error.message));
-                    }
-                };
-                reader.onerror = () => reject(new Error("파일을 읽는 도중 오류가 발생했습니다."));
-                reader.readAsText(file, 'utf-8'); // UTF-8로 읽기
-            });
+        // 지정된 URL에서 CSV 파일을 로드하고 파싱하는 함수
+        async function loadVocabularyFromURL(url) {
+            if (!url) {
+                throw new Error("URL을 입력해 주세요.");
+            }
+
+            urlStatusMessage.textContent = `단어 로딩 중: ${url}`;
+            urlStatusMessage.classList.remove('text-red-500');
+            updateStartButtonState(true, '로딩 중...');
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP 상태 ${response.status}. URL을 확인해 주세요.`);
+                }
+                
+                const text = await response.text();
+                const data = parseCSVText(text);
+
+                if (data.length < 4) {
+                    throw new Error(`퀴즈를 시작하기 위한 최소 단어(4개)가 부족합니다. 현재: ${data.length}개`);
+                }
+                
+                urlStatusMessage.textContent = `단어 ${data.length}개 로드 완료. 퀴즈를 시작하세요.`;
+                updateStartButtonState(false);
+                return data;
+
+            } catch (error) {
+                urlStatusMessage.textContent = `단어 로드 실패: ${error.message}`;
+                urlStatusMessage.classList.add('text-red-500');
+                updateStartButtonState(false);
+                throw error; // 오류를 다시 던져 startQuiz에서 처리하도록 함
+            }
         }
         
         // ----------------------------------------------------------------------
         // Quiz Core Logic (createQuiz, displayQuestion, handleAnswer, etc.)
         // ----------------------------------------------------------------------
 
-        // 문제 생성 함수 (이전과 동일)
+        // 문제 생성 함수
         function createQuiz(data) {
-            if (data.length < 4) {
-                console.error("단어 데이터가 부족하여 퀴즈를 생성할 수 없습니다.");
-                return [];
-            }
+            if (data.length < 4) return [];
             
             const questions = [];
             const dataToUse = [...data].sort(() => 0.5 - Math.random());
@@ -344,7 +280,7 @@
                 let question = {};
                 let optionsSourceField = ''; 
 
-                // 퀴즈 유형별 설정
+                // 퀴즈 유형별 설정 (이전과 동일)
                 if (quizType === 'meaning_match') {
                     question.type = 'meaning_match';
                     const kanjiDisplay = correctWord.kanji && correctWord.kanji !== '(조사)' ? `(${correctWord.kanji})` : '';
@@ -411,7 +347,7 @@
             return questions;
         }
 
-        // 퀴즈 화면에 현재 문제 표시
+        // 퀴즈 화면에 현재 문제 표시 (이전과 동일)
         function displayQuestion(question) {
             const currentNumber = currentQuestionIndex + 1;
             quizProgressElement.textContent = `문제 ${currentNumber} / ${QUIZ_COUNT}`;
@@ -432,7 +368,7 @@
             });
         }
 
-        // 정답 선택 처리
+        // 정답 선택 처리 (이전과 동일)
         function handleAnswer(selectedButton, isCorrect, correctWordData) {
             document.querySelectorAll('.option-button').forEach(btn => btn.disabled = true);
             feedbackMessage.classList.remove('hidden');
@@ -462,7 +398,7 @@
             nextButton.classList.remove('hidden');
         }
 
-        // 다음 문제 또는 결과 화면으로 이동
+        // 다음 문제 또는 결과 화면으로 이동 (이전과 동일)
         function nextQuestion() {
             currentQuestionIndex++;
             if (currentQuestionIndex < QUIZ_COUNT) {
@@ -472,12 +408,13 @@
             }
         }
 
-        // 결과 화면 표시
+        // 결과 화면 표시 (이전과 동일)
         function showResults() {
             fileUploadSection.classList.add('hidden');
             quizSection.classList.add('hidden');
             resultsSection.classList.remove('hidden');
             errorBox.classList.add('hidden');
+            updateStartButtonState(false); // 결과 화면에서는 시작 버튼 비활성화
 
             const score = QUIZ_COUNT - incorrectAnswers.length;
             finalScoreElement.textContent = `${score} / ${QUIZ_COUNT} (정답률: ${Math.round((score / QUIZ_COUNT) * 100)}%)`;
@@ -500,56 +437,45 @@
             }
         }
 
-        // 퀴즈 시작 (재시작 포함)
+        // 퀴즈 시작 (URL에서 데이터 로드 포함)
         async function startQuiz() {
-            // 현재 선택된 데이터 소스에 따라 vocabulary 설정
-            const selectedSource = document.querySelector('input[name="data_source"]:checked').value;
+            const url = csvUrlInput.value.trim();
+            
+            // UI 상태 변경: 로딩 시작
+            updateStartButtonState(true, '데이터 로딩 및 문제 생성 중...');
+            errorBox.classList.add('hidden');
 
-            if (selectedSource === 'default_url') {
-                if (!isDefaultDataReady) {
-                    // 버튼이 활성화되지 않았다면 로드가 실패한 것
-                    displayError("기본 단어 데이터 로드에 실패하여 퀴즈를 시작할 수 없습니다. 파일을 직접 업로드해 주세요.");
-                    return;
-                }
-                vocabulary = defaultVocabulary;
-            } else if (selectedSource === 'file_upload') {
-                const file = csvFileInput.files[0];
-                if (!file) {
-                    // 이미 버튼이 비활성화되었겠지만, 안전 장치
-                    alert('퀴즈를 시작하려면 CSV 파일을 선택하세요.'); 
-                    return;
-                }
+            try {
+                // 1. URL에서 데이터 로드 및 파싱 (에러 발생 시 catch 블록으로 이동)
+                vocabulary = await loadVocabularyFromURL(url);
                 
-                updateStartButtonState(false, '파일 로드 중...');
-                try {
-                    // 로컬 파일 파싱 및 vocabulary 설정
-                    vocabulary = await parseFile(file);
-                } catch (error) {
-                    displayError(error.message);
-                    return;
-                } finally {
-                    updateStartButtonState(true);
+                // 2. 퀴즈 데이터 초기화 및 생성
+                incorrectAnswers = [];
+                currentQuestionIndex = 0;
+                quizQuestions = createQuiz(vocabulary); 
+                
+                if (quizQuestions.length === 0) {
+                    throw new Error("퀴즈 생성을 위한 문제가 충분하지 않습니다. (최소 4개 단어 필요)");
                 }
-            }
-            
-            if (vocabulary.length < 4) {
-                 displayError(`퀴즈를 시작하기 위해 최소 4개 이상의 유효한 단어가 필요합니다. 현재 유효 단어 수: ${vocabulary.length}`);
-                return;
-            }
-            
-            // 퀴즈 데이터 초기화 및 생성
-            incorrectAnswers = [];
-            currentQuestionIndex = 0;
-            quizQuestions = createQuiz(vocabulary); 
-            
-            if (quizQuestions.length > 0) {
-                // UI 전환
+
+                // 3. UI 전환 및 퀴즈 시작
                 fileUploadSection.classList.add('hidden');
                 resultsSection.classList.add('hidden');
-                errorBox.classList.add('hidden');
                 quizSection.classList.remove('hidden');
                 
                 displayQuestion(quizQuestions[currentQuestionIndex]);
+
+            } catch (error) {
+                // 로드 실패 또는 데이터 부족 시 처리
+                updateStartButtonState(false, '퀴즈 시작'); // 버튼 비활성화 해제
+                // 로딩 함수에서 이미 메시지를 출력했으므로, 여기서는 전체 화면 에러만 표시
+                if (fileUploadSection.classList.contains('hidden')) {
+                    // 퀴즈 중이 아니었으면, 메인 화면으로 복귀시키고 에러 표시
+                    fileUploadSection.classList.remove('hidden');
+                }
+                urlStatusMessage.textContent = error.message;
+                urlStatusMessage.classList.add('text-red-500');
+                
             }
         }
         
@@ -557,73 +483,46 @@
         // Initialization & Event Listeners
         // ----------------------------------------------------------------------
 
-        // 기본 URL에서 CSV 파일을 로드하는 초기 함수
-        async function loadDefaultVocabulary() {
-            defaultLoadingMessage.textContent = `기본 단어 (${INITIAL_CSV_URL}) 로딩 중...`;
-            updateStartButtonState(false);
-            isDefaultDataReady = false;
-
-            try {
-                const response = await fetch(INITIAL_CSV_URL);
-                if (!response.ok) {
-                    throw new Error(`HTTP 상태 ${response.status}`);
-                }
-                
-                const text = await response.text();
-                const data = parseCSVText(text);
-
-                if (data.length < 4) {
-                    throw new Error(`최소 단어(4개)가 부족합니다. 현재: ${data.length}개`);
-                }
-                
-                defaultVocabulary = data;
-                isDefaultDataReady = true;
-                
-                defaultLoadingMessage.textContent = `기본 단어 ${defaultVocabulary.length}개 로드 완료.`;
-                updateStartButtonState(true);
-
-            } catch (error) {
-                defaultLoadingMessage.textContent = `기본 단어 로드 실패: ${error.message}.`;
-                defaultLoadingMessage.classList.add('text-red-500');
-                isDefaultDataReady = false;
-                updateStartButtonState(false, '기본 단어 로드 실패');
-            }
-        }
-
         // 이벤트 리스너 등록
         function setupEventListeners() {
-            // 데이터 소스 선택 라디오 버튼 리스너
-            dataSourceSelector.addEventListener('change', (event) => {
-                switchDataSourceUI(event.target.value);
-            });
-
-            // 파일 선택 입력 변경 리스너
-            csvFileInput.addEventListener('change', () => {
-                const selectedSource = document.querySelector('input[name="data_source"]:checked').value;
-                if (selectedSource === 'file_upload') {
-                    // 파일 업로드 모드일 때만 버튼 상태 업데이트
-                    updateStartButtonState(csvFileInput.files.length > 0, csvFileInput.files.length > 0 ? '퀴즈 시작 (총 20문제)' : '파일을 선택하세요');
-                }
-            });
-
             // 퀴즈 시작 버튼 리스너
             startQuizButton.addEventListener('click', startQuiz);
             
             // 다음 버튼 리스너
             nextButton.addEventListener('click', nextQuestion);
 
-            // 다시 시작 버튼 리스너 (결과 화면에서 메인 화면으로 돌아가기 위해 startQuiz 대신 location.reload 사용)
-            // startQuiz를 사용하면 현재 로드된 데이터로 재시작
-            restartButton.addEventListener('click', startQuiz);
+            // 다시 시작 버튼 리스너 (결과 화면에서 메인 화면으로 돌아가기 위해 startQuiz를 사용)
+            restartButton.addEventListener('click', () => {
+                // 퀴즈를 다시 시작하기 위해 메인 화면으로 복귀
+                fileUploadSection.classList.remove('hidden');
+                quizSection.classList.add('hidden');
+                resultsSection.classList.add('hidden');
+                errorBox.classList.add('hidden');
+                // 시작 버튼을 재활성화하고, 현재 로드된 URL의 단어 수 표시
+                if (vocabulary.length > 0) {
+                    urlStatusMessage.textContent = `현재 ${vocabulary.length}개의 단어가 로드되어 있습니다.`;
+                } else {
+                    urlStatusMessage.textContent = '새 URL을 입력하거나 기본값으로 퀴즈를 시작하세요.';
+                }
+                urlStatusMessage.classList.remove('text-red-500');
+                updateStartButtonState(false);
+            });
+            
+            // URL 입력 필드가 변경될 때마다 상태 메시지 초기화
+            csvUrlInput.addEventListener('input', () => {
+                urlStatusMessage.textContent = 'URL을 입력하고 퀴즈 시작 버튼을 누르세요.';
+                urlStatusMessage.classList.remove('text-red-500');
+                updateStartButtonState(false);
+            });
         }
 
         // 초기화
         window.onload = function() {
             setupEventListeners();
-            loadDefaultVocabulary();
-            
-            // 초기 UI는 'default_url' 선택 상태로 표시
-            switchDataSourceUI('default_url');
+            // 초기 로드 메시지 설정
+            urlStatusMessage.textContent = 'URL을 입력하거나 기본값으로 퀴즈를 시작하세요.';
+            // 초기 버튼 상태 설정
+            updateStartButtonState(false);
         };
 
     </script>
