@@ -327,7 +327,8 @@
     </div>
 
     <!-- --- Floating Drawing Area (Draggable, Resizable & MINIMIZABLE) --- -->
-    <div id="floating-note-area" class="hidden">
+    <!-- 초기에는 hidden 상태를 유지합니다. -->
+    <div id="floating-note-area" class="hidden"> 
         <div id="note-header">
             <span id="note-title">🎨 학습 필기 공간 (히라가나/한자 연습)</span>
             
@@ -348,6 +349,7 @@
     <!-- --------------------------------------- -->
     
     <!-- 분리된 최소화/최대화 버튼 (창 외부에 위치) -->
+    <!-- 초기에는 hidden 상태를 유지합니다. -->
     <button id="minimizeButton" class="absolute z-50 p-2 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-lg focus:outline-none focus:ring-4 focus:ring-pink-300 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 hidden">
         <svg id="minimizeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
         <svg id="maximizeIcon" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
@@ -464,30 +466,29 @@
         function showSection(sectionToShow) {
             [fileUploadSection, quizSection, resultsSection, studySection, errorBox].forEach(s => s.classList.add('hidden'));
             
+            const shouldShowNote = sectionToShow === studySection; // 오직 '학습하기'에서만 필기폼을 표시
+            
             if (sectionToShow) {
                 sectionToShow.classList.remove('hidden');
-                // 학습/퀴즈 모드일 때만 필기 영역 표시
-                const shouldShowNote = sectionToShow === studySection || sectionToShow === quizSection;
+            }
+            
+            // 필기 공간 (Floating Note Area) 가시성 제어
+            if (shouldShowNote) {
+                floatingNoteArea.classList.remove('hidden');
                 
-                if (shouldShowNote) {
-                    floatingNoteArea.classList.remove('hidden');
-                    
-                    // 학습/퀴즈 모드 진입 시 최소화 상태가 아니면 버튼을 표시
-                    if (!isMinimized) {
-                        minimizeButton.classList.remove('hidden'); 
-                        resizeCanvas();
-                    } else {
-                        // 최소화 상태면 버튼을 숨김 (요청 반영)
-                        minimizeButton.classList.add('hidden');
-                    }
-                    updateMinimizeButtonPosition();
+                // 학습 모드 진입 시 최소화 상태가 아니면 버튼을 표시
+                if (!isMinimized) {
+                    minimizeButton.classList.remove('hidden'); 
+                    resizeCanvas();
                 } else {
-                    floatingNoteArea.classList.add('hidden');
-                    minimizeButton.classList.add('hidden'); // 메뉴로 돌아가면 버튼 숨김
+                    // 최소화 상태면 버튼을 숨김 (최소화 상태 유지 시)
+                    minimizeButton.classList.add('hidden');
                 }
+                updateMinimizeButtonPosition();
             } else {
+                // 퀴즈, 결과, 메뉴 화면에서는 필기폼 및 외부 버튼 모두 숨김
                 floatingNoteArea.classList.add('hidden');
-                minimizeButton.classList.add('hidden');
+                minimizeButton.classList.add('hidden'); 
             }
         }
         
@@ -971,7 +972,7 @@
                 maximizeIcon.classList.remove('hidden');
                 minimizeButton.title = '최대화';
                 
-                // 4. FIX: 외부 버튼 숨기기 (요청 사항 반영)
+                // 4. 외부 버튼 숨기기
                 minimizeButton.classList.add('hidden');
                 
             } else {
@@ -999,8 +1000,10 @@
                 minimizeIcon.classList.remove('hidden');
                 minimizeButton.title = '최소화';
                 
-                // 4. FIX: 외부 버튼 표시 및 위치 업데이트
-                minimizeButton.classList.remove('hidden');
+                // 4. 외부 버튼 표시 및 위치 업데이트 (단, 필기폼이 표시될 때만)
+                if (!floatingNoteArea.classList.contains('hidden')) {
+                    minimizeButton.classList.remove('hidden');
+                }
                 resizeCanvas();
                 updateMinimizeButtonPosition();
             }
