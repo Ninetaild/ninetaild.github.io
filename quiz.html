@@ -25,14 +25,13 @@
         .option-button {
             transition: all 0.2s;
             border: 2px solid #e5e7eb;
-            /* 최소 높이 설정 및 flex 속성으로 내부 요소 제어 */
             min-height: 100px; 
             display: flex; 
             flex-direction: column; 
             align-items: flex-start; 
-            justify-content: flex-start; /* 상단 정렬 */
+            justify-content: flex-start; 
             text-align: left;
-            padding: 1rem; /* p-4 */
+            padding: 1rem; 
         }
         .option-button:hover:not(.disabled):not(.correct):not(.incorrect) {
             background-color: #f3f4f6;
@@ -56,15 +55,14 @@
             background-color: #4f46e5;
             color: white;
         }
-        /* 상세 정보 섹션의 텍스트 색상을 버튼 색상에 따라 조정 */
         .option-button .word-detail {
-            color: #4b5563; /* Gray-600 */
+            color: #4b5563; 
         }
         .correct .word-detail {
-            border-top-color: #a7f3d0; /* Green-200 */
+            border-top-color: #a7f3d0; 
         }
         .incorrect .word-detail {
-            border-top-color: #fca5a5; /* Red-300 */
+            border-top-color: #fca5a5; 
         }
     </style>
 </head>
@@ -80,15 +78,21 @@
         <main id="app-container" class="space-y-6">
             <!-- Data Source Configuration Section -->
             <div id="file-upload-section" class="card">
-                <h2 class="text-xl font-semibold mb-4 text-gray-700">1. CSV 데이터 URL 설정</h2>
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">1. CSV 데이터 출처 설정</h2>
 
                 <!-- URL Input Area -->
                 <div id="input-area" class="space-y-4 p-4 border rounded-lg bg-gray-50">
-                    <p class="text-sm font-medium text-gray-700 mb-2">CSV 파일 경로를 입력하거나 기본값을 사용하세요:</p>
+                    <p class="text-sm font-medium text-gray-700 mb-2 font-bold">A. GitHub 파일 목록 선택</p>
+                    <select id="csv-select" class="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">-- CSV 파일을 선택하세요 --</option>
+                        <option value="loading" disabled>파일 목록 로딩 중...</option>
+                    </select>
+
+                    <p class="text-sm font-medium text-gray-700 mb-2 pt-2 font-bold">B. URL 직접 입력 (선택된 파일이 없을 때 사용)</p>
                     <input type="text" id="csv-url-input" 
                            class="w-full p-2 border border-gray-300 rounded-md bg-white text-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500" 
-                           value="https://ninetaild.github.io/src/1.csv"
-                           placeholder="유효한 CSV 파일 URL을 입력하세요">
+                           value=""
+                           placeholder="유효한 CSV 파일 URL을 직접 입력하세요">
                     <p id="url-status-message" class="text-xs mt-2 text-gray-500"></p>
                 </div>
                 
@@ -100,10 +104,9 @@
                 </div>
             </div>
 
-            <!-- Quiz & Results Section -->
+            <!-- Quiz & Results Section (Previous code remains the same) -->
             <div id="quiz-section" class="hidden">
                 <div class="card space-y-6">
-                    <!-- Progress and Question -->
                     <div>
                         <p id="quiz-progress" class="text-lg font-medium text-indigo-600 mb-4 text-center"></p>
                         <div id="question-card" class="bg-indigo-50 p-6 rounded-lg shadow-inner text-center">
@@ -111,15 +114,12 @@
                         </div>
                     </div>
                     
-                    <!-- Options -->
                     <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <!-- Option buttons will be injected here -->
                     </div>
 
-                    <!-- Feedback and Detailed Answer -->
                     <div id="feedback-message" class="hidden p-3 rounded-lg text-center font-medium"></div>
                     
-                    <!-- Next Button -->
                     <div class="text-center">
                         <button id="next-button" class="hidden px-6 py-2 bg-indigo-600 text-white font-semibold rounded-full hover:bg-indigo-700 transition duration-150" disabled>
                             다음 문제
@@ -128,7 +128,7 @@
                 </div>
             </div>
 
-            <!-- Results Section -->
+            <!-- Results Section (Previous code remains the same) -->
             <div id="results-section" class="hidden card space-y-6">
                 <h2 class="text-2xl font-bold text-center text-gray-700">퀴즈 완료!</h2>
                 <div class="text-center space-y-2">
@@ -151,7 +151,7 @@
                 </div>
             </div>
 
-            <!-- Error Message Box -->
+            <!-- Error Message Box (Previous code remains the same) -->
             <div id="error-box" class="hidden card bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
                 <p class="font-bold">오류 발생</p>
                 <p id="error-message"></p>
@@ -161,25 +161,28 @@
     </div>
 
     <script type="module">
-        // 전역 변수 설정
-        let vocabulary = []; // 현재 퀴즈에 사용될 단어 데이터
-        let quizQuestions = []; // 이번 퀴즈에 사용될 20개의 문제
-        let currentQuestionIndex = 0; // 현재 문제 인덱스
-        let incorrectAnswers = []; // 오답 기록
+        // Global Variables
+        let vocabulary = [];
+        let quizQuestions = [];
+        let currentQuestionIndex = 0;
+        let incorrectAnswers = [];
         
-        const QUIZ_COUNT = 20; // 총 퀴즈 횟수
+        const QUIZ_COUNT = 20;
+        const BASE_FOLDER_URL = "https://api.github.com/repos/ninetaild/ninetaild.github.io/contents/src/";
+        const RAW_CONTENT_BASE_URL = "https://raw.githubusercontent.com/ninetaild/ninetaild.github.io/main/src/";
 
-        // DOM 요소 캐싱
+        // DOM Elements
         const fileUploadSection = document.getElementById('file-upload-section');
         const quizSection = document.getElementById('quiz-section');
         const resultsSection = document.getElementById('results-section');
         const csvUrlInput = document.getElementById('csv-url-input');
+        const csvSelect = document.getElementById('csv-select'); 
         const nextButton = document.getElementById('next-button');
         const restartButton = document.getElementById('restart-button');
         const startQuizButton = document.getElementById('start-quiz-button');
         const urlStatusMessage = document.getElementById('url-status-message');
         
-        // 퀴즈/결과 관련 요소
+        // Quiz/Result Elements
         const questionTextElement = document.getElementById('question-text');
         const optionsContainer = document.getElementById('options-container');
         const quizProgressElement = document.getElementById('quiz-progress');
@@ -199,7 +202,6 @@
             startQuizButton.textContent = message;
         }
 
-        // 오류 메시지 표시 함수 (전체 화면 전환)
         function displayError(message) {
             errorMessage.textContent = message;
             errorBox.classList.remove('hidden');
@@ -210,44 +212,103 @@
         }
 
         // ----------------------------------------------------------------------
-        // Data Loading & Parsing Functions
+        // Data Source Management Functions
         // ----------------------------------------------------------------------
 
-        // CSV 텍스트를 파싱하여 단어 데이터 배열로 변환하는 범용 함수
+        // CSV 파일 목록을 GitHub API에서 로드하여 드롭다운에 채웁니다.
+        async function loadCsvFileOptions() {
+            csvSelect.innerHTML = '<option value="" disabled>-- CSV 파일을 선택하세요 --</option>';
+            csvSelect.querySelector('option[disabled]').textContent = '파일 목록 로딩 중...';
+            updateStartButtonState(true);
+
+            try {
+                const response = await fetch(BASE_FOLDER_URL);
+                if (!response.ok) {
+                    throw new Error(`GitHub API 통신 오류: ${response.status}.`);
+                }
+                const files = await response.json();
+                
+                // .csv 파일만 필터링합니다.
+                const csvFiles = files
+                    .filter(file => file.name.endsWith('.csv') && file.type === 'file')
+                    .map(file => file.name);
+
+                csvSelect.innerHTML = '<option value="">-- CSV 파일을 선택하세요 --</option>';
+                
+                if (csvFiles.length > 0) {
+                    csvFiles.forEach(fileName => {
+                        const option = document.createElement('option');
+                        option.value = RAW_CONTENT_BASE_URL + fileName;
+                        option.textContent = fileName;
+                        csvSelect.appendChild(option);
+                    });
+                } else {
+                    const option = document.createElement('option');
+                    option.value = "";
+                    option.textContent = "사용 가능한 CSV 파일이 없습니다.";
+                    option.disabled = true;
+                    csvSelect.appendChild(option);
+                }
+                
+                csvSelect.selectedIndex = 0; // 초기 선택 상태
+                updateStartButtonState(false);
+            } catch (error) {
+                console.error("CSV 목록 로드 오류:", error);
+                csvSelect.innerHTML = '<option value="" disabled>-- 파일 목록 로드 실패 --</option>';
+                urlStatusMessage.textContent = `CSV 파일 목록을 로드하지 못했습니다. (오류: ${error.message}). URL을 직접 입력해 주세요.`;
+                urlStatusMessage.classList.add('text-red-500');
+                updateStartButtonState(false);
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        // Data Loading & Parsing Functions 
+        // ----------------------------------------------------------------------
+
         function parseCSVText(text) {
             const lines = text.split('\n').filter(line => line.trim() !== '');
-            
-            // 1행(헤더) 제외
             if (lines.length <= 1) {
                 throw new Error("CSV 데이터에 헤더를 제외한 유효한 단어 데이터가 없습니다.");
             }
             
             const data = [];
-            // 헤더(첫 줄)를 건너뛰고 시작
             for (let i = 1; i < lines.length; i++) {
                 const line = lines[i].trim();
                 if (!line) continue;
                 
-                // 쉼표와 따옴표를 고려한 파싱
-                const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.trim().replace(/^"|"$/g, ''));
-                
-                // CSV 형식: 단어 (히라가나),한글 발음,한자 표기,뜻 (한국어)
+                // 이중 인용부호와 쉼표를 고려한 파싱 (선택된 CSV 파일 형식에 맞춤)
+                const parts = [];
+                let current = '';
+                let inQuotes = false;
+                for (let j = 0; j < line.length; j++) {
+                    const char = line[j];
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        parts.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                parts.push(current.trim());
+
                 if (parts.length >= 4) {
                     data.push({
-                        hiragana: parts[0],
-                        koreanPronunciation: parts[1],
-                        kanji: parts[2] === '(조사)' ? parts[2] : parts[2], 
-                        koreanMeaning: parts[3],
+                        // parts의 앞뒤 이중 인용부호 제거
+                        hiragana: parts[0].replace(/^"|"$/g, ''), 
+                        koreanPronunciation: parts[1].replace(/^"|"$/g, ''),
+                        kanji: parts[2].replace(/^"|"$/g, ''), 
+                        koreanMeaning: parts[3].replace(/^"|"$/g, ''),
                     });
                 }
             }
             return data;
         }
 
-        // 지정된 URL에서 CSV 파일을 로드하고 파싱하는 함수
         async function loadVocabularyFromURL(url) {
             if (!url) {
-                throw new Error("URL을 입력해 주세요.");
+                throw new Error("URL을 선택하거나 입력해 주세요.");
             }
 
             urlStatusMessage.textContent = `단어 로딩 중: ${url}`;
@@ -275,15 +336,14 @@
                 urlStatusMessage.textContent = `단어 로드 실패: ${error.message}`;
                 urlStatusMessage.classList.add('text-red-500');
                 updateStartButtonState(false);
-                throw error; // 오류를 다시 던져 startQuiz에서 처리하도록 함
+                throw error; 
             }
         }
         
         // ----------------------------------------------------------------------
-        // Quiz Core Logic (createQuiz, displayQuestion, handleAnswer, etc.)
+        // Quiz Core Logic 
         // ----------------------------------------------------------------------
 
-        // 문제 생성 함수
         function createQuiz(data) {
             if (data.length < 4) return [];
             
@@ -298,7 +358,6 @@
                 let question = {};
                 let optionsSourceField = ''; 
 
-                // 퀴즈 유형별 설정
                 if (quizType === 'meaning_match') {
                     question.type = 'meaning_match';
                     const kanjiDisplay = correctWord.kanji && correctWord.kanji !== '(조사)' ? `(${correctWord.kanji})` : '';
@@ -323,22 +382,17 @@
                     optionsSourceField = 'hiragana';
                 }
                 
-                // 옵션 생성 로직 (각 옵션에 해당 단어의 fullData를 연결)
                 const options = [];
-                const incorrectOptions = [];
-                // 정답 옵션 추가
                 options.push({ 
                     text: question.correctAnswerText, 
                     isCorrect: true, 
-                    fullData: correctWord // 정답 단어의 전체 데이터
+                    fullData: correctWord 
                 });
 
-                // 오답 옵션 3개 선택 및 추가
                 const potentialIncorrects = data.filter(item => 
                     item[optionsSourceField] !== question.correctAnswerText && item.hiragana !== correctWord.hiragana
                 );
                 
-                // Shuffled incorrect candidates
                 const shuffledIncorrects = [...potentialIncorrects].sort(() => 0.5 - Math.random());
 
                 for (let j = 0; j < 3; j++) {
@@ -346,25 +400,21 @@
                     if (j < shuffledIncorrects.length) {
                         distractor = shuffledIncorrects[j];
                     } else {
-                         // Fallback: If not enough unique words, use a random one and append an indicator
                          const fillerWord = data[Math.floor(Math.random() * data.length)];
                          distractor = { 
                              ...fillerWord, 
-                             // 텍스트는 보기의 값이 되도록 함
                              [optionsSourceField]: (fillerWord[optionsSourceField] || fillerWord.koreanMeaning) + ' (오답)',
                          }; 
                     }
 
                     let optionText = distractor[optionsSourceField];
-                    // 텍스트 중복 방지 체크
                     if (!options.some(opt => opt.text === optionText)) {
                          options.push({ 
                             text: optionText, 
                             isCorrect: false, 
-                            fullData: distractor // 오답 단어의 전체 데이터
+                            fullData: distractor 
                         });
                     } else {
-                        // 중복된 경우, 텍스트를 고유하게 만들고 재시도
                         options.push({
                             text: optionText + ' (중복)',
                             isCorrect: false,
@@ -373,12 +423,11 @@
                     }
                 }
                 
-                // 옵션 섞기
                 options.sort(() => 0.5 - Math.random());
                 
                 questions.push({
                     ...question,
-                    options: options, // 각 옵션에 fullData 포함
+                    options: options,
                     correctFullData: correctWord 
                 });
             }
@@ -386,7 +435,6 @@
             return questions;
         }
 
-        // 퀴즈 화면에 현재 문제 표시
         function displayQuestion(question) {
             const currentNumber = currentQuestionIndex + 1;
             quizProgressElement.textContent = `문제 ${currentNumber} / ${QUIZ_COUNT}`;
@@ -398,20 +446,16 @@
 
             question.options.forEach((option, index) => {
                 const button = document.createElement('button');
-                // 버튼 내부에 텍스트를 감싸서 나중에 상세 정보와 분리되도록 함
                 button.innerHTML = `<span class="option-text font-medium">${option.text}</span>`;
                 button.className = 'option-button w-full text-left rounded-lg text-gray-700 hover:bg-indigo-50 hover:shadow-md';
-                // handleAnswer 호출 시 전체 질문 객체와 옵션 인덱스를 전달
                 button.onclick = () => handleAnswer(button, option.isCorrect, question, index);
                 button.disabled = false;
-                button.dataset.optionIndex = index; // 인덱스를 data 속성에 저장
+                button.dataset.optionIndex = index; 
                 optionsContainer.appendChild(button);
             });
         }
 
-        // 정답 선택 처리 (모든 보기에 해당 단어의 상세 학습 정보 표시 로직 반영)
         function handleAnswer(selectedButton, isCorrect, currentQuestion, selectedOptionIndex) {
-            // 1. 모든 버튼 비활성화
             document.querySelectorAll('#options-container button').forEach(btn => {
                 btn.disabled = true;
                 btn.classList.add('disabled');
@@ -421,7 +465,6 @@
             let feedbackText = '';
             let feedbackClass = '';
 
-            // 2. 피드백 메시지 설정
             if (isCorrect) {
                 feedbackClass = 'p-3 rounded-lg text-center font-medium bg-green-100 text-green-700';
                 feedbackText = '정답입니다! 잘하셨어요.';
@@ -429,53 +472,42 @@
                 feedbackClass = 'p-3 rounded-lg text-center font-medium bg-red-100 text-red-700';
                 feedbackText = '오답입니다. 정답과 오답 단어의 정보를 비교해 보세요.';
 
-                // 오답 기록
                 const correctWordData = currentQuestion.correctFullData;
                 if (!incorrectAnswers.some(a => a.hiragana === correctWordData.hiragana)) {
                      incorrectAnswers.push(correctWordData);
                 }
             }
             
-            // 3. CORE CHANGE: 모든 보기에 해당 단어의 상세 정보 추가 및 스타일 적용
+            // 모든 보기에 해당 단어의 상세 정보 추가 및 스타일 적용
             document.querySelectorAll('#options-container button').forEach(btn => {
                 const optionIndex = parseInt(btn.dataset.optionIndex);
-                const optionData = currentQuestion.options[optionIndex]; // 해당 옵션의 전체 데이터 (fullData 포함)
+                const optionData = currentQuestion.options[optionIndex]; 
 
-                // 스타일 적용
                 if (optionData.isCorrect) {
-                     // 정답은 항상 초록색 스타일
                      btn.classList.remove('disabled'); 
                      btn.classList.add('correct');
                 } else if (btn === selectedButton) {
-                     // 선택된 오답은 빨간색 스타일
                      btn.classList.add('incorrect');
                 }
                 
-                // 해당 옵션이 가진 단어의 상세 정보 HTML 생성
-                // optionData.fullData는 해당 보기의 텍스트가 파생된 원본 단어 객체임
                 const wordDetailHtml = createDetailHtml(optionData.fullData);
                 const originalOptionText = btn.querySelector('.option-text').textContent;
                 
-                // 상세 정보 삽입
                 btn.innerHTML = `<span class="option-text font-medium">${originalOptionText}</span>${wordDetailHtml}`;
             });
 
 
-            // 4. 피드백 메시지 컨테이너에 텍스트 표시
             feedbackMessage.className = feedbackClass;
             feedbackMessage.innerHTML = `<p class="text-center">${feedbackText}</p>`;
 
-            // 5. 다음 버튼 활성화
             nextButton.disabled = false;
             nextButton.classList.remove('hidden');
         }
         
-        // 상세 학습 정보 HTML 생성 함수 (재사용을 위해 분리)
         function createDetailHtml(wordData) {
              const kanjiDisplay = wordData.kanji && wordData.kanji !== '(조사)' ? 
                                  `<p><span class="font-semibold">한자 표기:</span> ${wordData.kanji}</p>` : '';
             
-            // "단어 상세 정보"로 변경하여 중립적으로 만듭니다.
             return `
                 <div class="word-detail mt-3 pt-3 w-full border-t border-gray-300 space-y-1 text-xs">
                     <h5 class="font-bold text-indigo-700">단어 상세 정보:</h5>
@@ -487,7 +519,6 @@
             `;
         }
 
-        // 다음 문제 또는 결과 화면으로 이동
         function nextQuestion() {
             currentQuestionIndex++;
             if (currentQuestionIndex < QUIZ_COUNT) {
@@ -497,7 +528,6 @@
             }
         }
 
-        // 결과 화면 표시
         function showResults() {
             fileUploadSection.classList.add('hidden');
             quizSection.classList.add('hidden');
@@ -508,7 +538,6 @@
             const score = QUIZ_COUNT - incorrectAnswers.length;
             finalScoreElement.textContent = `${score} / ${QUIZ_COUNT} (정답률: ${Math.round((score / QUIZ_COUNT) * 100)}%)`;
 
-            // 오답 리스트 출력
             incorrectListElement.innerHTML = '';
             if (incorrectAnswers.length > 0) {
                 incorrectAnswers.forEach(word => {
@@ -526,19 +555,26 @@
             }
         }
 
-        // 퀴즈 시작 (URL에서 데이터 로드 포함)
         async function startQuiz() {
-            const url = csvUrlInput.value.trim();
+            // 1. 선택된 드롭다운 값 또는 직접 입력된 URL을 사용합니다.
+            let url = csvSelect.value || csvUrlInput.value.trim();
+
+            // 유효성 검사
+            if (!url) {
+                urlStatusMessage.textContent = 'CSV 파일을 선택하거나 URL을 직접 입력해 주세요.';
+                urlStatusMessage.classList.add('text-red-500');
+                return;
+            }
             
-            // UI 상태 변경: 로딩 시작
+            // URL이 'loading' 상태일 경우 방지
+            if (url === 'loading') return;
+
             updateStartButtonState(true, '데이터 로딩 및 문제 생성 중...');
             errorBox.classList.add('hidden');
 
             try {
-                // 1. URL에서 데이터 로드 및 파싱 (에러 발생 시 catch 블록으로 이동)
                 vocabulary = await loadVocabularyFromURL(url);
                 
-                // 2. 퀴즈 데이터 초기화 및 생성
                 incorrectAnswers = [];
                 currentQuestionIndex = 0;
                 quizQuestions = createQuiz(vocabulary); 
@@ -547,7 +583,6 @@
                     throw new Error("퀴즈 생성을 위한 문제가 충분하지 않습니다. (최소 4개 단어 필요)");
                 }
 
-                // 3. UI 전환 및 퀴즈 시작
                 fileUploadSection.classList.add('hidden');
                 resultsSection.classList.add('hidden');
                 quizSection.classList.remove('hidden');
@@ -555,13 +590,10 @@
                 displayQuestion(quizQuestions[currentQuestionIndex]);
 
             } catch (error) {
-                // 로드 실패 또는 데이터 부족 시 처리
-                updateStartButtonState(false, '퀴즈 시작'); // 버튼 비활성화 해제
+                updateStartButtonState(false, '퀴즈 시작'); 
                 if (fileUploadSection.classList.contains('hidden')) {
                     fileUploadSection.classList.remove('hidden');
                 }
-                urlStatusMessage.textContent = error.message;
-                urlStatusMessage.classList.add('text-red-500');
             }
         }
         
@@ -569,46 +601,54 @@
         // Initialization & Event Listeners
         // ----------------------------------------------------------------------
 
-        // 이벤트 리스너 등록
         function setupEventListeners() {
-            // 퀴즈 시작 버튼 리스너
             startQuizButton.addEventListener('click', startQuiz);
-            
-            // 다음 버튼 리스너
             nextButton.addEventListener('click', nextQuestion);
-
-            // 다시 시작 버튼 리스너 (결과 화면에서 메인 화면으로 돌아가기 위해 startQuiz를 사용)
+            
             restartButton.addEventListener('click', () => {
-                // 퀴즈를 다시 시작하기 위해 메인 화면으로 복귀
                 fileUploadSection.classList.remove('hidden');
                 quizSection.classList.add('hidden');
                 resultsSection.classList.add('hidden');
                 errorBox.classList.add('hidden');
-                // 시작 버튼을 재활성화하고, 현재 로드된 URL의 단어 수 표시
+                
                 if (vocabulary.length > 0) {
                     urlStatusMessage.textContent = `현재 ${vocabulary.length}개의 단어가 로드되어 있습니다.`;
                 } else {
-                    urlStatusMessage.textContent = '새 URL을 입력하거나 기본값으로 퀴즈를 시작하세요.';
+                    urlStatusMessage.textContent = 'CSV 파일을 선택하거나 URL을 직접 입력해 퀴즈를 시작하세요.';
                 }
                 urlStatusMessage.classList.remove('text-red-500');
                 updateStartButtonState(false);
             });
             
-            // URL 입력 필드가 변경될 때마다 상태 메시지 초기화
+            // 드롭다운 선택 시 URL 입력 필드 초기화
+            csvSelect.addEventListener('change', () => {
+                if (csvSelect.value) {
+                    csvUrlInput.value = ''; // 드롭다운을 선택하면 직접 입력 필드를 비웁니다.
+                }
+                urlStatusMessage.textContent = '선택된 파일 또는 입력된 URL로 퀴즈를 시작하세요.';
+                urlStatusMessage.classList.remove('text-red-500');
+                updateStartButtonState(false);
+            });
+            
+            // URL 직접 입력 시 드롭다운 초기화 (선택을 해제)
             csvUrlInput.addEventListener('input', () => {
-                urlStatusMessage.textContent = 'URL을 입력하고 퀴즈 시작 버튼을 누르세요.';
+                if (csvUrlInput.value.trim()) {
+                     csvSelect.selectedIndex = 0; // 드롭다운을 첫 번째 옵션으로 돌립니다.
+                }
+                urlStatusMessage.textContent = '직접 입력된 URL로 퀴즈를 시작합니다.';
                 urlStatusMessage.classList.remove('text-red-500');
                 updateStartButtonState(false);
             });
         }
 
-        // 초기화
+        // 초기화 함수
         window.onload = function() {
             setupEventListeners();
-            // 초기 로드 메시지 설정
-            urlStatusMessage.textContent = 'URL을 입력하거나 기본값으로 퀴즈를 시작하세요.';
-            // 초기 버튼 상태 설정
-            updateStartButtonState(false);
+            loadCsvFileOptions(); // CSV 파일 목록 로드 시작
+            // 초기 URL 입력 필드는 비어 있어야 합니다.
+            csvUrlInput.value = ''; 
+            urlStatusMessage.textContent = 'CSV 파일을 로딩 중입니다. 잠시만 기다려주세요.';
+            updateStartButtonState(true); // 로딩 중에는 버튼 비활성화
         };
 
     </script>
