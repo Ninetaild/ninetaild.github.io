@@ -145,14 +145,16 @@
             position: fixed;
             top: 100px;
             right: 20px;
-            width: 300px;
-            height: 250px; /* 높이를 고정하여 캔버스 크기 결정 */
+            width: 300px; /* 초기 너비 */
+            height: 250px; /* 초기 높이 */
+            min-width: 200px; /* 최소 너비 설정 */
+            min-height: 150px; /* 최소 높이 설정 */
             background-color: #fffbeb; 
             border: 2px solid #fcd34d;
             border-radius: 12px;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
             z-index: 1000;
-            /* resize: both; /* 캔버스 영역에 맞게 크기 조절 기능 제거 */
+            resize: both; /* 크기 조절 가능하도록 설정 */
             overflow: hidden; 
         }
 
@@ -167,11 +169,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-shrink: 0; /* 헤더가 줄어들지 않도록 고정 */
+            flex-shrink: 0; 
         }
         
         #note-content {
             padding: 5px;
+            /* 캔버스가 남은 공간을 채우도록 설정 */
             height: calc(100% - 40px); /* 헤더 높이 제외 */
             overflow: hidden;
         }
@@ -180,10 +183,10 @@
             width: 100%;
             height: 100%;
             display: block;
-            background-color: white; /* 드로잉 배경 */
+            background-color: white; 
             border: 1px solid #fcd34d;
             border-radius: 8px;
-            touch-action: none; /* 터치 스크롤 방지 */
+            touch-action: none; 
         }
         
         #note-clear-button {
@@ -209,6 +212,7 @@
                 bottom: 20px;
                 top: auto;
                 height: 200px; 
+                resize: none; /* 모바일에서는 수동 크기 조절 비활성화 */
             }
         }
     </style>
@@ -335,14 +339,14 @@
         </main>
     </div>
 
-    <!-- --- Floating Drawing Area (Draggable) --- -->
+    <!-- --- Floating Drawing Area (Draggable & Resizable) --- -->
     <div id="floating-note-area" class="hidden">
         <div id="note-header">
             <span>🎨 학습 필기 공간 (히라가나/한자 연습)</span>
             <button id="note-clear-button">모두 지우기</button>
         </div>
         <div id="note-content">
-            <!-- 캔버스 요소로 교체 -->
+            <!-- 캔버스 요소 -->
             <canvas id="drawing-canvas"></canvas>
         </div>
     </div>
@@ -379,7 +383,7 @@
         const floatingNoteArea = document.getElementById('floating-note-area');
         const noteHeader = document.getElementById('note-header');
         const noteClearButton = document.getElementById('note-clear-button');
-        const drawingCanvas = document.getElementById('drawing-canvas'); // 캔버스 요소 추가
+        const drawingCanvas = document.getElementById('drawing-canvas'); 
 
         // Quiz/Result Elements
         const questionTextElement = document.getElementById('question-text');
@@ -392,7 +396,7 @@
         const errorMessage = document.getElementById('error-message');
         const noIncorrectMessage = document.getElementById('no-incorrect-message');
         
-        let ctx; // 캔버스 렌더링 컨텍스트
+        let ctx; 
         let isDrawing = false;
         let lastX = 0;
         let lastY = 0;
@@ -422,7 +426,7 @@
             
             if (sectionToShow) {
                 sectionToShow.classList.remove('hidden');
-                // 학습 모드일 때만 필기 영역 표시
+                // 학습/퀴즈 모드일 때만 필기 영역 표시
                 if (sectionToShow === studySection || sectionToShow === quizSection) {
                     floatingNoteArea.classList.remove('hidden');
                     // 캔버스 크기 조정
@@ -565,7 +569,6 @@
         // ----------------------------------------------------------------------
         
         function createQuiz(data) {
-            // ... (Quiz creation logic is long and unchanged, skipping for brevity) ...
             if (data.length < 4) return [];
             
             const questions = [];
@@ -655,8 +658,6 @@
             
             return questions;
         }
-
-        // ... (displayQuestion, handleAnswer, createDetailHtml, nextQuestion, showResults remain unchanged) ...
 
         function displayQuestion(question) {
             const currentNumber = currentQuestionIndex + 1;
@@ -842,7 +843,6 @@
         }
 
         function renderStudyGrid(data) {
-             // ... (Study grid rendering logic remains unchanged) ...
              studyGridContainer.innerHTML = '';
             
             const grid = document.createElement('div');
@@ -914,8 +914,12 @@
             if (drawingCanvas) {
                  // 캔버스의 실제 해상도를 DOM 요소 크기에 맞춤
                 const rect = drawingCanvas.getBoundingClientRect();
-                drawingCanvas.width = rect.width;
-                drawingCanvas.height = rect.height;
+                
+                // rect.width, rect.height가 0보다 클 때만 설정 (ResizeObserver 초기 호출 등 대비)
+                if (rect.width > 0 && rect.height > 0) {
+                    drawingCanvas.width = rect.width;
+                    drawingCanvas.height = rect.height;
+                }
                 
                 // 크기 조정 후 드로잉 스타일 재설정
                 if (ctx) {
@@ -950,6 +954,7 @@
         }
 
         function startDrawing(e) {
+            e.preventDefault(); // 드로잉 시 터치 스크롤 방지
             isDrawing = true;
              // 마우스 또는 터치 좌표 가져오기
             const clientX = e.clientX || (e.touches && e.touches[0].clientX);
@@ -993,6 +998,16 @@
             // '비우기' 버튼 기능
             noteClearButton.addEventListener('click', clearCanvas);
             
+            // --- ResizeObserver: 사용자가 floating-note-area 크기 변경 시 캔버스 해상도 조정 ---
+            if ('ResizeObserver' in window) {
+                const observer = new ResizeObserver(entries => {
+                    // requestAnimationFrame을 사용하여 리사이즈가 끝난 후 해상도를 맞춤
+                    requestAnimationFrame(resizeCanvas); 
+                });
+                // 캔버스 컨테이너를 관찰
+                observer.observe(floatingNoteArea); 
+            }
+            
             // ------------------ 드래그 기능 (이전 코드 재사용) ------------------
             let isDragging = false;
             let currentX;
@@ -1009,37 +1024,55 @@
                     const { x, y } = JSON.parse(savedPosition);
                     floatingNoteArea.style.left = `${x}px`;
                     floatingNoteArea.style.top = `${y}px`;
-                    xOffset = x;
+                    // offset을 로드된 위치로 초기화 (중요)
+                    xOffset = x; 
                     yOffset = y;
                 } catch (e) {
-                    // JSON 파싱 오류 시 기본 위치 사용
+                    // JSON 파싱 오류 시 기본 위치 (CSS 설정) 사용
+                    console.error("Failed to parse saved position:", e);
                 }
+            } else {
+                 // 처음 로드 시 CSS 위치를 offset으로 설정
+                 xOffset = floatingNoteArea.offsetLeft;
+                 yOffset = floatingNoteArea.offsetTop;
             }
 
             function dragStart(e) {
+                // 크기 조절 핸들(우측 하단)에서 드래그 시작 방지
+                const isResizeHandle = e.offsetX > floatingNoteArea.offsetWidth - 20 && 
+                                       e.offsetY > floatingNoteArea.offsetHeight - 20;
+                
+                if (isResizeHandle) return;
+
+
                 const clientX = e.clientX || (e.touches && e.touches[0].clientX);
                 const clientY = e.clientY || (e.touches && e.touches[0].clientY);
 
                 if (clientX === undefined || clientY === undefined) return;
 
-                initialX = clientX - xOffset;
-                initialY = clientY - yOffset;
+                initialX = clientX - floatingNoteArea.offsetLeft;
+                initialY = clientY - floatingNoteArea.offsetTop;
 
                 // 헤더를 클릭했을 때만 드래그 시작
                 if (e.target === noteHeader || e.target.parentElement === noteHeader) {
+                    e.preventDefault();
                     isDragging = true;
                     noteHeader.style.cursor = 'grabbing';
                 }
             }
 
             function dragEnd() {
-                isDragging = false;
-                noteHeader.style.cursor = 'grab';
-                
-                // 최종 위치 저장
-                const finalX = floatingNoteArea.offsetLeft;
-                const finalY = floatingNoteArea.offsetTop;
-                localStorage.setItem('japaneseNotePosition', JSON.stringify({ x: finalX, y: finalY }));
+                if (isDragging) {
+                    isDragging = false;
+                    noteHeader.style.cursor = 'grab';
+                    
+                    // 최종 위치 저장
+                    const finalX = floatingNoteArea.offsetLeft;
+                    const finalY = floatingNoteArea.offsetTop;
+                    localStorage.setItem('japaneseNotePosition', JSON.stringify({ x: finalX, y: finalY }));
+                    xOffset = finalX; // offset 갱신
+                    yOffset = finalY;
+                }
             }
 
             function drag(e) {
@@ -1053,9 +1086,6 @@
 
                     currentX = clientX - initialX;
                     currentY = clientY - initialY;
-
-                    xOffset = currentX;
-                    yOffset = currentY;
 
                     const minX = 0;
                     const minY = 0;
@@ -1078,7 +1108,6 @@
             
             document.addEventListener("mousemove", drag);
             document.addEventListener("touchmove", drag);
-            // ---------------------------------------------------------------
             
             // 창 크기 변경 시 캔버스 해상도도 변경되도록 리스너 추가
             window.addEventListener('resize', resizeCanvas);
