@@ -12,7 +12,7 @@
             background-color: #f3f4f6;
         }
         .container {
-            max-width: 900px; /* 학습 모드를 위해 너비 확장 */
+            max-width: 900px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -21,7 +21,9 @@
             padding: 24px;
             border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            position: relative; 
         }
+        
         /* Quiz Button Styles */
         .option-button {
             transition: all 0.2s;
@@ -73,7 +75,6 @@
         }
         .study-grid {
             display: grid;
-            /* 1(Header) + 4(Data Columns) */
             grid-template-columns: 50px minmax(120px, 1fr) minmax(120px, 1fr) minmax(120px, 1fr) minmax(120px, 1.5fr);
             border-left: 1px solid #e5e7eb;
             border-top: 1px solid #e5e7eb;
@@ -89,19 +90,18 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            cursor: pointer; /* 모든 셀에 커서 포인터 적용 */
+            cursor: pointer; 
             transition: background-color 0.1s;
             position: relative;
         }
-        /* 마우스 오버 시 스타일 (헤더/인덱스 제외) */
         .study-cell:hover:not(.header-cell):not(.index-cell) {
-            background-color: #eef2ff; /* 개별 셀 클릭 영역 표시 */
+            background-color: #eef2ff;
         }
         .header-cell {
             font-weight: 700;
             background-color: #f3f4f6;
             color: #4b5563;
-            cursor: pointer; /* 헤더 셀 클릭 가능 표시 */
+            cursor: pointer;
         }
         .header-cell:hover {
             background-color: #e5e7eb;
@@ -130,7 +130,6 @@
             opacity: 1;
             transition: opacity 0.3s;
         }
-        /* Special style for the Japanese word itself */
         .word-hiragana {
             font-size: 16px;
             font-weight: 700;
@@ -139,6 +138,78 @@
         .word-meaning {
             font-size: 14px;
             color: #374151;
+        }
+
+        /* --- Floating Drawing Area Styles --- */
+        #floating-note-area {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            width: 300px;
+            height: 250px; /* 높이를 고정하여 캔버스 크기 결정 */
+            background-color: #fffbeb; 
+            border: 2px solid #fcd34d;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            /* resize: both; /* 캔버스 영역에 맞게 크기 조절 기능 제거 */
+            overflow: hidden; 
+        }
+
+        #note-header {
+            cursor: grab;
+            background-color: #fcd34d;
+            color: #78350f;
+            padding: 8px 12px;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0; /* 헤더가 줄어들지 않도록 고정 */
+        }
+        
+        #note-content {
+            padding: 5px;
+            height: calc(100% - 40px); /* 헤더 높이 제외 */
+            overflow: hidden;
+        }
+
+        #drawing-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background-color: white; /* 드로잉 배경 */
+            border: 1px solid #fcd34d;
+            border-radius: 8px;
+            touch-action: none; /* 터치 스크롤 방지 */
+        }
+        
+        #note-clear-button {
+            background-color: #ef4444;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+        #note-clear-button:hover {
+            background-color: #dc2626;
+        }
+
+        /* Mobile Adjustments for Floating Note */
+        @media (max-width: 768px) {
+            #floating-note-area {
+                width: 90%;
+                left: 5%;
+                right: 5%;
+                bottom: 20px;
+                top: auto;
+                height: 200px; 
+            }
         }
     </style>
 </head>
@@ -188,9 +259,8 @@
                 <div class="card space-y-4">
                     <h2 class="text-2xl font-bold text-gray-700 text-center">단어 학습 모드</h2>
                     
-                    <!-- NEW: Toggle All Controls -->
+                    <!-- Toggle All Controls -->
                     <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg border">
-                        <!-- 안내 메시지 수정: 행 전체 토글 기능 제거 -->
                         <p class="text-sm text-gray-600">데이터 셀을 클릭하면 **해당 셀**만, 헤더를 클릭하면 해당 **열**이 토글됩니다.</p>
                         <button id="toggle-all-button" class="px-4 py-2 text-sm bg-blue-500 text-white font-semibold rounded-full hover:bg-blue-600 transition duration-150 shadow-md">
                             모두 가리기
@@ -265,6 +335,19 @@
         </main>
     </div>
 
+    <!-- --- Floating Drawing Area (Draggable) --- -->
+    <div id="floating-note-area" class="hidden">
+        <div id="note-header">
+            <span>🎨 학습 필기 공간 (히라가나/한자 연습)</span>
+            <button id="note-clear-button">모두 지우기</button>
+        </div>
+        <div id="note-content">
+            <!-- 캔버스 요소로 교체 -->
+            <canvas id="drawing-canvas"></canvas>
+        </div>
+    </div>
+    <!-- --------------------------------------- -->
+
     <script type="module">
         // Global Variables
         let vocabulary = [];
@@ -275,7 +358,7 @@
         const QUIZ_COUNT = 20;
         const BASE_FOLDER_URL = "https://api.github.com/repos/ninetaild/ninetaild.github.io/contents/src/";
         const RAW_CONTENT_BASE_URL = "https://raw.githubusercontent.com/ninetaild/ninetaild.github.io/main/src/";
-        const dataCellsSelector = '.study-cell[data-row-index]'; // 데이터 셀을 선택하기 위한 공통 셀렉터
+        const dataCellsSelector = '.study-cell[data-row-index]';
 
         // DOM Elements
         const fileUploadSection = document.getElementById('file-upload-section');
@@ -293,6 +376,11 @@
         const studyGridContainer = document.getElementById('study-grid-container'); 
         const toggleAllButton = document.getElementById('toggle-all-button'); 
         
+        const floatingNoteArea = document.getElementById('floating-note-area');
+        const noteHeader = document.getElementById('note-header');
+        const noteClearButton = document.getElementById('note-clear-button');
+        const drawingCanvas = document.getElementById('drawing-canvas'); // 캔버스 요소 추가
+
         // Quiz/Result Elements
         const questionTextElement = document.getElementById('question-text');
         const optionsContainer = document.getElementById('options-container');
@@ -303,6 +391,11 @@
         const errorBox = document.getElementById('error-box');
         const errorMessage = document.getElementById('error-message');
         const noIncorrectMessage = document.getElementById('no-incorrect-message');
+        
+        let ctx; // 캔버스 렌더링 컨텍스트
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
 
         // ----------------------------------------------------------------------
         // UI & State Management Functions
@@ -312,7 +405,6 @@
             startQuizButton.disabled = isDisabled;
             startStudyButton.disabled = isDisabled;
             startQuizButton.textContent = message;
-            // 학습하기 버튼 텍스트는 퀴즈와 별도로 관리
             if (isDisabled) {
                  startStudyButton.textContent = '로딩 중...';
             } else {
@@ -320,24 +412,33 @@
             }
         }
         
-        // 섹션 전환 함수
+        // 섹션 전환 함수 (필기 영역 표시/숨기기 로직 추가)
         function showSection(sectionToShow) {
             fileUploadSection.classList.add('hidden');
             quizSection.classList.add('hidden');
             resultsSection.classList.add('hidden');
             studySection.classList.add('hidden');
             errorBox.classList.add('hidden');
+            
             if (sectionToShow) {
                 sectionToShow.classList.remove('hidden');
+                // 학습 모드일 때만 필기 영역 표시
+                if (sectionToShow === studySection || sectionToShow === quizSection) {
+                    floatingNoteArea.classList.remove('hidden');
+                    // 캔버스 크기 조정
+                    resizeCanvas();
+                } else {
+                    floatingNoteArea.classList.add('hidden');
+                }
+            } else {
+                floatingNoteArea.classList.add('hidden');
             }
         }
 
-
         // ----------------------------------------------------------------------
-        // Data Source Management Functions
+        // Data Source Management Functions (unchanged)
         // ----------------------------------------------------------------------
 
-        // CSV 파일 목록을 GitHub API에서 로드하여 드롭다운에 채웁니다.
         async function loadCsvFileOptions() {
             csvSelect.innerHTML = '<option value="" disabled>-- CSV 파일을 선택하세요 --</option>';
             csvSelect.querySelector('option[disabled]').textContent = '파일 목록 로딩 중...';
@@ -350,7 +451,6 @@
                 }
                 const files = await response.json();
                 
-                // .csv 파일만 필터링합니다.
                 const csvFiles = files
                     .filter(file => file.name.endsWith('.csv') && file.type === 'file')
                     .map(file => file.name);
@@ -372,7 +472,7 @@
                     csvSelect.appendChild(option);
                 }
                 
-                csvSelect.selectedIndex = 0; // 초기 선택 상태
+                csvSelect.selectedIndex = 0;
                 updateStartButtonState(false);
             } catch (error) {
                 console.error("CSV 목록 로드 오류:", error);
@@ -384,7 +484,7 @@
         }
 
         // ----------------------------------------------------------------------
-        // Data Loading & Parsing Functions 
+        // Data Loading & Parsing Functions (unchanged)
         // ----------------------------------------------------------------------
 
         function parseCSVText(text) {
@@ -398,7 +498,6 @@
                 const line = lines[i].trim();
                 if (!line) continue;
                 
-                // 이중 인용부호와 쉼표를 고려한 파싱 (선택된 CSV 파일 형식에 맞춤)
                 const parts = [];
                 let current = '';
                 let inQuotes = false;
@@ -417,7 +516,6 @@
 
                 if (parts.length >= 4) {
                     data.push({
-                        // parts의 앞뒤 이중 인용부호 제거
                         hiragana: parts[0].replace(/^"|"$/g, ''), 
                         koreanPronunciation: parts[1].replace(/^"|"$/g, ''),
                         kanji: parts[2].replace(/^"|"$/g, ''), 
@@ -463,10 +561,11 @@
         }
         
         // ----------------------------------------------------------------------
-        // Quiz Core Logic (Existing)
+        // Quiz Core Logic (unchanged)
         // ----------------------------------------------------------------------
-
+        
         function createQuiz(data) {
+            // ... (Quiz creation logic is long and unchanged, skipping for brevity) ...
             if (data.length < 4) return [];
             
             const questions = [];
@@ -556,7 +655,9 @@
             
             return questions;
         }
-        
+
+        // ... (displayQuestion, handleAnswer, createDetailHtml, nextQuestion, showResults remain unchanged) ...
+
         function displayQuestion(question) {
             const currentNumber = currentQuestionIndex + 1;
             quizProgressElement.textContent = `문제 ${currentNumber} / ${QUIZ_COUNT}`;
@@ -600,7 +701,6 @@
                 }
             }
             
-            // 모든 보기에 해당 단어의 상세 정보 추가 및 스타일 적용
             document.querySelectorAll('#options-container button').forEach(btn => {
                 const optionIndex = parseInt(btn.dataset.optionIndex);
                 const optionData = currentQuestion.options[optionIndex]; 
@@ -674,40 +774,27 @@
         }
 
         // ----------------------------------------------------------------------
-        // Study Mode Logic (Modified)
+        // Study Mode Logic (unchanged)
         // ----------------------------------------------------------------------
         
-        /**
-         * 데이터 셀을 클릭하면 해당 셀 하나만 가리기/확인 상태를 토글합니다.
-         * 행 전체 토글 기능은 제거되었습니다.
-         * @param {Event} event 
-         */
-        function handleCellClick(event) { // Renamed from handleRowClick
+        function handleCellClick(event) {
             const clickedCell = event.currentTarget;
             
-            if (clickedCell.dataset.rowIndex === undefined) return; // 데이터 셀이 아닌 경우 처리 방지
+            if (clickedCell.dataset.rowIndex === undefined) return;
             
-            // 클릭된 셀의 'covered' 클래스만 토글합니다.
             clickedCell.classList.toggle('covered');
 
             updateToggleAllButtonText(); 
         }
 
-        /**
-         * 헤더 셀을 클릭하면 해당 열(Column) 전체의 가리기 상태를 토글합니다.
-         * @param {Event} event 
-         */
         function handleColumnClick(event) {
             const clickedHeader = event.currentTarget;
             const colKey = clickedHeader.dataset.colKey;
 
-            // 인덱스 열은 토글하지 않습니다.
             if (colKey === 'index' || !colKey) return; 
 
-            // 이 열에 속하는 모든 데이터 셀을 찾습니다. (헤더 셀 제외)
             const colCells = studyGridContainer.querySelectorAll(`.study-cell[data-col-key="${colKey}"][data-row-index]`);
 
-            // 현재 상태 확인: 열의 셀 중 하나라도 안 가려져 있으면 -> 모두 가리기 (true)
             const shouldCover = Array.from(colCells).some(cell => !cell.classList.contains('covered'));
 
             colCells.forEach(cell => {
@@ -717,28 +804,24 @@
                     cell.classList.remove('covered');
                 }
             });
-            updateToggleAllButtonText(); // '모두 가리기/확인' 버튼 텍스트 업데이트
+            updateToggleAllButtonText();
         }
 
-
-        // 전체 셀의 'covered' 상태를 토글하고 버튼 텍스트를 업데이트합니다. (전체 토글 버튼 기능)
         function toggleAllCells() {
             const cells = studyGridContainer.querySelectorAll(dataCellsSelector);
-            // 현재 상태 확인: 하나라도 안 가려져 있으면 -> 모두 가리기 (true)
             const shouldCoverAll = Array.from(cells).some(cell => !cell.classList.contains('covered'));
             
             cells.forEach(cell => {
                 if (shouldCoverAll) {
-                    cell.classList.add('covered'); // 모두 가리기
+                    cell.classList.add('covered');
                 } else {
-                    cell.classList.remove('covered'); // 모두 확인 (열기)
+                    cell.classList.remove('covered');
                 }
             });
             
-            updateToggleAllButtonText(!shouldCoverAll); // shouldCoverAll의 반대 상태를 반영
+            updateToggleAllButtonText(!shouldCoverAll);
         }
 
-        // '모두 가리기/모두 확인' 버튼의 텍스트를 업데이트합니다.
         function updateToggleAllButtonText(isCurrentlyAllCovered = null) {
             if (!toggleAllButton) return;
             
@@ -748,7 +831,6 @@
                 return;
             }
             
-            // 모든 셀이 가려져 있는지 확인
             const allCovered = isCurrentlyAllCovered !== null ? isCurrentlyAllCovered : 
                                  Array.from(cells).every(cell => cell.classList.contains('covered'));
 
@@ -759,9 +841,9 @@
             }
         }
 
-
         function renderStudyGrid(data) {
-            studyGridContainer.innerHTML = ''; // 기존 내용 초기화
+             // ... (Study grid rendering logic remains unchanged) ...
+             studyGridContainer.innerHTML = '';
             
             const grid = document.createElement('div');
             grid.className = 'study-grid';
@@ -779,10 +861,9 @@
                 const headerCell = document.createElement('div');
                 headerCell.className = 'study-cell header-cell';
                 headerCell.textContent = header.label;
-                headerCell.dataset.colKey = header.key; // 열 키 추가
+                headerCell.dataset.colKey = header.key;
                 
                 if (header.key !== 'index') {
-                    // 헤더 클릭 시 열 전체 토글 기능 추가
                     headerCell.onclick = handleColumnClick; 
                 } else {
                     headerCell.style.cursor = 'default';
@@ -793,22 +874,19 @@
 
             // 2. 데이터 행 생성
             data.forEach((word, rowIndex) => { 
-                // 인덱스 셀
                 const indexCell = document.createElement('div');
                 indexCell.className = 'study-cell index-cell';
                 indexCell.textContent = rowIndex + 1;
                 grid.appendChild(indexCell);
 
-                headers.slice(1).forEach(header => { // 첫 번째 헤더(Index) 제외
+                headers.slice(1).forEach(header => {
                     const cell = document.createElement('div');
-                    // 기본값은 모두 열린 상태이므로 'covered' 클래스 없이 시작합니다.
                     cell.className = 'study-cell'; 
                     
-                    // 데이터 셀 클릭 시 개별 셀 토글 기능 적용 (기존 행 전체 토글 제거)
                     cell.onclick = handleCellClick; 
                     
-                    cell.dataset.rowIndex = rowIndex; // 행 인덱스 추가
-                    cell.dataset.colKey = header.key; // 열 키 추가
+                    cell.dataset.rowIndex = rowIndex;
+                    cell.dataset.colKey = header.key;
                     
                     let content;
                     if (header.key === 'hiragana') {
@@ -825,11 +903,189 @@
             });
 
             studyGridContainer.appendChild(grid);
-            updateToggleAllButtonText(false); // 초기 상태: 모두 열림 -> 버튼 텍스트 '모두 가리기'
+            updateToggleAllButtonText(false);
         }
         
         // ----------------------------------------------------------------------
-        // Common Loading & Start Functions
+        // Floating Drawing Area Logic (New)
+        // ----------------------------------------------------------------------
+
+        function resizeCanvas() {
+            if (drawingCanvas) {
+                 // 캔버스의 실제 해상도를 DOM 요소 크기에 맞춤
+                const rect = drawingCanvas.getBoundingClientRect();
+                drawingCanvas.width = rect.width;
+                drawingCanvas.height = rect.height;
+                
+                // 크기 조정 후 드로잉 스타일 재설정
+                if (ctx) {
+                    ctx.strokeStyle = '#1f2937'; // 짙은 회색
+                    ctx.lineWidth = 3;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                }
+            }
+        }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+
+            // 마우스 또는 터치 좌표 가져오기
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+            if (clientX === undefined || clientY === undefined) return;
+
+            // 캔버스 내에서의 상대 좌표 계산
+            const rect = drawingCanvas.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            [lastX, lastY] = [x, y];
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+             // 마우스 또는 터치 좌표 가져오기
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+            if (clientX === undefined || clientY === undefined) return;
+
+            const rect = drawingCanvas.getBoundingClientRect();
+            [lastX, lastY] = [clientX - rect.left, clientY - rect.top];
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+             // 사용자에게 피드백 제공
+            noteHeader.style.backgroundColor = '#d9f99d'; 
+            setTimeout(() => {
+                noteHeader.style.backgroundColor = '#fcd34d'; 
+            }, 500);
+        }
+
+        function setupFloatingNoteArea() {
+            // 캔버스 초기화
+            ctx = drawingCanvas.getContext('2d');
+            resizeCanvas(); 
+            
+            // 드로잉 이벤트 리스너
+            drawingCanvas.addEventListener('mousedown', startDrawing);
+            drawingCanvas.addEventListener('mousemove', draw);
+            drawingCanvas.addEventListener('mouseup', stopDrawing);
+            drawingCanvas.addEventListener('mouseout', stopDrawing); 
+
+            // 터치 이벤트 리스너 (모바일 지원)
+            drawingCanvas.addEventListener('touchstart', startDrawing);
+            drawingCanvas.addEventListener('touchmove', draw);
+            drawingCanvas.addEventListener('touchend', stopDrawing);
+
+            // '비우기' 버튼 기능
+            noteClearButton.addEventListener('click', clearCanvas);
+            
+            // ------------------ 드래그 기능 (이전 코드 재사용) ------------------
+            let isDragging = false;
+            let currentX;
+            let currentY;
+            let initialX;
+            let initialY;
+            let xOffset = 0;
+            let yOffset = 0;
+
+            // 저장된 위치 로드
+            const savedPosition = localStorage.getItem('japaneseNotePosition');
+            if (savedPosition) {
+                try {
+                    const { x, y } = JSON.parse(savedPosition);
+                    floatingNoteArea.style.left = `${x}px`;
+                    floatingNoteArea.style.top = `${y}px`;
+                    xOffset = x;
+                    yOffset = y;
+                } catch (e) {
+                    // JSON 파싱 오류 시 기본 위치 사용
+                }
+            }
+
+            function dragStart(e) {
+                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+                if (clientX === undefined || clientY === undefined) return;
+
+                initialX = clientX - xOffset;
+                initialY = clientY - yOffset;
+
+                // 헤더를 클릭했을 때만 드래그 시작
+                if (e.target === noteHeader || e.target.parentElement === noteHeader) {
+                    isDragging = true;
+                    noteHeader.style.cursor = 'grabbing';
+                }
+            }
+
+            function dragEnd() {
+                isDragging = false;
+                noteHeader.style.cursor = 'grab';
+                
+                // 최종 위치 저장
+                const finalX = floatingNoteArea.offsetLeft;
+                const finalY = floatingNoteArea.offsetTop;
+                localStorage.setItem('japaneseNotePosition', JSON.stringify({ x: finalX, y: finalY }));
+            }
+
+            function drag(e) {
+                if (isDragging) {
+                    e.preventDefault();
+                    
+                    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+                    if (clientX === undefined || clientY === undefined) return;
+
+                    currentX = clientX - initialX;
+                    currentY = clientY - initialY;
+
+                    xOffset = currentX;
+                    yOffset = currentY;
+
+                    const minX = 0;
+                    const minY = 0;
+                    const maxX = window.innerWidth - floatingNoteArea.offsetWidth;
+                    const maxY = window.innerHeight - floatingNoteArea.offsetHeight;
+
+                    const newX = Math.min(Math.max(currentX, minX), maxX);
+                    const newY = Math.min(Math.max(currentY, minY), maxY);
+
+                    floatingNoteArea.style.left = newX + "px";
+                    floatingNoteArea.style.top = newY + "px";
+                }
+            }
+            
+            noteHeader.addEventListener("mousedown", dragStart);
+            noteHeader.addEventListener("touchstart", dragStart); 
+            
+            document.addEventListener("mouseup", dragEnd);
+            document.addEventListener("touchend", dragEnd);
+            
+            document.addEventListener("mousemove", drag);
+            document.addEventListener("touchmove", drag);
+            // ---------------------------------------------------------------
+            
+            // 창 크기 변경 시 캔버스 해상도도 변경되도록 리스너 추가
+            window.addEventListener('resize', resizeCanvas);
+        }
+
+        // ----------------------------------------------------------------------
+        // Common Loading & Start Functions (unchanged)
         // ----------------------------------------------------------------------
 
         async function prepareDataAndSwitch(mode) {
@@ -868,7 +1124,6 @@
 
             } catch (error) {
                 showSection(fileUploadSection); 
-                // loadVocabularyFromURL에서 이미 에러 메시지를 표시했으므로 추가 메시지는 생략합니다.
             }
         }
 
@@ -902,10 +1157,8 @@
             restartButton.addEventListener('click', goBackToMenu);
             backToMenuButton.addEventListener('click', goBackToMenu); 
             
-            // 전체 토글 버튼 리스너
             toggleAllButton.addEventListener('click', toggleAllCells);
             
-            // 드롭다운 선택 및 URL 직접 입력 시 로직은 유지
             csvSelect.addEventListener('change', () => {
                 if (csvSelect.value) {
                     csvUrlInput.value = ''; 
@@ -923,6 +1176,9 @@
                 urlStatusMessage.classList.remove('text-red-500');
                 updateStartButtonState(false);
             });
+            
+            // 필기 영역 관련 이벤트 리스너 설정
+            setupFloatingNoteArea(); 
         }
 
         // 초기화 함수
@@ -932,6 +1188,9 @@
             csvUrlInput.value = ''; 
             urlStatusMessage.textContent = 'CSV 파일을 로딩 중입니다. 잠시만 기다려주세요.';
             updateStartButtonState(true); 
+            
+            // 페이지 로드 시에는 메뉴 화면으로 시작
+            showSection(fileUploadSection);
         };
 
     </script>
