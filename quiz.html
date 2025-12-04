@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>일본어 단어 퀴즈</title>
+    <title>일본어 단어 퀴즈 및 학습</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;500;700&display=swap');
@@ -12,7 +12,7 @@
             background-color: #f3f4f6;
         }
         .container {
-            max-width: 700px;
+            max-width: 900px; /* 학습 모드를 위해 너비 확장 */
             margin: 0 auto;
             padding: 20px;
         }
@@ -22,6 +22,7 @@
             border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
         }
+        /* Quiz Button Styles */
         .option-button {
             transition: all 0.2s;
             border: 2px solid #e5e7eb;
@@ -64,6 +65,77 @@
         .incorrect .word-detail {
             border-top-color: #fca5a5; 
         }
+        
+        /* Study Mode Grid Styles */
+        #study-grid-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+        .study-grid {
+            display: grid;
+            /* 1(Header) + 4(Data Columns) */
+            grid-template-columns: 50px minmax(120px, 1fr) minmax(120px, 1fr) minmax(120px, 1fr) minmax(120px, 1.5fr);
+            border-left: 1px solid #e5e7eb;
+            border-top: 1px solid #e5e7eb;
+            min-width: 600px;
+        }
+        .study-cell {
+            padding: 10px;
+            border-right: 1px solid #e5e7eb;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 14px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.1s;
+            position: relative;
+        }
+        .study-cell:hover:not(.header-cell):not(.index-cell) {
+            background-color: #f9fafb;
+        }
+        .header-cell {
+            font-weight: 700;
+            background-color: #f3f4f6;
+            color: #4b5563;
+            cursor: default;
+        }
+        .index-cell {
+            background-color: #eef2ff;
+            font-weight: 500;
+            color: #4f46e5;
+            cursor: default;
+        }
+        /* Content Hiding Effect */
+        .study-cell .content {
+            transition: opacity 0.3s;
+            width: 100%;
+        }
+        .study-cell.covered .content {
+            opacity: 0;
+            user-select: none;
+        }
+        .study-cell.covered:after {
+            content: '클릭하여 확인';
+            position: absolute;
+            color: #9ca3af;
+            font-size: 12px;
+            font-weight: 500;
+            opacity: 1;
+            transition: opacity 0.3s;
+        }
+        /* Special style for the Japanese word itself */
+        .word-hiragana {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        .word-meaning {
+            font-size: 14px;
+            color: #374151;
+        }
     </style>
 </head>
 <body class="p-4">
@@ -71,7 +143,7 @@
     <div class="container">
         <!-- Header -->
         <header class="header-bg p-6 mb-6 rounded-xl shadow-lg">
-            <h1 class="text-3xl font-bold text-center">일본어 단어 퀴즈</h1>
+            <h1 class="text-3xl font-bold text-center">일본어 단어 퀴즈 및 학습</h1>
         </header>
 
         <!-- Main Content Area -->
@@ -97,14 +169,42 @@
                 </div>
                 
                 <!-- Main Start Button -->
-                <div class="mt-6 pt-4 border-t text-center">
+                <div class="mt-6 pt-4 border-t flex justify-center space-x-4">
+                    <button id="start-study-button" class="px-8 py-3 bg-indigo-500 text-white font-bold rounded-full hover:bg-indigo-600 transition duration-150 disabled:opacity-50">
+                        학습하기 (단어 암기)
+                    </button>
                     <button id="start-quiz-button" class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-700 transition duration-150 disabled:opacity-50">
                         퀴즈 시작 (총 20문제)
                     </button>
                 </div>
             </div>
 
-            <!-- Quiz & Results Section (Previous code remains the same) -->
+            <!-- Study Section (New) -->
+            <div id="study-section" class="hidden">
+                <div class="card space-y-4">
+                    <h2 class="text-2xl font-bold text-gray-700 text-center">단어 학습 모드</h2>
+                    
+                    <!-- NEW: Toggle All Controls -->
+                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg border">
+                        <p class="text-sm text-gray-600">클릭하여 개별 셀을 가리거나 확인하세요.</p>
+                        <button id="toggle-all-button" class="px-4 py-2 text-sm bg-blue-500 text-white font-semibold rounded-full hover:bg-blue-600 transition duration-150 shadow-md">
+                            모두 가리기
+                        </button>
+                    </div>
+
+                    <div id="study-grid-container" class="rounded-lg border overflow-hidden shadow-inner bg-white">
+                        <!-- Grid will be injected here -->
+                    </div>
+                    
+                    <div class="text-center pt-4 border-t">
+                        <button id="back-to-menu-button" class="px-6 py-2 bg-gray-500 text-white font-semibold rounded-full hover:bg-gray-600 transition duration-150">
+                            처음으로 돌아가기
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quiz & Results Section (Existing) -->
             <div id="quiz-section" class="hidden">
                 <div class="card space-y-6">
                     <div>
@@ -128,7 +228,7 @@
                 </div>
             </div>
 
-            <!-- Results Section (Previous code remains the same) -->
+            <!-- Results Section (Existing) -->
             <div id="results-section" class="hidden card space-y-6">
                 <h2 class="text-2xl font-bold text-center text-gray-700">퀴즈 완료!</h2>
                 <div class="text-center space-y-2">
@@ -151,7 +251,7 @@
                 </div>
             </div>
 
-            <!-- Error Message Box (Previous code remains the same) -->
+            <!-- Error Message Box (Existing) -->
             <div id="error-box" class="hidden card bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
                 <p class="font-bold">오류 발생</p>
                 <p id="error-message"></p>
@@ -174,13 +274,18 @@
         // DOM Elements
         const fileUploadSection = document.getElementById('file-upload-section');
         const quizSection = document.getElementById('quiz-section');
+        const studySection = document.getElementById('study-section'); 
         const resultsSection = document.getElementById('results-section');
         const csvUrlInput = document.getElementById('csv-url-input');
         const csvSelect = document.getElementById('csv-select'); 
         const nextButton = document.getElementById('next-button');
         const restartButton = document.getElementById('restart-button');
         const startQuizButton = document.getElementById('start-quiz-button');
+        const startStudyButton = document.getElementById('start-study-button'); 
+        const backToMenuButton = document.getElementById('back-to-menu-button'); 
         const urlStatusMessage = document.getElementById('url-status-message');
+        const studyGridContainer = document.getElementById('study-grid-container'); 
+        const toggleAllButton = document.getElementById('toggle-all-button'); // NEW DOM Element
         
         // Quiz/Result Elements
         const questionTextElement = document.getElementById('question-text');
@@ -199,17 +304,28 @@
 
         function updateStartButtonState(isDisabled, message = '퀴즈 시작 (총 20문제)') {
             startQuizButton.disabled = isDisabled;
+            startStudyButton.disabled = isDisabled;
             startQuizButton.textContent = message;
+            // 학습하기 버튼 텍스트는 퀴즈와 별도로 관리
+            if (isDisabled) {
+                 startStudyButton.textContent = '로딩 중...';
+            } else {
+                 startStudyButton.textContent = '학습하기 (단어 암기)';
+            }
         }
-
-        function displayError(message) {
-            errorMessage.textContent = message;
-            errorBox.classList.remove('hidden');
+        
+        // 새로운 섹션 전환 함수
+        function showSection(sectionToShow) {
             fileUploadSection.classList.add('hidden');
             quizSection.classList.add('hidden');
             resultsSection.classList.add('hidden');
-            updateStartButtonState(false); 
+            studySection.classList.add('hidden');
+            errorBox.classList.add('hidden');
+            if (sectionToShow) {
+                sectionToShow.classList.remove('hidden');
+            }
         }
+
 
         // ----------------------------------------------------------------------
         // Data Source Management Functions
@@ -328,7 +444,7 @@
                     throw new Error(`퀴즈를 시작하기 위한 최소 단어(4개)가 부족합니다. 현재: ${data.length}개`);
                 }
                 
-                urlStatusMessage.textContent = `단어 ${data.length}개 로드 완료. 퀴즈를 시작하세요.`;
+                urlStatusMessage.textContent = `단어 ${data.length}개 로드 완료. 학습 또는 퀴즈를 시작하세요.`;
                 updateStartButtonState(false);
                 return data;
 
@@ -341,7 +457,7 @@
         }
         
         // ----------------------------------------------------------------------
-        // Quiz Core Logic 
+        // Quiz Core Logic (Existing)
         // ----------------------------------------------------------------------
 
         function createQuiz(data) {
@@ -434,7 +550,7 @@
             
             return questions;
         }
-
+        
         function displayQuestion(question) {
             const currentNumber = currentQuestionIndex + 1;
             quizProgressElement.textContent = `문제 ${currentNumber} / ${QUIZ_COUNT}`;
@@ -529,11 +645,7 @@
         }
 
         function showResults() {
-            fileUploadSection.classList.add('hidden');
-            quizSection.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-            errorBox.classList.add('hidden');
-            updateStartButtonState(false); 
+            showSection(resultsSection);
 
             const score = QUIZ_COUNT - incorrectAnswers.length;
             finalScoreElement.textContent = `${score} / ${QUIZ_COUNT} (정답률: ${Math.round((score / QUIZ_COUNT) * 100)}%)`;
@@ -555,87 +667,204 @@
             }
         }
 
-        async function startQuiz() {
-            // 1. 선택된 드롭다운 값 또는 직접 입력된 URL을 사용합니다.
+        // ----------------------------------------------------------------------
+        // Study Mode Logic (New)
+        // ----------------------------------------------------------------------
+
+        function handleCellClick(event) {
+            const cell = event.currentTarget;
+            if (cell.classList.contains('header-cell') || cell.classList.contains('index-cell')) {
+                return; // 헤더 또는 인덱스 셀은 클릭 무시
+            }
+            cell.classList.toggle('covered');
+            // 개별 셀 클릭 후 '모두 가리기' 버튼 텍스트 업데이트
+            updateToggleAllButtonText();
+        }
+
+        // NEW: 전체 셀의 'covered' 상태를 토글하고 버튼 텍스트를 업데이트합니다.
+        function toggleAllCells() {
+            const cells = studyGridContainer.querySelectorAll('.study-cell:not(.header-cell):not(.index-cell)');
+            // 현재 상태 확인: 하나라도 안 가려져 있으면 -> 모두 가리기 (true)
+            const shouldCoverAll = Array.from(cells).some(cell => !cell.classList.contains('covered'));
+            
+            cells.forEach(cell => {
+                if (shouldCoverAll) {
+                    cell.classList.add('covered'); // 모두 가리기
+                } else {
+                    cell.classList.remove('covered'); // 모두 확인 (열기)
+                }
+            });
+            
+            updateToggleAllButtonText(!shouldCoverAll); // shouldCoverAll의 반대 상태를 반영
+        }
+
+        // NEW: '모두 가리기/모두 확인' 버튼의 텍스트를 업데이트합니다.
+        function updateToggleAllButtonText(isCurrentlyAllCovered = null) {
+            if (!toggleAllButton) return;
+            
+            const cells = studyGridContainer.querySelectorAll('.study-cell:not(.header-cell):not(.index-cell)');
+            if (cells.length === 0) {
+                toggleAllButton.textContent = '데이터 없음';
+                return;
+            }
+            
+            const allCovered = isCurrentlyAllCovered !== null ? isCurrentlyAllCovered : 
+                                 Array.from(cells).every(cell => cell.classList.contains('covered'));
+
+            if (allCovered) {
+                toggleAllButton.textContent = '모두 확인';
+            } else {
+                toggleAllButton.textContent = '모두 가리기';
+            }
+        }
+
+
+        function renderStudyGrid(data) {
+            studyGridContainer.innerHTML = ''; // 기존 내용 초기화
+            
+            const grid = document.createElement('div');
+            grid.className = 'study-grid';
+            
+            const headers = [
+                { key: 'index', label: '#' },
+                { key: 'hiragana', label: '단어 (히라가나)' },
+                { key: 'koreanPronunciation', label: '한글 발음' },
+                { key: 'kanji', label: '한자 표기' },
+                { key: 'koreanMeaning', label: '뜻 (한국어)' }
+            ];
+
+            // 1. 헤더 행 생성
+            headers.forEach(header => {
+                const headerCell = document.createElement('div');
+                headerCell.className = 'study-cell header-cell';
+                headerCell.textContent = header.label;
+                grid.appendChild(headerCell);
+            });
+
+            // 2. 데이터 행 생성
+            data.forEach((word, index) => {
+                // 인덱스 셀
+                const indexCell = document.createElement('div');
+                indexCell.className = 'study-cell index-cell';
+                indexCell.textContent = index + 1;
+                grid.appendChild(indexCell);
+
+                headers.slice(1).forEach(header => { // 첫 번째 헤더(Index) 제외
+                    const cell = document.createElement('div');
+                    // 요청에 따라 'covered' 클래스 없이 시작하여 모두 열린 상태를 기본값으로 설정
+                    cell.className = 'study-cell'; 
+                    cell.onclick = handleCellClick;
+                    
+                    let content;
+                    if (header.key === 'hiragana') {
+                        content = `<span class="content word-hiragana">${word[header.key]}</span>`;
+                    } else if (header.key === 'koreanMeaning') {
+                        content = `<span class="content word-meaning">${word[header.key]}</span>`;
+                    } else {
+                        content = `<span class="content">${word[header.key]}</span>`;
+                    }
+
+                    cell.innerHTML = content;
+                    grid.appendChild(cell);
+                });
+            });
+
+            studyGridContainer.appendChild(grid);
+            updateToggleAllButtonText(false); // 초기 상태: 모두 열림 -> 버튼 텍스트 '모두 가리기'
+        }
+        
+        // ----------------------------------------------------------------------
+        // Common Loading & Start Functions
+        // ----------------------------------------------------------------------
+
+        async function prepareDataAndSwitch(mode) {
             let url = csvSelect.value || csvUrlInput.value.trim();
 
-            // 유효성 검사
             if (!url) {
                 urlStatusMessage.textContent = 'CSV 파일을 선택하거나 URL을 직접 입력해 주세요.';
                 urlStatusMessage.classList.add('text-red-500');
                 return;
             }
-            
-            // URL이 'loading' 상태일 경우 방지
             if (url === 'loading') return;
 
-            updateStartButtonState(true, '데이터 로딩 및 문제 생성 중...');
+            updateStartButtonState(true, '데이터 로딩 및 준비 중...');
             errorBox.classList.add('hidden');
 
             try {
                 vocabulary = await loadVocabularyFromURL(url);
-                
-                incorrectAnswers = [];
-                currentQuestionIndex = 0;
-                quizQuestions = createQuiz(vocabulary); 
-                
-                if (quizQuestions.length === 0) {
-                    throw new Error("퀴즈 생성을 위한 문제가 충분하지 않습니다. (최소 4개 단어 필요)");
-                }
 
-                fileUploadSection.classList.add('hidden');
-                resultsSection.classList.add('hidden');
-                quizSection.classList.remove('hidden');
+                if (mode === 'quiz') {
+                    incorrectAnswers = [];
+                    currentQuestionIndex = 0;
+                    quizQuestions = createQuiz(vocabulary); 
+                    
+                    if (quizQuestions.length === 0) {
+                        throw new Error("퀴즈 생성을 위한 문제가 충분하지 않습니다. (최소 4개 단어 필요)");
+                    }
+                    showSection(quizSection);
+                    displayQuestion(quizQuestions[currentQuestionIndex]);
+                    
+                } else if (mode === 'study') {
+                    renderStudyGrid(vocabulary);
+                    showSection(studySection);
+                }
                 
-                displayQuestion(quizQuestions[currentQuestionIndex]);
+                updateStartButtonState(false); 
 
             } catch (error) {
-                updateStartButtonState(false, '퀴즈 시작'); 
-                if (fileUploadSection.classList.contains('hidden')) {
-                    fileUploadSection.classList.remove('hidden');
-                }
+                showSection(fileUploadSection); 
+                // loadVocabularyFromURL에서 이미 에러 메시지를 표시했으므로 추가 메시지는 생략합니다.
             }
         }
+
+        async function startQuiz() {
+            await prepareDataAndSwitch('quiz');
+        }
+
+        async function startStudy() {
+            await prepareDataAndSwitch('study');
+        }
         
+        function goBackToMenu() {
+            showSection(fileUploadSection);
+            if (vocabulary.length > 0) {
+                 urlStatusMessage.textContent = `현재 ${vocabulary.length}개의 단어가 로드되어 있습니다.`;
+            } else {
+                 urlStatusMessage.textContent = 'CSV 파일을 선택하거나 URL을 직접 입력해 퀴즈/학습을 시작하세요.';
+            }
+            urlStatusMessage.classList.remove('text-red-500');
+            updateStartButtonState(false);
+        }
+
         // ----------------------------------------------------------------------
         // Initialization & Event Listeners
         // ----------------------------------------------------------------------
 
         function setupEventListeners() {
             startQuizButton.addEventListener('click', startQuiz);
+            startStudyButton.addEventListener('click', startStudy); 
             nextButton.addEventListener('click', nextQuestion);
+            restartButton.addEventListener('click', goBackToMenu);
+            backToMenuButton.addEventListener('click', goBackToMenu); 
             
-            restartButton.addEventListener('click', () => {
-                fileUploadSection.classList.remove('hidden');
-                quizSection.classList.add('hidden');
-                resultsSection.classList.add('hidden');
-                errorBox.classList.add('hidden');
-                
-                if (vocabulary.length > 0) {
-                    urlStatusMessage.textContent = `현재 ${vocabulary.length}개의 단어가 로드되어 있습니다.`;
-                } else {
-                    urlStatusMessage.textContent = 'CSV 파일을 선택하거나 URL을 직접 입력해 퀴즈를 시작하세요.';
-                }
-                urlStatusMessage.classList.remove('text-red-500');
-                updateStartButtonState(false);
-            });
+            // NEW: Toggle All Button Listener
+            toggleAllButton.addEventListener('click', toggleAllCells);
             
-            // 드롭다운 선택 시 URL 입력 필드 초기화
+            // 드롭다운 선택 및 URL 직접 입력 시 로직은 유지
             csvSelect.addEventListener('change', () => {
                 if (csvSelect.value) {
-                    csvUrlInput.value = ''; // 드롭다운을 선택하면 직접 입력 필드를 비웁니다.
+                    csvUrlInput.value = ''; 
                 }
-                urlStatusMessage.textContent = '선택된 파일 또는 입력된 URL로 퀴즈를 시작하세요.';
+                urlStatusMessage.textContent = '선택된 파일 또는 입력된 URL로 학습/퀴즈를 시작하세요.';
                 urlStatusMessage.classList.remove('text-red-500');
                 updateStartButtonState(false);
             });
             
-            // URL 직접 입력 시 드롭다운 초기화 (선택을 해제)
             csvUrlInput.addEventListener('input', () => {
                 if (csvUrlInput.value.trim()) {
-                     csvSelect.selectedIndex = 0; // 드롭다운을 첫 번째 옵션으로 돌립니다.
+                     csvSelect.selectedIndex = 0; 
                 }
-                urlStatusMessage.textContent = '직접 입력된 URL로 퀴즈를 시작합니다.';
+                urlStatusMessage.textContent = '직접 입력된 URL로 학습/퀴즈를 시작합니다.';
                 urlStatusMessage.classList.remove('text-red-500');
                 updateStartButtonState(false);
             });
@@ -644,11 +873,10 @@
         // 초기화 함수
         window.onload = function() {
             setupEventListeners();
-            loadCsvFileOptions(); // CSV 파일 목록 로드 시작
-            // 초기 URL 입력 필드는 비어 있어야 합니다.
+            loadCsvFileOptions(); 
             csvUrlInput.value = ''; 
             urlStatusMessage.textContent = 'CSV 파일을 로딩 중입니다. 잠시만 기다려주세요.';
-            updateStartButtonState(true); // 로딩 중에는 버튼 비활성화
+            updateStartButtonState(true); 
         };
 
     </script>
