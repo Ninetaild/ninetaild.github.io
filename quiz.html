@@ -95,7 +95,7 @@
         }
         /* 마우스 오버 시 스타일 (헤더/인덱스 제외) */
         .study-cell:hover:not(.header-cell):not(.index-cell) {
-            background-color: #eef2ff; /* 행 클릭 영역 표시 */
+            background-color: #eef2ff; /* 개별 셀 클릭 영역 표시 */
         }
         .header-cell {
             font-weight: 700;
@@ -190,7 +190,8 @@
                     
                     <!-- NEW: Toggle All Controls -->
                     <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg border">
-                        <p class="text-sm text-gray-600">데이터 셀을 클릭하면 해당 **행**이, 헤더를 클릭하면 해당 **열**이 토글됩니다.</p>
+                        <!-- 안내 메시지 수정: 행 전체 토글 기능 제거 -->
+                        <p class="text-sm text-gray-600">데이터 셀을 클릭하면 **해당 셀**만, 헤더를 클릭하면 해당 **열**이 토글됩니다.</p>
                         <button id="toggle-all-button" class="px-4 py-2 text-sm bg-blue-500 text-white font-semibold rounded-full hover:bg-blue-600 transition duration-150 shadow-md">
                             모두 가리기
                         </button>
@@ -673,33 +674,23 @@
         }
 
         // ----------------------------------------------------------------------
-        // Study Mode Logic (New/Modified)
+        // Study Mode Logic (Modified)
         // ----------------------------------------------------------------------
         
         /**
-         * 데이터 셀을 클릭하면 해당 행(Row) 전체의 가리기 상태를 토글합니다.
+         * 데이터 셀을 클릭하면 해당 셀 하나만 가리기/확인 상태를 토글합니다.
+         * 행 전체 토글 기능은 제거되었습니다.
          * @param {Event} event 
          */
-        function handleRowClick(event) {
+        function handleCellClick(event) { // Renamed from handleRowClick
             const clickedCell = event.currentTarget;
-            const rowIndex = clickedCell.dataset.rowIndex;
             
-            if (rowIndex === undefined) return; // 데이터 셀이 아닌 경우 처리 방지
+            if (clickedCell.dataset.rowIndex === undefined) return; // 데이터 셀이 아닌 경우 처리 방지
             
-            // 이 행에 속하는 모든 데이터 셀을 찾습니다.
-            const rowCells = studyGridContainer.querySelectorAll(`.study-cell[data-row-index="${rowIndex}"]`);
-            
-            // 현재 상태 확인: 행의 셀 중 하나라도 안 가려져 있으면 -> 모두 가리기 (true)
-            const shouldCover = Array.from(rowCells).some(cell => !cell.classList.contains('covered'));
+            // 클릭된 셀의 'covered' 클래스만 토글합니다.
+            clickedCell.classList.toggle('covered');
 
-            rowCells.forEach(cell => {
-                if (shouldCover) {
-                    cell.classList.add('covered');
-                } else {
-                    cell.classList.remove('covered');
-                }
-            });
-            updateToggleAllButtonText(); // '모두 가리기/확인' 버튼 텍스트 업데이트
+            updateToggleAllButtonText(); 
         }
 
         /**
@@ -813,8 +804,8 @@
                     // 기본값은 모두 열린 상태이므로 'covered' 클래스 없이 시작합니다.
                     cell.className = 'study-cell'; 
                     
-                    // 데이터 셀 클릭 시 행 전체 토글 기능 추가
-                    cell.onclick = handleRowClick; 
+                    // 데이터 셀 클릭 시 개별 셀 토글 기능 적용 (기존 행 전체 토글 제거)
+                    cell.onclick = handleCellClick; 
                     
                     cell.dataset.rowIndex = rowIndex; // 행 인덱스 추가
                     cell.dataset.colKey = header.key; // 열 키 추가
