@@ -89,18 +89,22 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            cursor: pointer;
+            cursor: pointer; /* 모든 셀에 커서 포인터 적용 */
             transition: background-color 0.1s;
             position: relative;
         }
+        /* 마우스 오버 시 스타일 (헤더/인덱스 제외) */
         .study-cell:hover:not(.header-cell):not(.index-cell) {
-            background-color: #f9fafb;
+            background-color: #eef2ff; /* 행 클릭 영역 표시 */
         }
         .header-cell {
             font-weight: 700;
             background-color: #f3f4f6;
             color: #4b5563;
-            cursor: default;
+            cursor: pointer; /* 헤더 셀 클릭 가능 표시 */
+        }
+        .header-cell:hover {
+            background-color: #e5e7eb;
         }
         .index-cell {
             background-color: #eef2ff;
@@ -118,7 +122,7 @@
             user-select: none;
         }
         .study-cell.covered:after {
-            content: '클릭하여 확인';
+            content: '확인하기';
             position: absolute;
             color: #9ca3af;
             font-size: 12px;
@@ -186,7 +190,7 @@
                     
                     <!-- NEW: Toggle All Controls -->
                     <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg border">
-                        <p class="text-sm text-gray-600">클릭하여 개별 셀을 가리거나 확인하세요.</p>
+                        <p class="text-sm text-gray-600">데이터 셀을 클릭하면 해당 **행**이, 헤더를 클릭하면 해당 **열**이 토글됩니다.</p>
                         <button id="toggle-all-button" class="px-4 py-2 text-sm bg-blue-500 text-white font-semibold rounded-full hover:bg-blue-600 transition duration-150 shadow-md">
                             모두 가리기
                         </button>
@@ -270,6 +274,7 @@
         const QUIZ_COUNT = 20;
         const BASE_FOLDER_URL = "https://api.github.com/repos/ninetaild/ninetaild.github.io/contents/src/";
         const RAW_CONTENT_BASE_URL = "https://raw.githubusercontent.com/ninetaild/ninetaild.github.io/main/src/";
+        const dataCellsSelector = '.study-cell[data-row-index]'; // 데이터 셀을 선택하기 위한 공통 셀렉터
 
         // DOM Elements
         const fileUploadSection = document.getElementById('file-upload-section');
@@ -285,7 +290,7 @@
         const backToMenuButton = document.getElementById('back-to-menu-button'); 
         const urlStatusMessage = document.getElementById('url-status-message');
         const studyGridContainer = document.getElementById('study-grid-container'); 
-        const toggleAllButton = document.getElementById('toggle-all-button'); // NEW DOM Element
+        const toggleAllButton = document.getElementById('toggle-all-button'); 
         
         // Quiz/Result Elements
         const questionTextElement = document.getElementById('question-text');
@@ -314,7 +319,7 @@
             }
         }
         
-        // 새로운 섹션 전환 함수
+        // 섹션 전환 함수
         function showSection(sectionToShow) {
             fileUploadSection.classList.add('hidden');
             quizSection.classList.add('hidden');
@@ -668,22 +673,66 @@
         }
 
         // ----------------------------------------------------------------------
-        // Study Mode Logic (New)
+        // Study Mode Logic (New/Modified)
         // ----------------------------------------------------------------------
+        
+        /**
+         * 데이터 셀을 클릭하면 해당 행(Row) 전체의 가리기 상태를 토글합니다.
+         * @param {Event} event 
+         */
+        function handleRowClick(event) {
+            const clickedCell = event.currentTarget;
+            const rowIndex = clickedCell.dataset.rowIndex;
+            
+            if (rowIndex === undefined) return; // 데이터 셀이 아닌 경우 처리 방지
+            
+            // 이 행에 속하는 모든 데이터 셀을 찾습니다.
+            const rowCells = studyGridContainer.querySelectorAll(`.study-cell[data-row-index="${rowIndex}"]`);
+            
+            // 현재 상태 확인: 행의 셀 중 하나라도 안 가려져 있으면 -> 모두 가리기 (true)
+            const shouldCover = Array.from(rowCells).some(cell => !cell.classList.contains('covered'));
 
-        function handleCellClick(event) {
-            const cell = event.currentTarget;
-            if (cell.classList.contains('header-cell') || cell.classList.contains('index-cell')) {
-                return; // 헤더 또는 인덱스 셀은 클릭 무시
-            }
-            cell.classList.toggle('covered');
-            // 개별 셀 클릭 후 '모두 가리기' 버튼 텍스트 업데이트
-            updateToggleAllButtonText();
+            rowCells.forEach(cell => {
+                if (shouldCover) {
+                    cell.classList.add('covered');
+                } else {
+                    cell.classList.remove('covered');
+                }
+            });
+            updateToggleAllButtonText(); // '모두 가리기/확인' 버튼 텍스트 업데이트
         }
 
-        // NEW: 전체 셀의 'covered' 상태를 토글하고 버튼 텍스트를 업데이트합니다.
+        /**
+         * 헤더 셀을 클릭하면 해당 열(Column) 전체의 가리기 상태를 토글합니다.
+         * @param {Event} event 
+         */
+        function handleColumnClick(event) {
+            const clickedHeader = event.currentTarget;
+            const colKey = clickedHeader.dataset.colKey;
+
+            // 인덱스 열은 토글하지 않습니다.
+            if (colKey === 'index' || !colKey) return; 
+
+            // 이 열에 속하는 모든 데이터 셀을 찾습니다. (헤더 셀 제외)
+            const colCells = studyGridContainer.querySelectorAll(`.study-cell[data-col-key="${colKey}"][data-row-index]`);
+
+            // 현재 상태 확인: 열의 셀 중 하나라도 안 가려져 있으면 -> 모두 가리기 (true)
+            const shouldCover = Array.from(colCells).some(cell => !cell.classList.contains('covered'));
+
+            colCells.forEach(cell => {
+                if (shouldCover) {
+                    cell.classList.add('covered');
+                } else {
+                    cell.classList.remove('covered');
+                }
+            });
+            updateToggleAllButtonText(); // '모두 가리기/확인' 버튼 텍스트 업데이트
+        }
+
+
+        // 전체 셀의 'covered' 상태를 토글하고 버튼 텍스트를 업데이트합니다. (전체 토글 버튼 기능)
         function toggleAllCells() {
-            const cells = studyGridContainer.querySelectorAll('.study-cell:not(.header-cell):not(.index-cell)');
+            const cells = studyGridContainer.querySelectorAll(dataCellsSelector);
             // 현재 상태 확인: 하나라도 안 가려져 있으면 -> 모두 가리기 (true)
             const shouldCoverAll = Array.from(cells).some(cell => !cell.classList.contains('covered'));
             
@@ -698,16 +747,17 @@
             updateToggleAllButtonText(!shouldCoverAll); // shouldCoverAll의 반대 상태를 반영
         }
 
-        // NEW: '모두 가리기/모두 확인' 버튼의 텍스트를 업데이트합니다.
+        // '모두 가리기/모두 확인' 버튼의 텍스트를 업데이트합니다.
         function updateToggleAllButtonText(isCurrentlyAllCovered = null) {
             if (!toggleAllButton) return;
             
-            const cells = studyGridContainer.querySelectorAll('.study-cell:not(.header-cell):not(.index-cell)');
+            const cells = studyGridContainer.querySelectorAll(dataCellsSelector);
             if (cells.length === 0) {
                 toggleAllButton.textContent = '데이터 없음';
                 return;
             }
             
+            // 모든 셀이 가려져 있는지 확인
             const allCovered = isCurrentlyAllCovered !== null ? isCurrentlyAllCovered : 
                                  Array.from(cells).every(cell => cell.classList.contains('covered'));
 
@@ -738,22 +788,36 @@
                 const headerCell = document.createElement('div');
                 headerCell.className = 'study-cell header-cell';
                 headerCell.textContent = header.label;
+                headerCell.dataset.colKey = header.key; // 열 키 추가
+                
+                if (header.key !== 'index') {
+                    // 헤더 클릭 시 열 전체 토글 기능 추가
+                    headerCell.onclick = handleColumnClick; 
+                } else {
+                    headerCell.style.cursor = 'default';
+                }
+                
                 grid.appendChild(headerCell);
             });
 
             // 2. 데이터 행 생성
-            data.forEach((word, index) => {
+            data.forEach((word, rowIndex) => { 
                 // 인덱스 셀
                 const indexCell = document.createElement('div');
                 indexCell.className = 'study-cell index-cell';
-                indexCell.textContent = index + 1;
+                indexCell.textContent = rowIndex + 1;
                 grid.appendChild(indexCell);
 
                 headers.slice(1).forEach(header => { // 첫 번째 헤더(Index) 제외
                     const cell = document.createElement('div');
-                    // 요청에 따라 'covered' 클래스 없이 시작하여 모두 열린 상태를 기본값으로 설정
+                    // 기본값은 모두 열린 상태이므로 'covered' 클래스 없이 시작합니다.
                     cell.className = 'study-cell'; 
-                    cell.onclick = handleCellClick;
+                    
+                    // 데이터 셀 클릭 시 행 전체 토글 기능 추가
+                    cell.onclick = handleRowClick; 
+                    
+                    cell.dataset.rowIndex = rowIndex; // 행 인덱스 추가
+                    cell.dataset.colKey = header.key; // 열 키 추가
                     
                     let content;
                     if (header.key === 'hiragana') {
@@ -847,7 +911,7 @@
             restartButton.addEventListener('click', goBackToMenu);
             backToMenuButton.addEventListener('click', goBackToMenu); 
             
-            // NEW: Toggle All Button Listener
+            // 전체 토글 버튼 리스너
             toggleAllButton.addEventListener('click', toggleAllCells);
             
             // 드롭다운 선택 및 URL 직접 입력 시 로직은 유지
