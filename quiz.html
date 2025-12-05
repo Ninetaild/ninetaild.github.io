@@ -205,6 +205,33 @@
                 resize: none; 
             }
         }
+        
+        /* Loaded File Tag Style */
+        .file-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            margin: 4px 4px 4px 0;
+            background-color: #e0e7ff;
+            color: #4338ca;
+            border-radius: 9999px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .remove-file-btn {
+            margin-left: 8px;
+            background: none;
+            border: none;
+            color: #4338ca;
+            cursor: pointer;
+            font-weight: bold;
+            line-height: 1;
+            padding: 0 2px;
+            transition: color 0.1s;
+        }
+        .remove-file-btn:hover {
+            color: #ef4444;
+        }
     </style>
 </head>
 <body class="p-4">
@@ -219,31 +246,52 @@
         <main id="app-container" class="space-y-6">
             <!-- Data Source Configuration Section -->
             <div id="file-upload-section" class="card">
-                <h2 class="text-xl font-semibold mb-4 text-gray-700">1. CSV 데이터 출처 설정</h2>
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">1. CSV 학습 자료 관리</h2>
 
                 <div id="input-area" class="space-y-4 p-4 border rounded-lg bg-gray-50">
-                    <p class="text-sm font-bold text-gray-700">A. GitHub 파일 목록 선택</p>
-                    <select id="csv-select" class="w-full p-2 border rounded-md bg-white text-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">-- CSV 파일을 선택하세요 --</option>
-                        <option value="loading" disabled>파일 목록 로딩 중...</option>
-                    </select>
+                    <p class="text-sm font-bold text-gray-700">A. GitHub 파일 목록에서 추가</p>
+                    <div class="flex space-x-2">
+                        <select id="csv-select" class="flex-grow p-2 border rounded-md bg-white text-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="">-- CSV 파일을 선택하세요 --</option>
+                            <option value="loading" disabled>파일 목록 로딩 중...</option>
+                        </select>
+                        <button id="add-selected-file-button" class="px-4 py-2 bg-indigo-500 text-white text-sm font-semibold rounded-md hover:bg-indigo-600 transition duration-150 disabled:opacity-50" disabled>
+                            추가
+                        </button>
+                    </div>
 
-                    <p class="text-sm font-bold text-gray-700 pt-2">B. URL 직접 입력</p>
-                    <input type="text" id="csv-url-input" 
-                           class="w-full p-2 border rounded-md bg-white text-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500" 
-                           value=""
-                           placeholder="유효한 CSV 파일 URL을 직접 입력하세요">
-                    <p id="url-status-message" class="text-xs mt-2 text-gray-500"></p>
+                    <p class="text-sm font-bold text-gray-700 pt-2">B. URL 직접 입력 후 추가</p>
+                    <div class="flex space-x-2">
+                        <input type="text" id="csv-url-input" 
+                            class="flex-grow p-2 border rounded-md bg-white text-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500" 
+                            value=""
+                            placeholder="유효한 CSV 파일 URL을 입력하세요">
+                        <button id="add-url-file-button" class="px-4 py-2 bg-indigo-500 text-white text-sm font-semibold rounded-md hover:bg-indigo-600 transition duration-150 disabled:opacity-50" disabled>
+                            추가
+                        </button>
+                    </div>
                 </div>
                 
+                <div class="mt-4 p-4 border rounded-lg bg-white shadow-sm">
+                    <h3 class="text-base font-semibold text-gray-700 mb-2">2. 현재 학습 목록 (<span id="file-count">0</span>개 파일)</h3>
+                    <div id="loaded-files-container" class="min-h-[50px] p-2 border border-dashed rounded-lg bg-gray-50">
+                        <p id="no-files-message" class="text-sm text-gray-500 italic">추가된 학습 파일이 없습니다.</p>
+                        <!-- File tags will be injected here -->
+                    </div>
+                    <p id="total-word-count" class="text-sm text-gray-600 mt-2 font-medium">총 단어 수: 0개 (중복 제거 후)</p>
+                </div>
+
+                
                 <div class="mt-6 pt-4 border-t flex justify-center space-x-4">
-                    <button id="start-study-button" class="px-8 py-3 bg-indigo-500 text-white font-bold rounded-full hover:bg-indigo-600 transition duration-150 disabled:opacity-50">
+                    <button id="start-study-button" class="px-8 py-3 bg-indigo-500 text-white font-bold rounded-full hover:bg-indigo-600 transition duration-150 disabled:opacity-50" disabled>
                         학습하기 (단어 암기)
                     </button>
-                    <button id="start-quiz-button" class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-700 transition duration-150 disabled:opacity-50">
+                    <button id="start-quiz-button" class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-700 transition duration-150 disabled:opacity-50" disabled>
                         퀴즈 시작 (총 20문제)
                     </button>
                 </div>
+                
+                <p id="url-status-message" class="text-xs mt-4 text-center text-gray-500"></p>
             </div>
 
             <!-- Study Section -->
@@ -251,11 +299,16 @@
                 <div class="card space-y-4">
                     <h2 class="text-2xl font-bold text-gray-700 text-center">단어 학습 모드</h2>
                     
-                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg border">
-                        <p class="text-sm text-gray-600">데이터 셀을 클릭하면 해당 셀만, 헤더를 클릭하면 해당 열이 토글됩니다.</p>
-                        <button id="toggle-all-button" class="px-4 py-2 text-sm bg-blue-500 text-white font-semibold rounded-full hover:bg-blue-600 transition duration-150 shadow-md">
-                            모두 가리기
-                        </button>
+                    <div class="flex flex-col sm:flex-row justify-between items-center p-3 bg-gray-50 rounded-lg border">
+                        <p class="text-sm text-gray-600 mb-2 sm:mb-0">데이터 셀을 클릭하면 해당 셀만, 헤더를 클릭하면 해당 열이 토글됩니다.</p>
+                        <div class="space-x-2 flex">
+                             <button id="shuffle-study-button" class="px-4 py-2 text-sm bg-purple-500 text-white font-semibold rounded-full hover:bg-purple-600 transition duration-150 shadow-md">
+                                행 순서 섞기
+                            </button>
+                            <button id="toggle-all-button" class="px-4 py-2 text-sm bg-blue-500 text-white font-semibold rounded-full hover:bg-blue-600 transition duration-150 shadow-md">
+                                모두 가리기
+                            </button>
+                        </div>
                     </div>
 
                     <div id="study-grid-container" class="rounded-lg border overflow-hidden shadow-inner bg-white">
@@ -327,7 +380,6 @@
     </div>
 
     <!-- --- Floating Drawing Area (Draggable, Resizable & MINIMIZABLE) --- -->
-    <!-- 초기에는 hidden 상태를 유지합니다. -->
     <div id="floating-note-area" class="hidden"> 
         <div id="note-header">
             <span id="note-title">🎨 학습 필기 공간 (히라가나/한자 연습)</span>
@@ -349,7 +401,6 @@
     <!-- --------------------------------------- -->
     
     <!-- 분리된 최소화/최대화 버튼 (창 외부에 위치) -->
-    <!-- 초기에는 hidden 상태를 유지합니다. -->
     <button id="minimizeButton" class="absolute z-50 p-2 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-lg focus:outline-none focus:ring-4 focus:ring-pink-300 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 hidden">
         <svg id="minimizeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
         <svg id="maximizeIcon" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
@@ -401,14 +452,14 @@
         };
         initFirebase();
         
-        // Global Variables
-        let vocabulary = [];
+        // Global State Variables
+        let vocabulary = []; // 통합된 최종 단어 목록
+        let loadedFiles = []; // 로드된 파일 정보 목록: { url: string, name: string }[]
         let quizQuestions = [];
         let currentQuestionIndex = 0;
         let incorrectAnswers = [];
         let isMinimized = false;
         
-        // 최소화 시 창의 위치와 크기를 저장할 객체.
         let savedPositionAndSize = {
             width: 300,
             height: 250,
@@ -424,10 +475,12 @@
         // DOM Elements
         const [fileUploadSection, quizSection, studySection, resultsSection] = 
               ['file-upload-section', 'quiz-section', 'study-section', 'results-section'].map(id => document.getElementById(id));
-        const [csvUrlInput, csvSelect] = [document.getElementById('csv-url-input'), document.getElementById('csv-select')];
-        const [startQuizButton, startStudyButton] = [document.getElementById('start-quiz-button'), document.getElementById('start-study-button')];
-        const [nextButton, restartButton, backToMenuButton, toggleAllButton] = 
-              ['next-button', 'restart-button', 'back-to-menu-button', 'toggle-all-button'].map(id => document.getElementById(id));
+        const [csvUrlInput, csvSelect, loadedFilesContainer, fileCountSpan, noFilesMessage, totalWordCount] = 
+              ['csv-url-input', 'csv-select', 'loaded-files-container', 'file-count', 'no-files-message', 'total-word-count'].map(id => document.getElementById(id));
+        const [startQuizButton, startStudyButton, addSelectedFileButton, addUrlFileButton] = 
+              ['start-quiz-button', 'start-study-button', 'add-selected-file-button', 'add-url-file-button'].map(id => document.getElementById(id));
+        const [nextButton, restartButton, backToMenuButton, toggleAllButton, shuffleStudyButton] = 
+              ['next-button', 'restart-button', 'back-to-menu-button', 'toggle-all-button', 'shuffle-study-button'].map(id => document.getElementById(id));
         const [urlStatusMessage, studyGridContainer] = [document.getElementById('url-status-message'), document.getElementById('study-grid-container')];
         
         // Drawing Area Elements
@@ -456,50 +509,60 @@
         // UI & State Management
         // ----------------------------------------------------------------------
 
-        function updateStartButtonState(isDisabled, quizMsg = '퀴즈 시작 (총 20문제)', studyMsg = '학습하기 (단어 암기)') {
-            startQuizButton.disabled = isDisabled;
-            startStudyButton.disabled = isDisabled;
-            startQuizButton.textContent = isDisabled ? '로딩 중...' : quizMsg;
-            startStudyButton.textContent = isDisabled ? '로딩 중...' : studyMsg;
+        function updateMainButtonState() {
+            const hasFiles = loadedFiles.length > 0;
+            const hasEnoughWords = vocabulary.length >= 4;
+
+            startQuizButton.disabled = !hasFiles || !hasEnoughWords;
+            startStudyButton.disabled = !hasFiles || !hasEnoughWords;
+            
+            if (hasFiles) {
+                if (hasEnoughWords) {
+                    urlStatusMessage.textContent = `총 ${vocabulary.length}개의 단어가 준비되었습니다. 학습 또는 퀴즈를 시작하세요.`;
+                    urlStatusMessage.classList.remove('text-red-500');
+                } else {
+                     urlStatusMessage.textContent = `단어가 너무 적습니다 (현재 ${vocabulary.length}개). 최소 4개의 단어가 필요합니다.`;
+                     urlStatusMessage.classList.add('text-red-500');
+                }
+            } else {
+                urlStatusMessage.textContent = 'CSV 파일을 추가해 주세요.';
+                urlStatusMessage.classList.remove('text-red-500');
+            }
         }
         
         function showSection(sectionToShow) {
             [fileUploadSection, quizSection, resultsSection, studySection, errorBox].forEach(s => s.classList.add('hidden'));
             
-            const shouldShowNote = sectionToShow === studySection; // 오직 '학습하기'에서만 필기폼을 표시
+            const shouldShowNote = sectionToShow === studySection; 
             
             if (sectionToShow) {
                 sectionToShow.classList.remove('hidden');
             }
             
-            // 필기 공간 (Floating Note Area) 가시성 제어
             if (shouldShowNote) {
                 floatingNoteArea.classList.remove('hidden');
                 
-                // 학습 모드 진입 시 최소화 상태가 아니면 버튼을 표시
                 if (!isMinimized) {
                     minimizeButton.classList.remove('hidden'); 
                     resizeCanvas();
                 } else {
-                    // 최소화 상태면 버튼을 숨김 (최소화 상태 유지 시)
                     minimizeButton.classList.add('hidden');
                 }
                 updateMinimizeButtonPosition();
             } else {
-                // 퀴즈, 결과, 메뉴 화면에서는 필기폼 및 외부 버튼 모두 숨김
                 floatingNoteArea.classList.add('hidden');
                 minimizeButton.classList.add('hidden'); 
             }
         }
         
         // ----------------------------------------------------------------------
-        // Data Loading & Parsing (Unchanged logic)
+        // Data Loading & Management
         // ----------------------------------------------------------------------
         
         async function loadCsvFileOptions() {
-            csvSelect.innerHTML = '<option value="" disabled>-- CSV 파일을 선택하세요 --</option>';
-            csvSelect.querySelector('option[disabled]').textContent = '파일 목록 로딩 중...';
-            updateStartButtonState(true);
+            csvSelect.innerHTML = '<option value="">-- CSV 파일을 선택하세요 --</option>';
+            csvSelect.querySelector('option[value=""]').textContent = '파일 목록 로딩 중...';
+            addSelectedFileButton.disabled = true;
 
             try {
                 const response = await fetch(BASE_FOLDER_URL);
@@ -516,6 +579,7 @@
                         const option = document.createElement('option');
                         option.value = RAW_CONTENT_BASE_URL + fileName;
                         option.textContent = fileName;
+                        option.dataset.name = fileName; // 파일 이름 저장
                         csvSelect.appendChild(option);
                     });
                 } else {
@@ -523,19 +587,18 @@
                 }
                 
                 csvSelect.selectedIndex = 0;
-                updateStartButtonState(false);
+                addSelectedFileButton.disabled = true; // 초기에는 선택된 파일 없음
             } catch (error) {
                 console.error("CSV 목록 로드 오류:", error);
                 csvSelect.innerHTML = '<option value="" disabled>-- 파일 목록 로드 실패 --</option>';
-                urlStatusMessage.textContent = `CSV 파일 목록 로드 실패 (오류: ${error.message}). URL을 직접 입력해 주세요.`;
+                urlStatusMessage.textContent = `CSV 파일 목록 로드 실패 (오류: ${error.message}).`;
                 urlStatusMessage.classList.add('text-red-500');
-                updateStartButtonState(false);
             }
         }
 
         function parseCSVText(text) {
             const lines = text.split('\n').filter(line => line.trim() !== '');
-            if (lines.length <= 1) throw new Error("유효한 단어 데이터가 없습니다.");
+            if (lines.length <= 1) return [];
             
             const data = [];
             for (let i = 1; i < lines.length; i++) {
@@ -545,7 +608,8 @@
                 const parts = [];
                 let current = '';
                 let inQuotes = false;
-                // Simple CSV parsing, handling escaped commas within quotes
+                
+                // Simple CSV parsing
                 for (let j = 0; j < line.length; j++) {
                     const char = line[j];
                     if (char === '"') {
@@ -560,7 +624,10 @@
                 parts.push(current.trim().replace(/^"|"$/g, ''));
 
                 if (parts.length >= 4) {
+                    // 단어 키 생성: 히라가나 + 한자 표기 (중복 제거용)
+                    const wordKey = `${parts[0].trim()}_${parts[2].trim()}`; 
                     data.push({
+                        key: wordKey, 
                         hiragana: parts[0], 
                         koreanPronunciation: parts[1],
                         kanji: parts[2], 
@@ -571,45 +638,181 @@
             return data;
         }
 
-        async function loadVocabularyFromURL(url) {
-            if (!url) throw new Error("URL을 선택하거나 입력해 주세요.");
-
-            urlStatusMessage.textContent = `단어 로딩 중: ${url}`;
-            urlStatusMessage.classList.remove('text-red-500');
-            updateStartButtonState(true);
+        /** 단일 URL에서 단어를 불러와 반환합니다. */
+        async function fetchWordsFromURL(url) {
+            if (!url) throw new Error("유효한 URL이 아닙니다.");
 
             try {
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`HTTP 상태 ${response.status}. URL을 확인해 주세요.`);
                 
                 const data = parseCSVText(await response.text());
-
-                if (data.length < 4) throw new Error(`퀴즈를 시작하기 위한 최소 단어(4개)가 부족합니다. 현재: ${data.length}개`);
-                
-                urlStatusMessage.textContent = `단어 ${data.length}개 로드 완료. 학습 또는 퀴즈를 시작하세요.`;
-                updateStartButtonState(false);
                 return data;
 
             } catch (error) {
-                urlStatusMessage.textContent = `단어 로드 실패: ${error.message}`;
-                urlStatusMessage.classList.add('text-red-500');
-                updateStartButtonState(false);
-                throw error; 
+                throw new Error(`파일 로드/파싱 실패: ${error.message}`);
             }
         }
         
+        /** 로드된 파일 목록을 기반으로 전체 vocabulary를 재구성합니다. */
+        async function updateVocabulary() {
+            if (loadedFiles.length === 0) {
+                vocabulary = [];
+                renderLoadedFiles(); // UI 업데이트
+                updateMainButtonState();
+                return;
+            }
+
+            urlStatusMessage.textContent = `총 ${loadedFiles.length}개 파일의 단어를 통합하는 중...`;
+            urlStatusMessage.classList.remove('text-red-500');
+            
+            let allWords = [];
+            const uniqueKeys = new Set();
+            
+            try {
+                for (const file of loadedFiles) {
+                    const fileWords = await fetchWordsFromURL(file.url);
+                    file.wordCount = fileWords.length; // 파일별 단어 수 업데이트 (UI 표시용)
+                    
+                    fileWords.forEach(word => {
+                        if (!uniqueKeys.has(word.key)) {
+                            uniqueKeys.add(word.key);
+                            allWords.push(word);
+                        }
+                    });
+                }
+                
+                vocabulary = allWords;
+                renderLoadedFiles(); // UI 업데이트 (단어 수 포함)
+                updateMainButtonState(); 
+
+            } catch (error) {
+                console.error("단어 통합 중 오류 발생:", error);
+                urlStatusMessage.textContent = `단어 통합 오류: ${error.message}`;
+                urlStatusMessage.classList.add('text-red-500');
+                vocabulary = [];
+                renderLoadedFiles();
+                updateMainButtonState();
+            }
+        }
+
+        /** 파일 목록 UI를 렌더링하고 이벤트 리스너를 연결합니다. */
+        function renderLoadedFiles() {
+            loadedFilesContainer.innerHTML = '';
+            fileCountSpan.textContent = loadedFiles.length;
+            totalWordCount.textContent = `총 단어 수: ${vocabulary.length}개 (중복 제거 후)`;
+
+            if (loadedFiles.length === 0) {
+                noFilesMessage.classList.remove('hidden');
+                return;
+            } else {
+                noFilesMessage.classList.add('hidden');
+            }
+
+            loadedFiles.forEach((file, index) => {
+                const fileTag = document.createElement('span');
+                fileTag.className = 'file-tag';
+                
+                const fileName = file.name || file.url.substring(file.url.lastIndexOf('/') + 1);
+                fileTag.innerHTML = `
+                    <span>${fileName} (${file.wordCount || 0} 단어)</span>
+                    <button class="remove-file-btn" data-index="${index}" title="제거">X</button>
+                `;
+                loadedFilesContainer.appendChild(fileTag);
+            });
+
+            // 제거 버튼 이벤트 연결
+            loadedFilesContainer.querySelectorAll('.remove-file-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    removeFile(index);
+                });
+            });
+        }
+        
+        /** 새로운 파일을 목록에 추가합니다. */
+        function addFile(url, name) {
+            const trimmedUrl = url.trim();
+            if (!trimmedUrl) return;
+            
+            // 중복 URL 체크
+            if (loadedFiles.some(f => f.url === trimmedUrl)) {
+                urlStatusMessage.textContent = `${name || trimmedUrl} 파일은 이미 추가되었습니다.`;
+                urlStatusMessage.classList.add('text-orange-500');
+                return;
+            }
+
+            loadedFiles.push({ url: trimmedUrl, name: name });
+            urlStatusMessage.textContent = `${name} 파일을 목록에 추가했습니다. 단어를 로드하는 중...`;
+            urlStatusMessage.classList.remove('text-red-500', 'text-orange-500');
+
+            // 새 파일 추가 후 전체 단어 목록 업데이트 및 UI 리렌더링
+            updateVocabulary(); 
+        }
+
+        /** 목록에서 파일을 제거합니다. */
+        function removeFile(index) {
+            const removedFileName = loadedFiles[index].name;
+            loadedFiles.splice(index, 1);
+            urlStatusMessage.textContent = `${removedFileName} 파일을 목록에서 제거했습니다.`;
+            urlStatusMessage.classList.remove('text-red-500', 'text-orange-500');
+
+            // 파일 제거 후 전체 단어 목록 업데이트 및 UI 리렌더링
+            updateVocabulary(); 
+        }
+
+
         // ----------------------------------------------------------------------
-        // Quiz/Study Logic (Unchanged)
+        // Shuffle Logic (Unchanged)
+        // ----------------------------------------------------------------------
+        
+        /**
+         * Fisher-Yates 셔플 알고리즘을 사용하여 배열을 섞습니다.
+         * @param {Array<Object>} array 셔플할 배열 (vocabulary)
+         */
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+
+                [array[currentIndex], array[randomIndex]] = [
+                    array[randomIndex], array[currentIndex]
+                ];
+            }
+            return array;
+        }
+
+        /** 학습 페이지의 단어 순서를 무작위로 섞고 그리드를 다시 그립니다. */
+        function shuffleStudyRows() {
+            if (vocabulary.length === 0) return;
+            
+            shuffleArray(vocabulary);
+            renderStudyGrid(vocabulary);
+            
+            const gridContainer = document.getElementById('study-grid-container');
+            gridContainer.style.opacity = '0.5';
+            gridContainer.style.transition = 'opacity 0.3s';
+            setTimeout(() => {
+                gridContainer.style.opacity = '1';
+            }, 100);
+        }
+
+        // ----------------------------------------------------------------------
+        // Quiz/Study Logic (Minor Updates)
         // ----------------------------------------------------------------------
         
         function createQuiz(data) {
             if (data.length < 4) return [];
             
             const questions = [];
-            const dataToUse = [...data].sort(() => 0.5 - Math.random());
+            // Quiz questions are generated based on a copy of the data, then shuffled
+            const dataToUse = [...data].sort(() => 0.5 - Math.random()); 
             const questionTypes = ['meaning_match', 'hiragana_meaning_match', 'pronunciation_match', 'hiragana_pronunciation_match'];
             
             for (let i = 0; i < QUIZ_COUNT; i++) {
+                // 단어 수가 QUIZ_COUNT보다 적을 경우 반복해서 사용
                 const correctWord = dataToUse[i % dataToUse.length]; 
                 const quizType = questionTypes[Math.floor(Math.random() * questionTypes.length)]; 
                 let question = { type: quizType };
@@ -641,16 +844,16 @@
                 }
                 
                 const correctOption = { text: question.correctAnswerText, isCorrect: true, fullData: correctWord };
-                const incorrectCandidates = data.filter(item => item[optionsSourceField] !== question.correctAnswerText);
+                // 중복 방지를 위해 key를 기반으로 필터링
+                const incorrectCandidates = data.filter(item => item.key !== correctWord.key); 
                 
                 const options = [correctOption];
                 const shuffledIncorrects = [...incorrectCandidates].sort(() => 0.5 - Math.random()).slice(0, 3);
 
                 shuffledIncorrects.forEach(distractor => {
                     let optionText = distractor[optionsSourceField];
-                    // Handle duplicate text options
                     if (options.some(opt => opt.text === optionText)) {
-                        optionText += ' (중복)';
+                        optionText += ` (다른 단어의 ${optionsSourceField === 'hiragana' ? '히라가나' : '뜻'})`;
                     }
                     options.push({ text: optionText, isCorrect: false, fullData: distractor });
                 });
@@ -661,6 +864,7 @@
             return questions;
         }
 
+        // displayQuestion, createDetailHtml, handleAnswer, nextQuestion, showResults... (Unchanged)
         function displayQuestion(question) {
             quizProgressElement.textContent = `문제 ${currentQuestionIndex + 1} / ${QUIZ_COUNT}`;
             questionTextElement.innerHTML = question.text;
@@ -700,7 +904,6 @@
                 btn.classList.add('disabled');
             });
             
-            // 1. 피드백 설정
             let feedbackClass, feedbackText;
             if (isCorrect) {
                 feedbackClass = 'bg-green-100 text-green-700';
@@ -717,7 +920,6 @@
             feedbackMessage.innerHTML = `<p class="text-center">${feedbackText}</p>`;
             feedbackMessage.classList.remove('hidden');
 
-            // 2. 버튼 상태 업데이트 및 상세 정보 표시
             document.querySelectorAll('#options-container button').forEach(btn => {
                 const optionIndex = parseInt(btn.dataset.optionIndex);
                 const optionData = currentQuestion.options[optionIndex]; 
@@ -734,7 +936,6 @@
                 btn.innerHTML = `<span class="option-text font-medium">${originalOptionText}</span>${wordDetailHtml}`;
             });
 
-            // 3. 다음 버튼 활성화
             nextButton.disabled = false;
             nextButton.classList.remove('hidden');
         }
@@ -799,7 +1000,7 @@
             data.forEach((word, rowIndex) => { 
                 const indexCell = document.createElement('div');
                 indexCell.className = 'study-cell index-cell';
-                indexCell.textContent = rowIndex + 1;
+                indexCell.textContent = rowIndex + 1; 
                 grid.appendChild(indexCell);
 
                 headers.slice(1).forEach(header => {
@@ -866,7 +1067,7 @@
         }
         
         // ----------------------------------------------------------------------
-        // Floating Drawing Area Logic (Fixed Minimize/Restore with external button)
+        // Floating Drawing Area Logic (Unchanged)
         // ----------------------------------------------------------------------
 
         function resizeCanvas() {
@@ -924,14 +1125,11 @@
         function clearCanvas() {
             if (isMinimized) return;
             ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
-            // Quick visual feedback
             noteHeader.style.backgroundColor = '#d9f99d'; 
             setTimeout(() => { noteHeader.style.backgroundColor = '#fcd34d'; }, 500);
         }
         
-        // External Button Position Update Function
         function updateMinimizeButtonPosition() {
-            // 창이 숨겨져 있거나 최소화 상태인 경우 위치 업데이트를 건너뜁니다.
             if (floatingNoteArea.classList.contains('hidden') || isMinimized) {
                 return; 
             }
@@ -939,7 +1137,6 @@
             const windowRect = floatingNoteArea.getBoundingClientRect();
             const headerHeight = noteHeader.offsetHeight;
 
-            // 버튼을 창의 오른쪽 상단 모서리 (Header 영역 밖)에 배치
             const buttonX = windowRect.right + 10;
             const buttonY = windowRect.top + (headerHeight / 2); 
             
@@ -947,14 +1144,10 @@
             minimizeButton.style.top = `${buttonY}px`;
         }
         
-
-        // Minimize/Restore Logic using External Button
         function toggleMinimize() {
             if (!isMinimized) {
-                // MINIMIZE
                 isMinimized = true;
                 
-                // 1. 현재 위치/크기 저장
                 savedPositionAndSize = {
                     left: floatingNoteArea.offsetLeft,
                     top: floatingNoteArea.offsetTop,
@@ -962,45 +1155,36 @@
                     height: floatingNoteArea.offsetHeight,
                 };
                 
-                // 2. 최소화 클래스 적용
                 floatingNoteArea.classList.add('minimized');
                 
-                // 3. UI 변경: 버튼 아이콘 및 창 내부 레이블
                 restoreLabel.classList.remove('hidden');
                 headerControls.classList.add('hidden');
                 minimizeIcon.classList.add('hidden');
                 maximizeIcon.classList.remove('hidden');
                 minimizeButton.title = '최대화';
                 
-                // 4. 외부 버튼 숨기기
                 minimizeButton.classList.add('hidden');
                 
             } else {
-                // RESTORE
                 isMinimized = false;
 
-                // 1. 복구 클래스 제거
                 floatingNoteArea.classList.remove('minimized');
                 
-                // 2. 저장된 위치/크기 복원
                 floatingNoteArea.style.width = `${savedPositionAndSize.width}px`;
                 floatingNoteArea.style.height = `${savedPositionAndSize.height}px`;
                 
-                // 화면 경계를 벗어나지 않도록 안전한 위치 계산
                 const safeLeft = Math.min(savedPositionAndSize.left, window.innerWidth - savedPositionAndSize.width - 20);
                 const safeTop = Math.min(savedPositionAndSize.top, window.innerHeight - savedPositionAndSize.height - 20);
 
                 floatingNoteArea.style.left = `${safeLeft}px`;
                 floatingNoteArea.style.top = `${safeTop}px`;
                 
-                // 3. UI 변경
                 restoreLabel.classList.add('hidden');
                 headerControls.classList.remove('hidden');
                 maximizeIcon.classList.add('hidden');
                 minimizeIcon.classList.remove('hidden');
                 minimizeButton.title = '최소화';
                 
-                // 4. 외부 버튼 표시 및 위치 업데이트 (단, 필기폼이 표시될 때만)
                 if (!floatingNoteArea.classList.contains('hidden')) {
                     minimizeButton.classList.remove('hidden');
                 }
@@ -1013,16 +1197,14 @@
         function setupFloatingNoteArea() {
             ctx = drawingCanvas.getContext('2d');
             
-            // 초기 위치를 명시적인 style.left/top으로 설정
             const initialRect = floatingNoteArea.getBoundingClientRect();
             const initialLeft = initialRect.left;
             const initialTop = initialRect.top;
             
             floatingNoteArea.style.left = `${initialLeft}px`;
             floatingNoteArea.style.top = `${initialTop}px`;
-            floatingNoteArea.style.right = 'auto'; // CSS의 right 속성 무시
+            floatingNoteArea.style.right = 'auto'; 
             
-            // 초기 savedPositionAndSize 설정
             savedPositionAndSize = {
                  left: initialLeft,
                  top: initialTop,
@@ -1032,7 +1214,6 @@
             
             resizeCanvas(); 
             
-            // Drawing Listeners
             drawingCanvas.addEventListener('mousedown', startDrawing);
             drawingCanvas.addEventListener('mousemove', draw);
             drawingCanvas.addEventListener('mouseup', stopDrawing);
@@ -1041,11 +1222,9 @@
             drawingCanvas.addEventListener('touchmove', draw);
             drawingCanvas.addEventListener('touchend', stopDrawing);
 
-            // Controls Listeners
             noteClearButton.addEventListener('click', clearCanvas);
-            minimizeButton.addEventListener('click', toggleMinimize); // 외부 버튼에 리스너 연결
+            minimizeButton.addEventListener('click', toggleMinimize);
             
-            // Restore Listener (Clicking the minimized area)
             floatingNoteArea.addEventListener('click', (e) => {
                 if (isMinimized) {
                     toggleMinimize();
@@ -1053,11 +1232,10 @@
                 }
             });
             
-            // ResizeObserver: Update canvas resolution on window resize
             if ('ResizeObserver' in window) {
                 const observer = new ResizeObserver(entries => {
                     if (!isMinimized) requestAnimationFrame(resizeCanvas); 
-                    updateMinimizeButtonPosition(); // 리사이즈 시 버튼 위치 업데이트
+                    updateMinimizeButtonPosition(); 
                 });
                 observer.observe(floatingNoteArea); 
             }
@@ -1072,7 +1250,6 @@
             function dragStart(e) {
                 if (isMinimized) return;
                 
-                // Prevent drag from resize handle (bottom right corner)
                 const isResizeHandle = e.offsetX > floatingNoteArea.offsetWidth - 20 && 
                                        e.offsetY > floatingNoteArea.offsetHeight - 20;
                 
@@ -1083,7 +1260,6 @@
 
                 if (clientX === undefined || clientY === undefined) return;
 
-                // Offsets must be calculated relative to the current position set by style.left/top
                 initialX = clientX - floatingNoteArea.offsetLeft;
                 initialY = clientY - floatingNoteArea.offsetTop;
 
@@ -1099,11 +1275,9 @@
                     isDragging = false;
                     noteHeader.style.cursor = 'grab';
                     
-                    // 드래그 종료 시, 최종 위치를 savedPositionAndSize에 업데이트
                     savedPositionAndSize.left = floatingNoteArea.offsetLeft;
                     savedPositionAndSize.top = floatingNoteArea.offsetTop;
                     
-                    // 드래그가 끝날 때 최소화 버튼 위치 업데이트
                     updateMinimizeButtonPosition(); 
                 }
             }
@@ -1131,7 +1305,6 @@
                     floatingNoteArea.style.left = newX + "px";
                     floatingNoteArea.style.top = newY + "px";
                     
-                    // 드래그 중에도 최소화 버튼 위치 업데이트
                     updateMinimizeButtonPosition(); 
                 }
             }
@@ -1145,7 +1318,6 @@
             document.addEventListener("mousemove", drag);
             document.addEventListener("touchmove", drag);
             
-            // 초기 버튼 위치 설정
             setTimeout(updateMinimizeButtonPosition, 100); 
         }
 
@@ -1154,33 +1326,24 @@
         // ----------------------------------------------------------------------
 
         async function prepareDataAndSwitch(mode) {
-            let url = csvSelect.value || csvUrlInput.value.trim();
-            if (!url) {
-                urlStatusMessage.textContent = 'URL을 선택하거나 입력해 주세요.';
-                urlStatusMessage.classList.add('text-red-500');
-                return;
+            if (vocabulary.length < 4) {
+                 urlStatusMessage.textContent = `퀴즈/학습을 시작하기 위한 최소 단어(4개)가 부족합니다. 현재: ${vocabulary.length}개`;
+                 urlStatusMessage.classList.add('text-red-500');
+                 return;
             }
-            if (url === 'loading') return;
 
             errorBox.classList.add('hidden');
-            try {
-                vocabulary = await loadVocabularyFromURL(url);
-
-                if (mode === 'quiz') {
-                    incorrectAnswers = [];
-                    currentQuestionIndex = 0;
-                    quizQuestions = createQuiz(vocabulary); 
-                    if (quizQuestions.length === 0) throw new Error("퀴즈 생성을 위한 문제가 충분하지 않습니다.");
-                    showSection(quizSection);
-                    displayQuestion(quizQuestions[currentQuestionIndex]);
-                    
-                } else if (mode === 'study') {
-                    renderStudyGrid(vocabulary);
-                    showSection(studySection);
-                }
-            } catch (error) {
-                // Load error handled in loadVocabularyFromURL
-                showSection(fileUploadSection); 
+            
+            if (mode === 'quiz') {
+                incorrectAnswers = [];
+                currentQuestionIndex = 0;
+                quizQuestions = createQuiz(vocabulary); 
+                showSection(quizSection);
+                displayQuestion(quizQuestions[currentQuestionIndex]);
+                
+            } else if (mode === 'study') {
+                renderStudyGrid(vocabulary); 
+                showSection(studySection);
             }
         }
 
@@ -1189,11 +1352,7 @@
         
         function goBackToMenu() {
             showSection(fileUploadSection);
-            urlStatusMessage.textContent = vocabulary.length > 0 ? 
-                `현재 ${vocabulary.length}개의 단어가 로드되어 있습니다.` : 
-                'CSV 파일을 선택하거나 URL을 직접 입력해 퀴즈/학습을 시작하세요.';
-            urlStatusMessage.classList.remove('text-red-500');
-            updateStartButtonState(false);
+            updateMainButtonState();
         }
 
         // ----------------------------------------------------------------------
@@ -1207,21 +1366,44 @@
             restartButton.addEventListener('click', goBackToMenu);
             backToMenuButton.addEventListener('click', goBackToMenu); 
             toggleAllButton.addEventListener('click', toggleAllCells);
+            shuffleStudyButton.addEventListener('click', shuffleStudyRows); 
             
+            // 파일 추가 이벤트: GitHub Select
+            addSelectedFileButton.addEventListener('click', () => {
+                const selectedOption = csvSelect.options[csvSelect.selectedIndex];
+                if (selectedOption && selectedOption.value) {
+                    addFile(selectedOption.value, selectedOption.dataset.name);
+                    csvSelect.selectedIndex = 0; // 추가 후 선택 초기화
+                    addSelectedFileButton.disabled = true;
+                }
+            });
+            
+            // 파일 추가 이벤트: URL Input
+            addUrlFileButton.addEventListener('click', () => {
+                const url = csvUrlInput.value.trim();
+                if (url) {
+                    // 파일 이름은 URL의 마지막 경로를 사용하거나 '직접 입력 URL'로 표시
+                    const name = url.substring(url.lastIndexOf('/') + 1) || '직접 입력 URL';
+                    addFile(url, name);
+                    csvUrlInput.value = ''; // 추가 후 입력 초기화
+                    addUrlFileButton.disabled = true;
+                }
+            });
+
+            // UI 상태 변경 이벤트: Select
             csvSelect.addEventListener('change', () => {
-                if (csvSelect.value) csvUrlInput.value = ''; 
-                urlStatusMessage.textContent = '선택된 파일 또는 입력된 URL로 학습/퀴즈를 시작하세요.';
-                urlStatusMessage.classList.remove('text-red-500');
-                updateStartButtonState(false);
+                addSelectedFileButton.disabled = !csvSelect.value;
+                if(csvSelect.value) csvUrlInput.value = ''; // Select 선택 시 URL 입력 초기화
+                addUrlFileButton.disabled = !csvUrlInput.value.trim();
             });
             
+            // UI 상태 변경 이벤트: URL Input
             csvUrlInput.addEventListener('input', () => {
-                if (csvUrlInput.value.trim()) csvSelect.selectedIndex = 0; 
-                urlStatusMessage.textContent = '직접 입력된 URL로 학습/퀴즈를 시작합니다.';
-                urlStatusMessage.classList.remove('text-red-500');
-                updateStartButtonState(false);
+                addUrlFileButton.disabled = !csvUrlInput.value.trim();
+                if(csvUrlInput.value.trim()) csvSelect.selectedIndex = 0; // URL 입력 시 Select 초기화
+                addSelectedFileButton.disabled = !csvSelect.value;
             });
-            
+
             setupFloatingNoteArea(); 
         }
 
@@ -1229,9 +1411,10 @@
         window.onload = function() {
             setupEventListeners();
             loadCsvFileOptions(); 
+            // 초기 상태 설정
             csvUrlInput.value = ''; 
-            urlStatusMessage.textContent = 'CSV 파일을 로딩 중입니다. 잠시만 기다려주세요.';
-            updateStartButtonState(true); 
+            updateVocabulary(); // 초기 로드된 파일 목록 갱신 (0개)
+            updateMainButtonState(); 
             showSection(fileUploadSection);
         };
 
