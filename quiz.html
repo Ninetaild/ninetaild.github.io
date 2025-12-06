@@ -6,475 +6,218 @@
     <title>일본어 단어 퀴즈 및 학습</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 폰트 및 기본 스타일 정의 */
-        @import url('https://fonts/googleapis.com/css2?family=Noto+Sans+KR:wght@300;500;700&display=swap');
-        body {
-            font-family: 'Noto Sans KR', sans-serif;
-            background-color: #f3f4f6;
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .card {
-            background-color: white;
-            padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            position: relative; 
-        }
-        
-        /* 퀴즈 옵션 버튼 스타일 */
-        .option-button {
-            transition: all 0.2s;
-            border: 2px solid #e5e7eb;
-            min-height: 100px; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: flex-start; 
-            justify-content: flex-start; 
-            text-align: left;
-            padding: 1rem; 
-        }
-        .option-button:hover:not(.disabled):not(.correct):not(.incorrect) {
-            background-color: #f3f4f6;
-            border-color: #9ca3af;
-        }
-        .correct { background-color: #d1fae5; border-color: #10b981; font-weight: 600; }
-        .incorrect { background-color: #fee2e2; border-color: #ef4444; font-weight: 600; }
+        /* CSS 통합 및 압축 (폰트 사이즈/굵기 증가 유지) */
+        @import url('https://fonts/googleapis.com/css2?family=Noto+Sans+KR:wght=500;700;900&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f3f4f6; font-size: 1.05rem; font-weight: 500; }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .card { background-color: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); position: relative; }
+        .option-button { transition: all 0.2s; border: 2px solid #e5e7eb; min-height: 110px; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; text-align: left; padding: 1rem; font-size: 1.0rem; font-weight: 600; }
+        .option-button:hover:not(.disabled):not(.correct):not(.incorrect) { background-color: #f3f4f6; border-color: #9ca3af; }
+        .correct { background-color: #d1fae5; border-color: #10b981; font-weight: 700; }
+        .incorrect { background-color: #fee2e2; border-color: #ef4444; font-weight: 700; }
         .disabled { cursor: not-allowed; opacity: 0.8; }
-        
-        /* 학습 모드 Grid 스타일 */
         #study-grid-container { width: 100%; overflow-x: auto; }
-        .study-grid {
-            display: grid;
-            grid-template-columns: 50px repeat(4, minmax(120px, 1fr));
-            border-left: 1px solid #e5e7eb;
-            border-top: 1px solid #e5e7eb;
-            min-width: 600px;
-        }
-        .study-cell {
-            padding: 10px;
-            border-right: 1px solid #e5e7eb;
-            border-bottom: 1px solid #e5e7eb;
-            text-align: center;
-            font-size: 14px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer; 
-            transition: background-color 0.1s;
-            position: relative;
-        }
+        .study-grid { display: grid; grid-template-columns: 50px repeat(4, minmax(130px, 1fr)); border-left: 1px solid #e5e7eb; border-top: 1px solid #e5e7eb; min-width: 650px; }
+        .study-cell { padding: 10px; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; text-align: center; font-size: 15px; font-weight: 500; height: 55px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color 0.1s; position: relative; }
         .study-cell:hover:not(.header-cell):not(.index-cell) { background-color: #eef2ff; }
-        .header-cell { font-weight: 700; background-color: #f3f4f6; color: #4b5563; cursor: pointer; }
-        .index-cell { background-color: #eef2ff; font-weight: 500; color: #4f46e5; cursor: default; }
-        
-        /* 가리기/확인 효과 */
+        .header-cell { font-weight: 800; background-color: #e5e7eb; color: #1f2937; cursor: pointer; }
+        .index-cell { background-color: #eef2ff; font-weight: 700; color: #4f46e5; cursor: default; }
         .study-cell .content { transition: opacity 0.3s; width: 100%; }
         .study-cell.covered .content { opacity: 0; user-select: none; }
-        .study-cell.covered:after {
-            content: '확인하기';
-            position: absolute;
-            color: #9ca3af;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        
-        /* --- Floating Drawing Area Styles --- */
-        #floating-note-area {
-            position: fixed;
-            top: 100px; 
-            right: 20px; 
-            width: 300px; 
-            height: 250px; 
-            min-width: 200px; 
-            min-height: 150px; 
-            background-color: #fffbeb; 
-            border: 2px solid #fcd34d;
-            border-radius: 12px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-            resize: both; 
-            overflow: hidden; 
-            transition: all 0.3s ease; 
-        }
-        
-        /* 최소화 모드: 우측 하단에 고정된 작은 복구 버튼 형태 */
-        #floating-note-area.minimized {
-            width: 160px !important; 
-            height: 48px !important;
-            min-width: 160px;
-            min-height: 48px;
-            
-            /* 핵심: 모든 위치를 강제로 우측 하단으로 고정 */
-            right: 20px !important;
-            bottom: 20px !important;
-            top: auto !important;
-            left: auto !important;
-            
-            resize: none; 
-            cursor: pointer; 
-            border-color: #8b5cf6; 
-            background-color: #ede9fe;
-        }
-
-        #note-header {
-            cursor: grab;
-            background-color: #fcd34d;
-            color: #78350f;
-            padding: 8px 12px;
-            border-top-left-radius: 10px;
-            border-top-right-radius: 10px;
-            font-weight: 600;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-shrink: 0; 
-        }
-
-        /* 최소화 모드: 헤더 스타일 변경 및 내용 숨기기 */
-        #floating-note-area.minimized #note-header {
-             background-color: transparent; 
-             cursor: pointer;
-             padding: 0; 
-             height: 100%;
-             width: 100%;
-        }
-        
-        #floating-note-area.minimized #note-title,
-        #floating-note-area.minimized #header-controls {
-            display: none; 
-        }
-
-        #floating-note-area.minimized #restore-label {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-            color: #4f46e5; 
-            font-size: 14px;
-            font-weight: 700;
-            text-align: center;
-        }
-
-        #note-content {
-            padding: 5px;
-            height: calc(100% - 40px); 
-            overflow: hidden;
-        }
-
-        #floating-note-area.minimized #note-content {
-            display: none; 
-        }
-
-        #drawing-canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-            background-color: white; 
-            border: 1px solid #fcd34d;
-            border-radius: 8px;
-            touch-action: none; 
-        }
-        
-        .control-button {
-            background: none;
-            border: none;
-            color: #78350f;
-            cursor: pointer;
-            margin-left: 8px;
-            padding: 4px;
-            border-radius: 4px;
-            transition: background-color 0.1s;
-        }
-        .control-button:hover { background-color: rgba(255, 255, 255, 0.3); }
-
-        /* Mobile Adjustments */
-        @media (max-width: 768px) {
-            #floating-note-area {
-                width: 90%;
-                left: 5%;
-                right: 5%;
-                bottom: 20px;
-                top: auto;
-                height: 200px; 
-                resize: none; 
-            }
-        }
-        
-        /* Loaded File Tag Style */
-        .file-tag {
-            display: inline-flex;
-            align-items: center;
-            padding: 4px 8px;
-            margin: 4px 4px 4px 0;
-            background-color: #e0e7ff;
-            color: #4338ca;
-            border-radius: 9999px;
-            font-size: 14px;
-            font-weight: 500;
-        }
-        .remove-file-btn {
-            margin-left: 8px;
-            background: none;
-            border: none;
-            color: #4338ca;
-            cursor: pointer;
-            font-weight: bold;
-            line-height: 1;
-            padding: 0 2px;
-            transition: color 0.1s;
-        }
-        .remove-file-btn:hover {
-            color: #ef4444;
-        }
+        .study-cell.covered:after { content: '확인하기'; position: absolute; color: #4b5563; font-size: 13px; font-weight: 700; }
+        .word-detail p { font-size: 0.9rem !important; }
+        .word-detail .font-extrabold { font-size: 1.1rem !important; }
+        #note-header { font-size: 1.05rem; font-weight: 700; }
+        #floating-note-area.minimized #restore-label { font-size: 16px; font-weight: 800; }
+        /* 수정된 부분: 한자 링크 스타일을 일반 텍스트와 동일하게 변경 */
+        .kanji-link { color: inherit; font-weight: inherit; text-decoration: none; margin: 0 1px; }
+        .file-tag { display: inline-flex; align-items: center; padding: 4px 10px; margin: 4px; border-radius: 4px; background-color: #e0f2f1; color: #047857; font-size: 0.9rem; font-weight: 600; }
+        .file-tag .remove-file-btn { margin-left: 8px; font-weight: bold; color: #ef4444; background: none; border: none; cursor: pointer; padding: 0; line-height: 1; }
     </style>
 </head>
 <body class="p-4">
 
     <div class="container">
-        <!-- Header -->
-        <header class="bg-indigo-600 p-6 mb-6 rounded-xl shadow-lg text-white">
-            <h1 class="text-3xl font-bold text-center">일본어 단어 퀴즈 및 학습</h1>
+        <header class="bg-indigo-700 p-7 mb-6 rounded-xl shadow-2xl text-white">
+            <h1 class="text-4xl font-extrabold text-center">일본어 단어 퀴즈 및 학습</h1>
         </header>
 
-        <!-- Main Content Area -->
         <main id="app-container" class="space-y-6">
-            <!-- Data Source Configuration Section -->
             <div id="file-upload-section" class="card">
-                <h2 class="text-xl font-semibold mb-4 text-gray-700">1. CSV 학습 자료 관리</h2>
+                <h2 class="text-2xl font-bold mb-5 text-gray-800">1. CSV 학습 자료 관리</h2>
 
-                <div id="input-area" class="space-y-4 p-4 border rounded-lg bg-gray-50">
-                    <p class="text-sm font-bold text-gray-700">A. GitHub 파일 목록에서 추가</p>
-                    <div class="flex space-x-2">
-                        <select id="csv-select" class="flex-grow p-2 border rounded-md bg-white text-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <div id="input-area" class="space-y-4 p-5 border rounded-lg bg-gray-50">
+                    <p class="text-base font-bold text-gray-700">A. GitHub 파일 목록에서 추가</p>
+                    <div class="flex space-x-3">
+                        <select id="csv-select" class="flex-grow p-3 border rounded-md bg-white text-gray-800 text-base focus:border-indigo-500 focus:ring-indigo-500">
                             <option value="">-- CSV 파일을 선택하세요 --</option>
                             <option value="loading" disabled>파일 목록 로딩 중...</option>
                         </select>
-                        <button id="add-selected-file-button" class="px-4 py-2 bg-indigo-500 text-white text-sm font-semibold rounded-md hover:bg-indigo-600 transition duration-150 disabled:opacity-50" disabled>
+                        <button id="add-selected-file-button" class="px-5 py-3 bg-indigo-600 text-white text-base font-bold rounded-md hover:bg-indigo-700 transition duration-150 disabled:opacity-50" disabled>
                             추가
                         </button>
                     </div>
 
-                    <p class="text-sm font-bold text-gray-700 pt-2">B. URL 직접 입력 후 추가</p>
-                    <div class="flex space-x-2">
+                    <p class="text-base font-bold text-gray-700 pt-3">B. URL 직접 입력 후 추가</p>
+                    <div class="flex space-x-3">
                         <input type="text" id="csv-url-input" 
-                            class="flex-grow p-2 border rounded-md bg-white text-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500" 
+                            class="flex-grow p-3 border rounded-md bg-white text-gray-800 text-base focus:border-indigo-500 focus:ring-indigo-500" 
                             value=""
                             placeholder="유효한 CSV 파일 URL을 입력하세요">
-                        <button id="add-url-file-button" class="px-4 py-2 bg-indigo-500 text-white text-sm font-semibold rounded-md hover:bg-indigo-600 transition duration-150 disabled:opacity-50" disabled>
+                        <button id="add-url-file-button" class="px-5 py-3 bg-indigo-600 text-white text-base font-bold rounded-md hover:bg-indigo-700 transition duration-150 disabled:opacity-50" disabled>
                             추가
                         </button>
                     </div>
                 </div>
                 
-                <div class="mt-4 p-4 border rounded-lg bg-white shadow-sm">
-                    <h3 class="text-base font-semibold text-gray-700 mb-2">2. 현재 학습 목록 (<span id="file-count">0</span>개 파일)</h3>
-                    <div id="loaded-files-container" class="min-h-[50px] p-2 border border-dashed rounded-lg bg-gray-50">
-                        <p id="no-files-message" class="text-sm text-gray-500 italic">추가된 학습 파일이 없습니다.</p>
-                        <!-- File tags will be injected here -->
-                    </div>
-                    <p id="total-word-count" class="text-sm text-gray-600 mt-2 font-medium">총 단어 수: 0개 (중복 제거 후)</p>
+                <div class="mt-5 p-5 border rounded-lg bg-white shadow-sm">
+                    <h3 class="text-lg font-bold text-gray-700 mb-3">2. 현재 학습 목록 (<span id="file-count">0</span>개 파일)</h3>
+                    <div id="loaded-files-container" class="min-h-[60px] p-3 border border-dashed rounded-lg bg-gray-50">
+                        <p id="no-files-message" class="text-base text-gray-500 italic font-medium">추가된 학습 파일이 없습니다.</p>
+                        </div>
+                    <p id="total-word-count" class="text-base text-gray-700 mt-3 font-bold">총 단어 수: 0개 (중복 제거 후)</p>
                 </div>
 
                 
-                <div class="mt-6 pt-4 border-t flex justify-center space-x-4">
-                    <button id="start-study-button" class="px-8 py-3 bg-indigo-500 text-white font-bold rounded-full hover:bg-indigo-600 transition duration-150 disabled:opacity-50" disabled>
+                <div class="mt-7 pt-5 border-t flex justify-center space-x-5">
+                    <button id="start-study-button" class="px-10 py-4 bg-indigo-500 text-white text-lg font-extrabold rounded-full hover:bg-indigo-600 transition duration-150 disabled:opacity-50" disabled>
                         학습하기 (단어 암기)
                     </button>
-                    <button id="start-quiz-button" class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-700 transition duration-150 disabled:opacity-50" disabled>
+                    <button id="start-quiz-button" class="px-10 py-4 bg-indigo-700 text-white text-lg font-extrabold rounded-full hover:bg-indigo-800 transition duration-150 disabled:opacity-50" disabled>
                         퀴즈 시작 (총 20문제)
                     </button>
                 </div>
                 
-                <p id="url-status-message" class="text-xs mt-4 text-center text-gray-500"></p>
+                <p id="url-status-message" class="text-sm mt-5 text-center text-gray-600 font-medium"></p>
             </div>
 
-            <!-- Study Section -->
             <div id="study-section" class="hidden">
-                <div class="card space-y-4">
-                    <h2 class="text-2xl font-bold text-gray-700 text-center">단어 학습 모드</h2>
+                <div class="card space-y-5">
+                    <h2 class="text-2xl font-bold text-gray-800 text-center">단어 학습 모드</h2>
                     
-                    <div class="flex flex-col sm:flex-row justify-between items-center p-3 bg-gray-50 rounded-lg border">
-                        <p class="text-sm text-gray-600 mb-2 sm:mb-0">데이터 셀을 클릭하면 해당 셀만, 헤더를 클릭하면 해당 열이 토글됩니다.</p>
-                        <div class="space-x-2 flex">
-                             <button id="shuffle-study-button" class="px-4 py-2 text-sm bg-purple-500 text-white font-semibold rounded-full hover:bg-purple-600 transition duration-150 shadow-md">
+                    <div class="flex flex-col sm:flex-row justify-between items-center p-4 bg-gray-100 rounded-lg border">
+                        <p class="text-base text-gray-700 font-medium mb-2 sm:mb-0">데이터 셀을 클릭하면 해당 셀만, 헤더를 클릭하면 해당 열이 토글됩니다.</p>
+                        <div class="space-x-3 flex">
+                             <button id="shuffle-study-button" class="px-5 py-2.5 text-base bg-purple-600 text-white font-bold rounded-full hover:bg-purple-700 transition duration-150 shadow-lg">
                                 행 순서 섞기
                             </button>
-                            <button id="toggle-all-button" class="px-4 py-2 text-sm bg-blue-500 text-white font-semibold rounded-full hover:bg-blue-600 transition duration-150 shadow-md">
+                            <button id="toggle-all-button" class="px-5 py-2.5 text-base bg-blue-600 text-white font-bold rounded-full hover:bg-blue-700 transition duration-150 shadow-lg">
                                 모두 가리기
                             </button>
                         </div>
                     </div>
 
                     <div id="study-grid-container" class="rounded-lg border overflow-hidden shadow-inner bg-white">
-                        <!-- Grid will be injected here -->
-                    </div>
+                        </div>
                     
-                    <div class="text-center pt-4 border-t">
-                        <button id="back-to-menu-button" class="px-6 py-2 bg-gray-500 text-white font-semibold rounded-full hover:bg-gray-600 transition duration-150">
+                    <div class="text-center pt-5 border-t">
+                        <button id="back-to-menu-button" class="px-8 py-3 bg-gray-600 text-white text-base font-bold rounded-full hover:bg-gray-700 transition duration-150">
                             처음으로 돌아가기
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Quiz Section -->
             <div id="quiz-section" class="hidden">
                 <div class="card space-y-6">
                     <div>
-                        <p id="quiz-progress" class="text-lg font-medium text-indigo-600 mb-4 text-center"></p>
-                        <div id="question-card" class="bg-indigo-50 p-6 rounded-lg shadow-inner text-center">
-                            <h3 class="text-2xl font-bold text-gray-800" id="question-text"></h3>
+                        <p id="quiz-progress" class="text-xl font-bold text-indigo-700 mb-5 text-center"></p>
+                        <div id="question-card" class="bg-indigo-100 p-8 rounded-lg shadow-xl text-center">
+                            <h3 class="text-2xl font-extrabold text-gray-900" id="question-text"></h3>
                         </div>
                     </div>
                     
-                    <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Option buttons will be injected here -->
-                    </div>
+                    <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        </div>
 
-                    <div id="feedback-message" class="hidden p-3 rounded-lg text-center font-medium"></div>
+                    <div id="feedback-message" class="hidden p-4 rounded-lg text-center font-extrabold text-lg"></div>
                     
                     <div class="text-center">
-                        <button id="next-button" class="hidden px-6 py-2 bg-indigo-600 text-white font-semibold rounded-full hover:bg-indigo-700 transition duration-150" disabled>
+                        <button id="next-button" class="hidden px-8 py-3 bg-indigo-700 text-white text-lg font-bold rounded-full hover:bg-indigo-800 transition duration-150" disabled>
                             다음 문제
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Results Section -->
             <div id="results-section" class="hidden card space-y-6">
-                <h2 class="text-2xl font-bold text-center text-gray-700">퀴즈 완료!</h2>
-                <div class="text-center space-y-2">
-                    <p class="text-xl text-gray-600">총 20문제 중:</p>
-                    <p id="final-score" class="text-3xl font-extrabold text-indigo-600"></p>
+                <h2 class="text-3xl font-extrabold text-center text-gray-800">퀴즈 완료! 🎉</h2>
+                <div class="text-center space-y-3">
+                    <p class="text-xl text-gray-700 font-bold">총 20문제 중:</p>
+                    <p id="final-score" class="text-4xl font-extrabold text-indigo-700"></p>
                 </div>
                 
-                <div id="incorrect-answers-summary" class="border-t pt-4">
-                    <h3 class="text-xl font-semibold text-red-600 mb-3">오답 정리 (복습 필요!)</h3>
-                    <ul id="incorrect-list" class="space-y-3">
-                        <!-- Incorrect answers will be listed here -->
-                    </ul>
-                    <p id="no-incorrect-message" class="text-gray-500 hidden italic">정답률 100%! 완벽합니다!</p>
+                <div id="incorrect-answers-summary" class="border-t pt-5">
+                    <h3 class="text-xl font-bold text-red-700 mb-4">오답 정리 (복습 필요!)</h3>
+                    <ul id="incorrect-list" class="space-y-4">
+                        </ul>
+                    <p id="no-incorrect-message" class="text-gray-600 hidden italic text-lg font-medium">정답률 100%! 완벽합니다! 👑</p>
                 </div>
                 
-                <div class="text-center pt-4 border-t">
-                    <button id="restart-button" class="px-8 py-3 bg-green-500 text-white font-bold rounded-full hover:bg-green-600 transition duration-150">
+                <div class="text-center pt-5 border-t">
+                    <button id="restart-button" class="px-10 py-4 bg-green-600 text-white text-lg font-extrabold rounded-full hover:bg-green-700 transition duration-150">
                         다시 퀴즈 시작 (20회)
                     </button>
                 </div>
             </div>
 
-            <!-- Error Message Box -->
-            <div id="error-box" class="hidden card bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
-                <p class="font-bold">오류 발생</p>
-                <p id="error-message"></p>
+            <div id="error-box" class="hidden card bg-red-100 border-l-4 border-red-600 text-red-800 p-5" role="alert">
+                <p class="font-extrabold text-lg">오류 발생</p>
+                <p id="error-message" class="text-base"></p>
             </div>
 
         </main>
     </div>
 
-    <!-- --- Floating Drawing Area (Draggable, Resizable & MINIMIZABLE) --- -->
     <div id="floating-note-area" class="hidden"> 
         <div id="note-header">
             <span id="note-title">🎨 학습 필기 공간 (히라가나/한자 연습)</span>
-            
-            <!-- 복구 버튼 레이블 (최소화 모드에서만 표시) -->
             <div id="restore-label" class="hidden">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 mr-2"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 mr-2"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
                 창 복구
             </div>
-
             <div id="header-controls" class="flex items-center">
-                <button id="note-clear-button" class="bg-red-500 text-white border-none p-1 px-2 rounded-md text-xs hover:bg-red-600 transition">모두 지우기</button>
+                <button id="note-clear-button" class="bg-red-500 text-white border-none p-1.5 px-3 rounded-md text-xs font-bold hover:bg-red-600 transition">모두 지우기</button>
             </div>
         </div>
         <div id="note-content">
             <canvas id="drawing-canvas"></canvas>
         </div>
     </div>
-    <!-- --------------------------------------- -->
-    
-    <!-- 분리된 최소화/최대화 버튼 (창 외부에 위치) -->
-    <button id="minimizeButton" class="absolute z-50 p-2 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-lg focus:outline-none focus:ring-4 focus:ring-pink-300 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 hidden">
-        <svg id="minimizeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
-        <svg id="maximizeIcon" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
+    <button id="minimizeButton" class="absolute z-50 p-3 bg-pink-600 hover:bg-pink-700 text-white rounded-full shadow-lg focus:outline-none focus:ring-4 focus:ring-pink-400 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 hidden">
+        <svg id="minimizeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+        <svg id="maximizeIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
     </button>
-    <!-- --------------------------------------- -->
-
     <script type="module">
+        // Firebase setup (Minimal change)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, setDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // Firebase setup (Mandatory)
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const [appId, initialAuthToken] = [typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null];
         let firebaseConfig;
-        try {
-            firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        } catch (e) {
-            console.error("Firebase Config 파싱 오류:", e);
-            firebaseConfig = {};
-        }
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        let db, auth;
-        let userId = null;
+        try { firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}'); } catch (e) { firebaseConfig = {}; }
+        let db, auth, userId = null;
 
         const initFirebase = async () => {
-            if (Object.keys(firebaseConfig).length === 0) {
-                 console.warn("Firebase 설정이 정의되지 않았습니다.");
-                 return;
-            }
+            if (Object.keys(firebaseConfig).length === 0) return;
             try {
                 const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                
-                onAuthStateChanged(auth, (user) => {
-                    userId = user ? user.uid : crypto.randomUUID();
-                    console.log("Firebase Auth State Changed. User ID:", userId);
-                });
-
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Firebase 초기화 또는 인증 오류:", error);
-            }
+                [db, auth] = [getFirestore(app), getAuth(app)];
+                onAuthStateChanged(auth, (user) => { userId = user ? user.uid : crypto.randomUUID(); });
+                if (initialAuthToken) { await signInWithCustomToken(auth, initialAuthToken); } else { await signInAnonymously(auth); }
+            } catch (error) { console.error("Firebase 초기화 또는 인증 오류:", error); }
         };
         initFirebase();
         
-        // Global State Variables
-        let vocabulary = []; // 통합된 최종 단어 목록
-        let loadedFiles = []; // 로드된 파일 정보 목록: { url: string, name: string }[]
-        let quizQuestions = [];
-        let currentQuestionIndex = 0;
-        let incorrectAnswers = [];
-        let isMinimized = false;
-        
-        let savedPositionAndSize = {
-            width: 300,
-            height: 250,
-            left: 0, 
-            top: 0
-        }; 
-        
-        const QUIZ_COUNT = 20;
-        const BASE_FOLDER_URL = "https://api.github.com/repos/ninetaild/ninetaild.github.io/contents/src/";
-        const RAW_CONTENT_BASE_URL = "https://raw.githubusercontent.com/ninetaild/ninetaild.github.io/main/src/";
-        const dataCellsSelector = '.study-cell[data-row-index]';
+        // Global State Variables (Minimal change)
+        let [vocabulary, loadedFiles, quizQuestions, currentQuestionIndex, incorrectAnswers, isMinimized] = [[], [], [], 0, [], false];
+        let savedPositionAndSize = { width: 300, height: 250, left: 0, top: 0 }; 
+        const [QUIZ_COUNT, BASE_FOLDER_URL, RAW_CONTENT_BASE_URL, dataCellsSelector] = [20, "https://api.github.com/repos/ninetaild/ninetaild.github.io/contents/src/", "https://raw.githubusercontent.com/ninetaild/ninetaild.github.io/main/src/", '.study-cell[data-row-index]'];
 
-        // DOM Elements
-        const [fileUploadSection, quizSection, studySection, resultsSection] = 
-              ['file-upload-section', 'quiz-section', 'study-section', 'results-section'].map(id => document.getElementById(id));
+        // DOM Elements (Minimal change, using array destructuring)
+        const [fileUploadSection, quizSection, studySection, resultsSection, errorBox] = 
+              ['file-upload-section', 'quiz-section', 'study-section', 'results-section', 'error-box'].map(id => document.getElementById(id));
         const [csvUrlInput, csvSelect, loadedFilesContainer, fileCountSpan, noFilesMessage, totalWordCount] = 
               ['csv-url-input', 'csv-select', 'loaded-files-container', 'file-count', 'no-files-message', 'total-word-count'].map(id => document.getElementById(id));
         const [startQuizButton, startStudyButton, addSelectedFileButton, addUrlFileButton] = 
@@ -482,72 +225,64 @@
         const [nextButton, restartButton, backToMenuButton, toggleAllButton, shuffleStudyButton] = 
               ['next-button', 'restart-button', 'back-to-menu-button', 'toggle-all-button', 'shuffle-study-button'].map(id => document.getElementById(id));
         const [urlStatusMessage, studyGridContainer] = [document.getElementById('url-status-message'), document.getElementById('study-grid-container')];
-        
-        // Drawing Area Elements
         const [floatingNoteArea, noteHeader, noteClearButton, drawingCanvas, restoreLabel, headerControls] = 
               ['floating-note-area', 'note-header', 'note-clear-button', 'drawing-canvas', 'restore-label', 'header-controls'].map(id => document.getElementById(id));
+        const [minimizeButton, minimizeIcon, maximizeIcon] = [document.getElementById('minimizeButton'), document.getElementById('minimizeIcon'), document.getElementById('maximizeIcon')];
+        const [questionTextElement, optionsContainer, quizProgressElement, finalScoreElement, incorrectListElement, feedbackMessage, errorMessage, noIncorrectMessage] = 
+              ['question-text', 'options-container', 'quiz-progress', 'final-score', 'incorrect-list', 'feedback-message', 'error-message', 'no-incorrect-message'].map(id => document.getElementById(id));
         
-        // External Minimize Button Elements
-        const minimizeButton = document.getElementById('minimizeButton');
-        const minimizeIcon = document.getElementById('minimizeIcon');
-        const maximizeIcon = document.getElementById('maximizeIcon');
+        let [ctx, isDrawing, lastX, lastY, isDragging, initialX, initialY] = [null, false, 0, 0, false, 0, 0];
+        
+        // ----------------------------------------------------------------------
+        // Kanji Linking Helper Functions (NEW)
+        // ----------------------------------------------------------------------
 
-        
-        // Quiz/Result Elements
-        const [questionTextElement, optionsContainer, quizProgressElement, finalScoreElement, incorrectListElement, feedbackMessage, errorBox, errorMessage, noIncorrectMessage] = 
-              ['question-text', 'options-container', 'quiz-progress', 'final-score', 'incorrect-list', 'error-box', 'error-message', 'no-incorrect-message', 'feedback-message'].map(id => document.getElementById(id));
-        
-        // Drawing state
-        let ctx; 
-        let isDrawing = false;
-        let lastX = 0;
-        let lastY = 0;
-        let isDragging = false;
-        let initialX, initialY;
+        /** CJK Unified Ideographs 범위에 속하는 문자인지 확인 (간소화된 검사) */
+        function isKanji(char) {
+            const code = char.charCodeAt(0);
+            return (code >= 0x4E00 && code <= 0x9FFF) || (code >= 0x3400 && code <= 0x4DBF); 
+        }
+
+        /** 단어 문자열 내 각 한자에 나무위키 링크를 개별적으로 적용합니다. */
+        function linkifyKanji(kanjiString) {
+            if (!kanjiString || kanjiString === '(조사)') return kanjiString;
+            
+            let result = '';
+            for (const char of kanjiString) {
+                if (isKanji(char)) {
+                    const encodedChar = encodeURIComponent(char);
+                    result += `<a href="https://namu.wiki/w/${encodedChar}" target="_blank" class="kanji-link">${char}</a>`;
+                } else {
+                    result += char;
+                }
+            }
+            return result;
+        }
 
         // ----------------------------------------------------------------------
-        // UI & State Management
+        // UI & State Management (Compressed)
         // ----------------------------------------------------------------------
 
         function updateMainButtonState() {
             const hasFiles = loadedFiles.length > 0;
             const hasEnoughWords = vocabulary.length >= 4;
-
-            startQuizButton.disabled = !hasFiles || !hasEnoughWords;
-            startStudyButton.disabled = !hasFiles || !hasEnoughWords;
-            
+            startQuizButton.disabled = startStudyButton.disabled = !(hasFiles && hasEnoughWords);
+            urlStatusMessage.classList.remove('text-red-500');
             if (hasFiles) {
-                if (hasEnoughWords) {
-                    urlStatusMessage.textContent = `총 ${vocabulary.length}개의 단어가 준비되었습니다. 학습 또는 퀴즈를 시작하세요.`;
-                    urlStatusMessage.classList.remove('text-red-500');
-                } else {
-                     urlStatusMessage.textContent = `단어가 너무 적습니다 (현재 ${vocabulary.length}개). 최소 4개의 단어가 필요합니다.`;
-                     urlStatusMessage.classList.add('text-red-500');
-                }
-            } else {
-                urlStatusMessage.textContent = 'CSV 파일을 추가해 주세요.';
-                urlStatusMessage.classList.remove('text-red-500');
-            }
+                if (hasEnoughWords) { urlStatusMessage.textContent = `총 ${vocabulary.length}개의 단어가 준비되었습니다. 학습 또는 퀴즈를 시작하세요.`; } 
+                else { urlStatusMessage.textContent = `단어가 너무 적습니다 (현재 ${vocabulary.length}개). 최소 4개의 단어가 필요합니다.`; urlStatusMessage.classList.add('text-red-500'); }
+            } else { urlStatusMessage.textContent = 'CSV 파일을 추가해 주세요.'; }
         }
         
         function showSection(sectionToShow) {
             [fileUploadSection, quizSection, resultsSection, studySection, errorBox].forEach(s => s.classList.add('hidden'));
-            
             const shouldShowNote = sectionToShow === studySection; 
-            
-            if (sectionToShow) {
-                sectionToShow.classList.remove('hidden');
-            }
+            if (sectionToShow) sectionToShow.classList.remove('hidden');
             
             if (shouldShowNote) {
                 floatingNoteArea.classList.remove('hidden');
-                
-                if (!isMinimized) {
-                    minimizeButton.classList.remove('hidden'); 
-                    resizeCanvas();
-                } else {
-                    minimizeButton.classList.add('hidden');
-                }
+                if (!isMinimized) { minimizeButton.classList.remove('hidden'); resizeCanvas(); } 
+                else { minimizeButton.classList.add('hidden'); }
                 updateMinimizeButtonPosition();
             } else {
                 floatingNoteArea.classList.add('hidden');
@@ -556,7 +291,7 @@
         }
         
         // ----------------------------------------------------------------------
-        // Data Loading & Management
+        // Data Loading & Management (Compressed)
         // ----------------------------------------------------------------------
         
         async function loadCsvFileOptions() {
@@ -567,29 +302,20 @@
             try {
                 const response = await fetch(BASE_FOLDER_URL);
                 if (!response.ok) throw new Error(`GitHub API 통신 오류: ${response.status}.`);
-                
-                const csvFiles = (await response.json())
-                    .filter(file => file.name.endsWith('.csv') && file.type === 'file')
-                    .map(file => file.name);
+                const csvFiles = (await response.json()).filter(file => file.name.endsWith('.csv') && file.type === 'file').map(file => file.name);
 
                 csvSelect.innerHTML = '<option value="">-- CSV 파일을 선택하세요 --</option>';
-                
-                if (csvFiles.length > 0) {
-                    csvFiles.forEach(fileName => {
-                        const option = document.createElement('option');
-                        option.value = RAW_CONTENT_BASE_URL + fileName;
-                        option.textContent = fileName;
-                        option.dataset.name = fileName; // 파일 이름 저장
-                        csvSelect.appendChild(option);
-                    });
-                } else {
-                    csvSelect.innerHTML += '<option value="" disabled>사용 가능한 CSV 파일이 없습니다.</option>';
-                }
-                
+                csvFiles.forEach(fileName => {
+                    const option = document.createElement('option');
+                    option.value = RAW_CONTENT_BASE_URL + fileName;
+                    option.textContent = fileName;
+                    option.dataset.name = fileName;
+                    csvSelect.appendChild(option);
+                });
+                if (csvFiles.length === 0) csvSelect.innerHTML += '<option value="" disabled>사용 가능한 CSV 파일이 없습니다.</option>';
                 csvSelect.selectedIndex = 0;
-                addSelectedFileButton.disabled = true; // 초기에는 선택된 파일 없음
+                addSelectedFileButton.disabled = true;
             } catch (error) {
-                console.error("CSV 목록 로드 오류:", error);
                 csvSelect.innerHTML = '<option value="" disabled>-- 파일 목록 로드 실패 --</option>';
                 urlStatusMessage.textContent = `CSV 파일 목록 로드 실패 (오류: ${error.message}).`;
                 urlStatusMessage.classList.add('text-red-500');
@@ -604,30 +330,20 @@
             for (let i = 1; i < lines.length; i++) {
                 const line = lines[i].trim();
                 if (!line) continue;
-                
                 const parts = [];
-                let current = '';
-                let inQuotes = false;
+                let [current, inQuotes] = ['', false];
                 
-                // Simple CSV parsing
                 for (let j = 0; j < line.length; j++) {
                     const char = line[j];
-                    if (char === '"') {
-                        inQuotes = !inQuotes;
-                    } else if (char === ',' && !inQuotes) {
-                        parts.push(current.trim().replace(/^"|"$/g, ''));
-                        current = '';
-                    } else {
-                        current += char;
-                    }
+                    if (char === '"') inQuotes = !inQuotes;
+                    else if (char === ',' && !inQuotes) { parts.push(current.trim().replace(/^"|"$/g, '')); current = ''; } 
+                    else { current += char; }
                 }
                 parts.push(current.trim().replace(/^"|"$/g, ''));
 
                 if (parts.length >= 4) {
-                    // 단어 키 생성: 히라가나 + 한자 표기 (중복 제거용)
-                    const wordKey = `${parts[0].trim()}_${parts[2].trim()}`; 
                     data.push({
-                        key: wordKey, 
+                        key: `${parts[0].trim()}_${parts[2].trim()}`, 
                         hiragana: parts[0], 
                         koreanPronunciation: parts[1],
                         kanji: parts[2], 
@@ -638,41 +354,25 @@
             return data;
         }
 
-        /** 단일 URL에서 단어를 불러와 반환합니다. */
         async function fetchWordsFromURL(url) {
             if (!url) throw new Error("유효한 URL이 아닙니다.");
-
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP 상태 ${response.status}. URL을 확인해 주세요.`);
-                
-                const data = parseCSVText(await response.text());
-                return data;
-
-            } catch (error) {
-                throw new Error(`파일 로드/파싱 실패: ${error.message}`);
-            }
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP 상태 ${response.status}. URL을 확인해 주세요.`);
+            return parseCSVText(await response.text());
         }
         
-        /** 로드된 파일 목록을 기반으로 전체 vocabulary를 재구성합니다. */
         async function updateVocabulary() {
-            if (loadedFiles.length === 0) {
-                vocabulary = [];
-                renderLoadedFiles(); // UI 업데이트
-                updateMainButtonState();
-                return;
-            }
+            if (loadedFiles.length === 0) { vocabulary = []; renderLoadedFiles(); updateMainButtonState(); return; }
 
             urlStatusMessage.textContent = `총 ${loadedFiles.length}개 파일의 단어를 통합하는 중...`;
             urlStatusMessage.classList.remove('text-red-500');
             
-            let allWords = [];
-            const uniqueKeys = new Set();
+            let [allWords, uniqueKeys] = [[], new Set()];
             
             try {
                 for (const file of loadedFiles) {
                     const fileWords = await fetchWordsFromURL(file.url);
-                    file.wordCount = fileWords.length; // 파일별 단어 수 업데이트 (UI 표시용)
+                    file.wordCount = fileWords.length;
                     
                     fileWords.forEach(word => {
                         if (!uniqueKeys.has(word.key)) {
@@ -681,13 +381,10 @@
                         }
                     });
                 }
-                
                 vocabulary = allWords;
-                renderLoadedFiles(); // UI 업데이트 (단어 수 포함)
-                updateMainButtonState(); 
-
+                renderLoadedFiles();
+                updateMainButtonState();
             } catch (error) {
-                console.error("단어 통합 중 오류 발생:", error);
                 urlStatusMessage.textContent = `단어 통합 오류: ${error.message}`;
                 urlStatusMessage.classList.add('text-red-500');
                 vocabulary = [];
@@ -696,165 +393,101 @@
             }
         }
 
-        /** 파일 목록 UI를 렌더링하고 이벤트 리스너를 연결합니다. */
         function renderLoadedFiles() {
             loadedFilesContainer.innerHTML = '';
             fileCountSpan.textContent = loadedFiles.length;
             totalWordCount.textContent = `총 단어 수: ${vocabulary.length}개 (중복 제거 후)`;
 
-            if (loadedFiles.length === 0) {
-                noFilesMessage.classList.remove('hidden');
-                return;
-            } else {
-                noFilesMessage.classList.add('hidden');
-            }
+            if (loadedFiles.length === 0) { noFilesMessage.classList.remove('hidden'); return; } 
+            else { noFilesMessage.classList.add('hidden'); }
 
             loadedFiles.forEach((file, index) => {
                 const fileTag = document.createElement('span');
                 fileTag.className = 'file-tag';
-                
                 const fileName = file.name || file.url.substring(file.url.lastIndexOf('/') + 1);
-                fileTag.innerHTML = `
-                    <span>${fileName} (${file.wordCount || 0} 단어)</span>
-                    <button class="remove-file-btn" data-index="${index}" title="제거">X</button>
-                `;
+                fileTag.innerHTML = `<span>${fileName} (${file.wordCount || 0} 단어)</span><button class="remove-file-btn" data-index="${index}" title="제거">X</button>`;
                 loadedFilesContainer.appendChild(fileTag);
             });
 
-            // 제거 버튼 이벤트 연결
             loadedFilesContainer.querySelectorAll('.remove-file-btn').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const index = parseInt(e.target.dataset.index);
-                    removeFile(index);
-                });
+                button.addEventListener('click', (e) => removeFile(parseInt(e.target.dataset.index)));
             });
         }
         
-        /** 새로운 파일을 목록에 추가합니다. */
         function addFile(url, name) {
             const trimmedUrl = url.trim();
             if (!trimmedUrl) return;
             
-            // 중복 URL 체크
-            if (loadedFiles.some(f => f.url === trimmedUrl)) {
-                urlStatusMessage.textContent = `${name || trimmedUrl} 파일은 이미 추가되었습니다.`;
-                urlStatusMessage.classList.add('text-orange-500');
-                return;
-            }
+            if (loadedFiles.some(f => f.url === trimmedUrl)) { urlStatusMessage.textContent = `${name || trimmedUrl} 파일은 이미 추가되었습니다.`; urlStatusMessage.classList.add('text-orange-500'); return; }
 
             loadedFiles.push({ url: trimmedUrl, name: name });
             urlStatusMessage.textContent = `${name} 파일을 목록에 추가했습니다. 단어를 로드하는 중...`;
             urlStatusMessage.classList.remove('text-red-500', 'text-orange-500');
-
-            // 새 파일 추가 후 전체 단어 목록 업데이트 및 UI 리렌더링
             updateVocabulary(); 
         }
 
-        /** 목록에서 파일을 제거합니다. */
         function removeFile(index) {
             const removedFileName = loadedFiles[index].name;
             loadedFiles.splice(index, 1);
             urlStatusMessage.textContent = `${removedFileName} 파일을 목록에서 제거했습니다.`;
             urlStatusMessage.classList.remove('text-red-500', 'text-orange-500');
-
-            // 파일 제거 후 전체 단어 목록 업데이트 및 UI 리렌더링
             updateVocabulary(); 
         }
 
-
         // ----------------------------------------------------------------------
-        // Shuffle Logic (Unchanged)
+        // Shuffle Logic (Compressed)
         // ----------------------------------------------------------------------
         
-        /**
-         * Fisher-Yates 셔플 알고리즘을 사용하여 배열을 섞습니다.
-         * @param {Array<Object>} array 셔플할 배열 (vocabulary)
-         */
         function shuffleArray(array) {
             let currentIndex = array.length, randomIndex;
-            
             while (currentIndex !== 0) {
                 randomIndex = Math.floor(Math.random() * currentIndex);
                 currentIndex--;
-
-                [array[currentIndex], array[randomIndex]] = [
-                    array[randomIndex], array[currentIndex]
-                ];
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
             }
             return array;
         }
 
-        /** 학습 페이지의 단어 순서를 무작위로 섞고 그리드를 다시 그립니다. */
         function shuffleStudyRows() {
             if (vocabulary.length === 0) return;
-            
             shuffleArray(vocabulary);
             renderStudyGrid(vocabulary);
-            
             const gridContainer = document.getElementById('study-grid-container');
             gridContainer.style.opacity = '0.5';
             gridContainer.style.transition = 'opacity 0.3s';
-            setTimeout(() => {
-                gridContainer.style.opacity = '1';
-            }, 100);
+            setTimeout(() => { gridContainer.style.opacity = '1'; }, 100);
         }
 
         // ----------------------------------------------------------------------
-        // Quiz/Study Logic (Minor Updates)
+        // Quiz/Study Logic (Compressed & Individual Kanji Link applied)
         // ----------------------------------------------------------------------
         
         function createQuiz(data) {
             if (data.length < 4) return [];
             
-            const questions = [];
-            // Quiz questions are generated based on a copy of the data, then shuffled
-            const dataToUse = [...data].sort(() => 0.5 - Math.random()); 
-            const questionTypes = ['meaning_match', 'hiragana_meaning_match', 'pronunciation_match', 'hiragana_pronunciation_match'];
+            const [questions, dataToUse, questionTypes] = [[], [...data].sort(() => 0.5 - Math.random()), ['meaning_match', 'hiragana_meaning_match', 'pronunciation_match', 'hiragana_pronunciation_match']];
             
             for (let i = 0; i < QUIZ_COUNT; i++) {
-                // 단어 수가 QUIZ_COUNT보다 적을 경우 반복해서 사용
                 const correctWord = dataToUse[i % dataToUse.length]; 
                 const quizType = questionTypes[Math.floor(Math.random() * questionTypes.length)]; 
-                let question = { type: quizType };
-                let optionsSourceField = ''; 
-
+                let [question, optionsSourceField] = [{ type: quizType }, ''];
                 const kanjiDisplay = correctWord.kanji && correctWord.kanji !== '(조사)' ? `(${correctWord.kanji})` : '';
 
                 switch (quizType) {
-                    case 'meaning_match':
-                        question.text = `다음 단어의 뜻은? [${correctWord.hiragana} ${kanjiDisplay}]`;
-                        question.correctAnswerText = correctWord.koreanMeaning;
-                        optionsSourceField = 'koreanMeaning';
-                        break;
-                    case 'hiragana_meaning_match':
-                        question.text = `다음 뜻에 해당하는 단어는? [${correctWord.koreanMeaning}]`;
-                        question.correctAnswerText = correctWord.hiragana;
-                        optionsSourceField = 'hiragana';
-                        break;
-                    case 'pronunciation_match':
-                        question.text = `다음 단어의 한글 발음은? [${correctWord.hiragana} ${kanjiDisplay}]`;
-                        question.correctAnswerText = correctWord.koreanPronunciation;
-                        optionsSourceField = 'koreanPronunciation';
-                        break;
-                    case 'hiragana_pronunciation_match':
-                        question.text = `다음 한글 발음에 해당하는 단어는? [${correctWord.koreanPronunciation}]`;
-                        question.correctAnswerText = correctWord.hiragana;
-                        optionsSourceField = 'hiragana';
-                        break;
+                    case 'meaning_match': question.text = `다음 단어의 뜻은? [${correctWord.hiragana} ${kanjiDisplay}]`; question.correctAnswerText = correctWord.koreanMeaning; optionsSourceField = 'koreanMeaning'; break;
+                    case 'hiragana_meaning_match': question.text = `다음 뜻에 해당하는 단어는? [${correctWord.koreanMeaning}]`; question.correctAnswerText = correctWord.hiragana; optionsSourceField = 'hiragana'; break;
+                    case 'pronunciation_match': question.text = `다음 단어의 한글 발음은? [${correctWord.hiragana} ${kanjiDisplay}]`; question.correctAnswerText = correctWord.koreanPronunciation; optionsSourceField = 'koreanPronunciation'; break;
+                    case 'hiragana_pronunciation_match': question.text = `다음 한글 발음에 해당하는 단어는? [${correctWord.koreanPronunciation}]`; question.correctAnswerText = correctWord.hiragana; optionsSourceField = 'hiragana'; break;
                 }
                 
                 const correctOption = { text: question.correctAnswerText, isCorrect: true, fullData: correctWord };
-                // 중복 방지를 위해 key를 기반으로 필터링
                 const incorrectCandidates = data.filter(item => item.key !== correctWord.key); 
-                
                 const options = [correctOption];
                 const shuffledIncorrects = [...incorrectCandidates].sort(() => 0.5 - Math.random()).slice(0, 3);
 
                 shuffledIncorrects.forEach(distractor => {
                     let optionText = distractor[optionsSourceField];
-                    if (options.some(opt => opt.text === optionText)) {
-                        optionText += ` (다른 단어의 ${optionsSourceField === 'hiragana' ? '히라가나' : '뜻'})`;
-                    }
+                    if (options.some(opt => opt.text === optionText)) { optionText += ` (다른 단어의 ${optionsSourceField === 'hiragana' ? '히라가나' : '뜻'})`; }
                     options.push({ text: optionText, isCorrect: false, fullData: distractor });
                 });
                 
@@ -864,7 +497,6 @@
             return questions;
         }
 
-        // displayQuestion, createDetailHtml, handleAnswer, nextQuestion, showResults... (Unchanged)
         function displayQuestion(question) {
             quizProgressElement.textContent = `문제 ${currentQuestionIndex + 1} / ${QUIZ_COUNT}`;
             questionTextElement.innerHTML = question.text;
@@ -904,19 +536,15 @@
                 btn.classList.add('disabled');
             });
             
-            let feedbackClass, feedbackText;
+            let [feedbackClass, feedbackText] = ['', ''];
             if (isCorrect) {
-                feedbackClass = 'bg-green-100 text-green-700';
-                feedbackText = '정답입니다! 잘하셨어요.';
+                [feedbackClass, feedbackText] = ['bg-green-100 text-green-700', '정답입니다! 잘하셨어요.'];
             } else {
-                feedbackClass = 'bg-red-100 text-red-700';
-                feedbackText = '오답입니다. 정답과 오답 단어의 정보를 비교해 보세요.';
+                [feedbackClass, feedbackText] = ['bg-red-100 text-red-700', '오답입니다. 정답과 오답 단어의 정보를 비교해 보세요.'];
                 const correctWordData = currentQuestion.correctFullData;
-                if (!incorrectAnswers.some(a => a.hiragana === correctWordData.hiragana)) {
-                     incorrectAnswers.push(correctWordData);
-                }
+                if (!incorrectAnswers.some(a => a.hiragana === correctWordData.hiragana)) { incorrectAnswers.push(correctWordData); }
             }
-            feedbackMessage.className = `p-3 rounded-lg text-center font-medium ${feedbackClass}`;
+            feedbackMessage.className = `p-4 rounded-lg text-center font-extrabold text-lg ${feedbackClass}`;
             feedbackMessage.innerHTML = `<p class="text-center">${feedbackText}</p>`;
             feedbackMessage.classList.remove('hidden');
 
@@ -924,16 +552,11 @@
                 const optionIndex = parseInt(btn.dataset.optionIndex);
                 const optionData = currentQuestion.options[optionIndex]; 
 
-                if (optionData.isCorrect) {
-                     btn.classList.remove('disabled'); 
-                     btn.classList.add('correct');
-                } else if (btn === selectedButton) {
-                     btn.classList.add('incorrect');
-                }
+                if (optionData.isCorrect) { btn.classList.remove('disabled'); btn.classList.add('correct'); } 
+                else if (btn === selectedButton) { btn.classList.add('incorrect'); }
                 
-                const wordDetailHtml = createDetailHtml(optionData.fullData);
                 const originalOptionText = btn.querySelector('.option-text').textContent;
-                btn.innerHTML = `<span class="option-text font-medium">${originalOptionText}</span>${wordDetailHtml}`;
+                btn.innerHTML = `<span class="option-text font-medium">${originalOptionText}</span>${createDetailHtml(optionData.fullData)}`;
             });
 
             nextButton.disabled = false;
@@ -942,11 +565,8 @@
 
         function nextQuestion() {
             currentQuestionIndex++;
-            if (currentQuestionIndex < QUIZ_COUNT) {
-                displayQuestion(quizQuestions[currentQuestionIndex]);
-            } else {
-                showResults();
-            }
+            if (currentQuestionIndex < QUIZ_COUNT) { displayQuestion(quizQuestions[currentQuestionIndex]); } 
+            else { showResults(); }
         }
 
         function showResults() {
@@ -958,11 +578,8 @@
             if (incorrectAnswers.length > 0) {
                 incorrectAnswers.forEach(word => {
                     const listItem = document.createElement('li');
-                    listItem.className = 'p-3 bg-gray-50 rounded-lg border-l-4 border-red-400 shadow-sm';
-                    listItem.innerHTML = `
-                        <p class="font-bold text-gray-800">${word.hiragana} (${word.kanji})</p>
-                        <p class="text-sm text-gray-600 ml-2">발음: ${word.koreanPronunciation}, 뜻: ${word.koreanMeaning}</p>
-                    `;
+                    listItem.className = 'p-4 bg-gray-100 rounded-lg border-l-4 border-red-500 shadow-md';
+                    listItem.innerHTML = `<p class="font-extrabold text-lg text-gray-900">${word.hiragana} (${word.kanji})</p><p class="text-base text-gray-700 ml-2">발음: ${word.koreanPronunciation}, 뜻: ${word.koreanMeaning}</p>`;
                     incorrectListElement.appendChild(listItem);
                 });
                 noIncorrectMessage.classList.add('hidden');
@@ -971,9 +588,9 @@
             }
         }
         
+        /** Study Grid를 렌더링하고 한자에 개별 링크를 추가합니다. */
         function renderStudyGrid(data) {
              studyGridContainer.innerHTML = '';
-            
             const grid = document.createElement('div');
             grid.className = 'study-grid';
             
@@ -985,18 +602,17 @@
                 { key: 'koreanMeaning', label: '뜻 (한국어)' }
             ];
 
-            // 1. Header Row
+            // Header Row
             headers.forEach(header => {
                 const headerCell = document.createElement('div');
                 headerCell.className = 'study-cell header-cell';
                 headerCell.textContent = header.label;
                 headerCell.dataset.colKey = header.key;
-                
                 if (header.key !== 'index') headerCell.onclick = handleColumnClick;
                 grid.appendChild(headerCell);
             });
 
-            // 2. Data Rows
+            // Data Rows
             data.forEach((word, rowIndex) => { 
                 const indexCell = document.createElement('div');
                 indexCell.className = 'study-cell index-cell';
@@ -1010,7 +626,16 @@
                     cell.dataset.rowIndex = rowIndex;
                     cell.dataset.colKey = header.key;
                     
-                    const content = `<span class="content">${word[header.key]}</span>`;
+                    let content;
+                    
+                    if (header.key === 'kanji' && word.kanji && word.kanji !== '(조사)') {
+                         // 개별 한자 링크 적용 
+                         const linkedContent = linkifyKanji(word.kanji.trim());
+                         content = `<span class="content">${linkedContent}</span>`;
+                    } else {
+                         content = `<span class="content">${word[header.key]}</span>`;
+                    }
+                    
                     cell.innerHTML = content;
                     grid.appendChild(cell);
                 });
@@ -1023,6 +648,10 @@
         function handleCellClick(event) {
             const clickedCell = event.currentTarget;
             if (clickedCell.dataset.rowIndex === undefined) return;
+            
+            // 개별 한자 링크를 클릭했을 경우 가리기 토글을 막음
+            if (event.target.closest('.kanji-link')) { event.stopPropagation(); return; }
+            
             clickedCell.classList.toggle('covered');
             updateToggleAllButtonText(); 
         }
@@ -1044,64 +673,47 @@
         function toggleAllCells() {
             const cells = studyGridContainer.querySelectorAll(dataCellsSelector);
             const shouldCoverAll = Array.from(cells).some(cell => !cell.classList.contains('covered'));
-            
             cells.forEach(cell => {
                 if (shouldCoverAll) cell.classList.add('covered');
                 else cell.classList.remove('covered');
             });
-            
             updateToggleAllButtonText(!shouldCoverAll);
         }
 
         function updateToggleAllButtonText(isCurrentlyAllCovered = null) {
             const cells = studyGridContainer.querySelectorAll(dataCellsSelector);
-            if (cells.length === 0) {
-                toggleAllButton.textContent = '데이터 없음';
-                return;
-            }
-            
-            const allCovered = isCurrentlyAllCovered !== null ? isCurrentlyAllCovered : 
-                                 Array.from(cells).every(cell => cell.classList.contains('covered'));
-
+            if (cells.length === 0) { toggleAllButton.textContent = '데이터 없음'; return; }
+            const allCovered = isCurrentlyAllCovered !== null ? isCurrentlyAllCovered : Array.from(cells).every(cell => cell.classList.contains('covered'));
             toggleAllButton.textContent = allCovered ? '모두 확인' : '모두 가리기';
         }
         
         // ----------------------------------------------------------------------
-        // Floating Drawing Area Logic (Unchanged)
+        // Floating Drawing Area Logic (Compressed)
         // ----------------------------------------------------------------------
 
         function resizeCanvas() {
             if (drawingCanvas && !isMinimized) {
                 const rect = drawingCanvas.getBoundingClientRect();
                 if (rect.width > 0 && rect.height > 0) {
-                    drawingCanvas.width = rect.width;
-                    drawingCanvas.height = rect.height;
+                    [drawingCanvas.width, drawingCanvas.height] = [rect.width, rect.height];
                 }
                 if (ctx) {
-                    ctx.strokeStyle = '#1f2937'; 
-                    ctx.lineWidth = 3;
-                    ctx.lineCap = 'round';
-                    ctx.lineJoin = 'round';
+                    [ctx.strokeStyle, ctx.lineWidth, ctx.lineCap, ctx.lineJoin] = ['#1f2937', 3, 'round', 'round'];
                 }
             }
         }
         
         function draw(e) {
             if (!isDrawing || isMinimized) return;
-
             const clientX = e.clientX || (e.touches && e.touches[0].clientX);
             const clientY = e.clientY || (e.touches && e.touches[0].clientY);
             if (clientX === undefined || clientY === undefined) return;
-
             const rect = drawingCanvas.getBoundingClientRect();
-            const x = clientX - rect.left;
-            const y = clientY - rect.top;
-
+            const [x, y] = [clientX - rect.left, clientY - rect.top];
             ctx.beginPath();
             ctx.moveTo(lastX, lastY);
             ctx.lineTo(x, y);
             ctx.stroke();
-
             [lastX, lastY] = [x, y];
         }
 
@@ -1109,19 +721,14 @@
             if (isMinimized) return;
             e.preventDefault(); 
             isDrawing = true;
-            
             const clientX = e.clientX || (e.touches && e.touches[0].clientX);
             const clientY = e.clientY || (e.touches && e.touches[0].clientY);
             if (clientX === undefined || clientY === undefined) return;
-
             const rect = drawingCanvas.getBoundingClientRect();
             [lastX, lastY] = [clientX - rect.left, clientY - rect.top];
         }
 
-        function stopDrawing() {
-            isDrawing = false;
-        }
-
+        function stopDrawing() { isDrawing = false; }
         function clearCanvas() {
             if (isMinimized) return;
             ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
@@ -1130,64 +737,30 @@
         }
         
         function updateMinimizeButtonPosition() {
-            if (floatingNoteArea.classList.contains('hidden') || isMinimized) {
-                return; 
-            }
-
+            if (floatingNoteArea.classList.contains('hidden') || isMinimized) return; 
             const windowRect = floatingNoteArea.getBoundingClientRect();
             const headerHeight = noteHeader.offsetHeight;
-
-            const buttonX = windowRect.right + 10;
-            const buttonY = windowRect.top + (headerHeight / 2); 
-            
-            minimizeButton.style.left = `${buttonX}px`;
-            minimizeButton.style.top = `${buttonY}px`;
+            const [buttonX, buttonY] = [windowRect.right + 10, windowRect.top + (headerHeight / 2)];
+            [minimizeButton.style.left, minimizeButton.style.top] = [`${buttonX}px`, `${buttonY}px`];
         }
         
         function toggleMinimize() {
             if (!isMinimized) {
                 isMinimized = true;
-                
-                savedPositionAndSize = {
-                    left: floatingNoteArea.offsetLeft,
-                    top: floatingNoteArea.offsetTop,
-                    width: floatingNoteArea.offsetWidth,
-                    height: floatingNoteArea.offsetHeight,
-                };
-                
+                savedPositionAndSize = { left: floatingNoteArea.offsetLeft, top: floatingNoteArea.offsetTop, width: floatingNoteArea.offsetWidth, height: floatingNoteArea.offsetHeight };
                 floatingNoteArea.classList.add('minimized');
-                
-                restoreLabel.classList.remove('hidden');
-                headerControls.classList.add('hidden');
-                minimizeIcon.classList.add('hidden');
-                maximizeIcon.classList.remove('hidden');
+                [restoreLabel.classList.remove('hidden'), headerControls.classList.add('hidden'), minimizeIcon.classList.add('hidden'), maximizeIcon.classList.remove('hidden')];
                 minimizeButton.title = '최대화';
-                
                 minimizeButton.classList.add('hidden');
-                
             } else {
                 isMinimized = false;
-
                 floatingNoteArea.classList.remove('minimized');
-                
-                floatingNoteArea.style.width = `${savedPositionAndSize.width}px`;
-                floatingNoteArea.style.height = `${savedPositionAndSize.height}px`;
-                
-                const safeLeft = Math.min(savedPositionAndSize.left, window.innerWidth - savedPositionAndSize.width - 20);
-                const safeTop = Math.min(savedPositionAndSize.top, window.innerHeight - savedPositionAndSize.height - 20);
-
-                floatingNoteArea.style.left = `${safeLeft}px`;
-                floatingNoteArea.style.top = `${safeTop}px`;
-                
-                restoreLabel.classList.add('hidden');
-                headerControls.classList.remove('hidden');
-                maximizeIcon.classList.add('hidden');
-                minimizeIcon.classList.remove('hidden');
+                [floatingNoteArea.style.width, floatingNoteArea.style.height] = [`${savedPositionAndSize.width}px`, `${savedPositionAndSize.height}px`];
+                const [safeLeft, safeTop] = [Math.min(savedPositionAndSize.left, window.innerWidth - savedPositionAndSize.width - 20), Math.min(savedPositionAndSize.top, window.innerHeight - savedPositionAndSize.height - 20)];
+                [floatingNoteArea.style.left, floatingNoteArea.style.top] = [`${safeLeft}px`, `${safeTop}px`];
+                [restoreLabel.classList.add('hidden'), headerControls.classList.remove('hidden'), maximizeIcon.classList.add('hidden'), minimizeIcon.classList.remove('hidden')];
                 minimizeButton.title = '최소화';
-                
-                if (!floatingNoteArea.classList.contains('hidden')) {
-                    minimizeButton.classList.remove('hidden');
-                }
+                if (!floatingNoteArea.classList.contains('hidden')) minimizeButton.classList.remove('hidden');
                 resizeCanvas();
                 updateMinimizeButtonPosition();
             }
@@ -1196,88 +769,42 @@
 
         function setupFloatingNoteArea() {
             ctx = drawingCanvas.getContext('2d');
-            
-            const initialRect = floatingNoteArea.getBoundingClientRect();
-            const initialLeft = initialRect.left;
-            const initialTop = initialRect.top;
-            
-            floatingNoteArea.style.left = `${initialLeft}px`;
-            floatingNoteArea.style.top = `${initialTop}px`;
-            floatingNoteArea.style.right = 'auto'; 
-            
-            savedPositionAndSize = {
-                 left: initialLeft,
-                 top: initialTop,
-                 width: floatingNoteArea.offsetWidth,
-                 height: floatingNoteArea.offsetHeight,
-            };
-            
+            const [initialRect, initialLeft, initialTop] = [floatingNoteArea.getBoundingClientRect(), floatingNoteArea.getBoundingClientRect().left, floatingNoteArea.getBoundingClientRect().top];
+            [floatingNoteArea.style.left, floatingNoteArea.style.top, floatingNoteArea.style.right] = [`${initialLeft}px`, `${initialTop}px`, 'auto'];
+            savedPositionAndSize = { left: initialLeft, top: initialTop, width: floatingNoteArea.offsetWidth, height: floatingNoteArea.offsetHeight };
             resizeCanvas(); 
             
-            drawingCanvas.addEventListener('mousedown', startDrawing);
-            drawingCanvas.addEventListener('mousemove', draw);
-            drawingCanvas.addEventListener('mouseup', stopDrawing);
-            drawingCanvas.addEventListener('mouseout', stopDrawing); 
-            drawingCanvas.addEventListener('touchstart', startDrawing);
-            drawingCanvas.addEventListener('touchmove', draw);
-            drawingCanvas.addEventListener('touchend', stopDrawing);
-
+            // Drawing Listeners
+            ['mousedown', 'touchstart'].forEach(event => drawingCanvas.addEventListener(event, startDrawing));
+            ['mousemove', 'touchmove'].forEach(event => drawingCanvas.addEventListener(event, draw));
+            ['mouseup', 'mouseout', 'touchend'].forEach(event => drawingCanvas.addEventListener(event, stopDrawing));
             noteClearButton.addEventListener('click', clearCanvas);
             minimizeButton.addEventListener('click', toggleMinimize);
+            floatingNoteArea.addEventListener('click', (e) => { if (isMinimized) { toggleMinimize(); e.stopPropagation(); } });
             
-            floatingNoteArea.addEventListener('click', (e) => {
-                if (isMinimized) {
-                    toggleMinimize();
-                    e.stopPropagation(); 
-                }
-            });
-            
+            // Resize/Window Listeners
             if ('ResizeObserver' in window) {
-                const observer = new ResizeObserver(entries => {
-                    if (!isMinimized) requestAnimationFrame(resizeCanvas); 
-                    updateMinimizeButtonPosition(); 
-                });
+                const observer = new ResizeObserver(entries => { if (!isMinimized) requestAnimationFrame(resizeCanvas); updateMinimizeButtonPosition(); });
                 observer.observe(floatingNoteArea); 
             }
-            window.addEventListener('resize', () => {
-                resizeCanvas();
-                updateMinimizeButtonPosition();
-            });
+            window.addEventListener('resize', () => { resizeCanvas(); updateMinimizeButtonPosition(); });
 
-
-            // ------------------ Drag Logic ------------------
-            
+            // Drag Logic
             function dragStart(e) {
-                if (isMinimized) return;
-                
-                const isResizeHandle = e.offsetX > floatingNoteArea.offsetWidth - 20 && 
-                                       e.offsetY > floatingNoteArea.offsetHeight - 20;
-                
-                if (isResizeHandle) return;
-
-                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-
+                if (isMinimized || (e.offsetX > floatingNoteArea.offsetWidth - 20 && e.offsetY > floatingNoteArea.offsetHeight - 20)) return;
+                const [clientX, clientY] = [e.clientX || (e.touches && e.touches[0].clientX), e.clientY || (e.touches && e.touches[0].clientY)];
                 if (clientX === undefined || clientY === undefined) return;
-
-                initialX = clientX - floatingNoteArea.offsetLeft;
-                initialY = clientY - floatingNoteArea.offsetTop;
-
+                [initialX, initialY] = [clientX - floatingNoteArea.offsetLeft, clientY - floatingNoteArea.offsetTop];
                 if (e.target === noteHeader || e.target.closest('#note-header')) {
                     e.preventDefault();
-                    isDragging = true;
-                    noteHeader.style.cursor = 'grabbing';
+                    [isDragging, noteHeader.style.cursor] = [true, 'grabbing'];
                 }
             }
 
             function dragEnd() {
                 if (isDragging) {
-                    isDragging = false;
-                    noteHeader.style.cursor = 'grab';
-                    
-                    savedPositionAndSize.left = floatingNoteArea.offsetLeft;
-                    savedPositionAndSize.top = floatingNoteArea.offsetTop;
-                    
+                    [isDragging, noteHeader.style.cursor] = [false, 'grab'];
+                    [savedPositionAndSize.left, savedPositionAndSize.top] = [floatingNoteArea.offsetLeft, floatingNoteArea.offsetTop];
                     updateMinimizeButtonPosition(); 
                 }
             }
@@ -1285,36 +812,20 @@
             function drag(e) {
                 if (isDragging && !isMinimized) {
                     e.preventDefault();
-                    
-                    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-                    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-
+                    const [clientX, clientY] = [e.clientX || (e.touches && e.touches[0].clientX), e.clientY || (e.touches && e.touches[0].clientY)];
                     if (clientX === undefined || clientY === undefined) return;
-
-                    const currentX = clientX - initialX;
-                    const currentY = clientY - initialY;
-
-                    const minX = 0;
-                    const minY = 0;
-                    const maxX = window.innerWidth - floatingNoteArea.offsetWidth;
-                    const maxY = window.innerHeight - floatingNoteArea.offsetHeight;
-
-                    const newX = Math.min(Math.max(currentX, minX), maxX);
-                    const newY = Math.min(Math.max(currentY, minY), maxY);
-
-                    floatingNoteArea.style.left = newX + "px";
-                    floatingNoteArea.style.top = newY + "px";
-                    
+                    const [currentX, currentY] = [clientX - initialX, clientY - initialY];
+                    const [minX, minY, maxX, maxY] = [0, 0, window.innerWidth - floatingNoteArea.offsetWidth, window.innerHeight - floatingNoteArea.offsetHeight];
+                    const [newX, newY] = [Math.min(Math.max(currentX, minX), maxX), Math.min(Math.max(currentY, minY), maxY)];
+                    [floatingNoteArea.style.left, floatingNoteArea.style.top] = [newX + "px", newY + "px"];
                     updateMinimizeButtonPosition(); 
                 }
             }
             
             noteHeader.addEventListener("mousedown", dragStart);
             noteHeader.addEventListener("touchstart", dragStart); 
-            
             document.addEventListener("mouseup", dragEnd);
             document.addEventListener("touchend", dragEnd);
-            
             document.addEventListener("mousemove", drag);
             document.addEventListener("touchmove", drag);
             
@@ -1322,25 +833,17 @@
         }
 
         // ----------------------------------------------------------------------
-        // Common Loading & Start Functions
+        // Common Loading & Start Functions (Compressed)
         // ----------------------------------------------------------------------
 
         async function prepareDataAndSwitch(mode) {
-            if (vocabulary.length < 4) {
-                 urlStatusMessage.textContent = `퀴즈/학습을 시작하기 위한 최소 단어(4개)가 부족합니다. 현재: ${vocabulary.length}개`;
-                 urlStatusMessage.classList.add('text-red-500');
-                 return;
-            }
-
+            if (vocabulary.length < 4) { urlStatusMessage.textContent = `퀴즈/학습을 시작하기 위한 최소 단어(4개)가 부족합니다. 현재: ${vocabulary.length}개`; urlStatusMessage.classList.add('text-red-500'); return; }
             errorBox.classList.add('hidden');
             
             if (mode === 'quiz') {
-                incorrectAnswers = [];
-                currentQuestionIndex = 0;
-                quizQuestions = createQuiz(vocabulary); 
+                [incorrectAnswers, currentQuestionIndex, quizQuestions] = [[], 0, createQuiz(vocabulary)];
                 showSection(quizSection);
                 displayQuestion(quizQuestions[currentQuestionIndex]);
-                
             } else if (mode === 'study') {
                 renderStudyGrid(vocabulary); 
                 showSection(studySection);
@@ -1349,14 +852,10 @@
 
         async function startQuiz() { await prepareDataAndSwitch('quiz'); }
         async function startStudy() { await prepareDataAndSwitch('study'); }
-        
-        function goBackToMenu() {
-            showSection(fileUploadSection);
-            updateMainButtonState();
-        }
+        function goBackToMenu() { showSection(fileUploadSection); updateMainButtonState(); }
 
         // ----------------------------------------------------------------------
-        // Initialization & Event Listeners
+        // Initialization & Event Listeners (Compressed)
         // ----------------------------------------------------------------------
 
         function setupEventListeners() {
@@ -1368,56 +867,46 @@
             toggleAllButton.addEventListener('click', toggleAllCells);
             shuffleStudyButton.addEventListener('click', shuffleStudyRows); 
             
-            // 파일 추가 이벤트: GitHub Select
             addSelectedFileButton.addEventListener('click', () => {
                 const selectedOption = csvSelect.options[csvSelect.selectedIndex];
                 if (selectedOption && selectedOption.value) {
                     addFile(selectedOption.value, selectedOption.dataset.name);
-                    csvSelect.selectedIndex = 0; // 추가 후 선택 초기화
-                    addSelectedFileButton.disabled = true;
+                    [csvSelect.selectedIndex, addSelectedFileButton.disabled] = [0, true];
                 }
             });
             
-            // 파일 추가 이벤트: URL Input
             addUrlFileButton.addEventListener('click', () => {
                 const url = csvUrlInput.value.trim();
                 if (url) {
-                    // 파일 이름은 URL의 마지막 경로를 사용하거나 '직접 입력 URL'로 표시
                     const name = url.substring(url.lastIndexOf('/') + 1) || '직접 입력 URL';
                     addFile(url, name);
-                    csvUrlInput.value = ''; // 추가 후 입력 초기화
-                    addUrlFileButton.disabled = true;
+                    [csvUrlInput.value, addUrlFileButton.disabled] = ['', true];
                 }
             });
 
-            // UI 상태 변경 이벤트: Select
             csvSelect.addEventListener('change', () => {
                 addSelectedFileButton.disabled = !csvSelect.value;
-                if(csvSelect.value) csvUrlInput.value = ''; // Select 선택 시 URL 입력 초기화
+                if(csvSelect.value) csvUrlInput.value = '';
                 addUrlFileButton.disabled = !csvUrlInput.value.trim();
             });
             
-            // UI 상태 변경 이벤트: URL Input
             csvUrlInput.addEventListener('input', () => {
                 addUrlFileButton.disabled = !csvUrlInput.value.trim();
-                if(csvUrlInput.value.trim()) csvSelect.selectedIndex = 0; // URL 입력 시 Select 초기화
+                if(csvUrlInput.value.trim()) csvSelect.selectedIndex = 0;
                 addSelectedFileButton.disabled = !csvSelect.value;
             });
 
             setupFloatingNoteArea(); 
         }
 
-        // 초기화 함수
         window.onload = function() {
             setupEventListeners();
             loadCsvFileOptions(); 
-            // 초기 상태 설정
             csvUrlInput.value = ''; 
-            updateVocabulary(); // 초기 로드된 파일 목록 갱신 (0개)
+            updateVocabulary(); 
             updateMainButtonState(); 
             showSection(fileUploadSection);
         };
-
     </script>
 </body>
 </html>
