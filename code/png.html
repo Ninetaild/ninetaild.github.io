@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>PNG Auto Blur Tool (Pro)</title>
+<title>PNG Auto Blur Tool (Pro Stable)</title>
 
 <style>
 body{
@@ -25,9 +25,7 @@ button{
 </style>
 </head>
 <body>
-
-<h2>PNG 자동 블러 + 밝기 + 투명 보호 + 여백 제거</h2>
-
+    
 <input type="file" id="upload" accept="image/png">
 
 <br>
@@ -37,10 +35,11 @@ button{
 
 <script>
 
-// ⭐ 튜닝 가능한 값
-const blurStrength = 1;     
-const brightness = -7;      
-const thinThreshold = 2;    
+// ⭐ 추천 세팅 (연상 이미지 최적값)
+const blurStrength = 0.6;     
+const brightness = -5;
+const saturation = -12;   // 🔥 -10보다 살짝 더 추천
+const thinThreshold = 2;   
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -54,21 +53,20 @@ document.getElementById('upload').addEventListener('change', e=>{
         canvas.width = img.width;
         canvas.height = img.height;
 
-        // ⭐ 원본 알파 저장
         const alphaMask = getAlphaMask(img);
 
-        // ⭐ 블러 + 밝기
-        ctx.filter = `blur(${blurStrength}px) brightness(${100+brightness}%)`;
+        // ⭐ 핵심 필터
+        ctx.filter = `
+            blur(${blurStrength}px)
+            brightness(${100+brightness}%)
+            saturate(${100+saturation}%)
+        `;
+
         ctx.drawImage(img,0,0);
         ctx.filter = 'none';
 
-        // ⭐ 얇은 선 보호
         protectThinEdges(img);
-
-        // ⭐ 투명 영역 복구 (halo 방지 핵심)
         restoreAlpha(alphaMask);
-
-        // ⭐ 자동 여백 제거 (편집 속도 상승)
         trimCanvas();
     };
 
@@ -88,13 +86,12 @@ function getAlphaMask(img){
     const tctx = temp.getContext('2d');
     tctx.drawImage(img,0,0);
 
-    const imgData = tctx.getImageData(0,0,temp.width,temp.height);
-    return imgData.data;
+    return tctx.getImageData(0,0,temp.width,temp.height).data;
 }
 
 
 // =============================
-// 투명 복구
+// 투명 복구 (halo 방지)
 // =============================
 
 function restoreAlpha(alphaData){
@@ -103,8 +100,6 @@ function restoreAlpha(alphaData){
     const out = output.data;
 
     for(let i=0; i<out.length; i+=4){
-
-        // 원본이 완전 투명이면 그대로 유지
         if(alphaData[i+3] === 0){
             out[i+3] = 0;
         }
@@ -126,8 +121,8 @@ function protectThinEdges(img){
     const tctx = temp.getContext('2d');
     tctx.drawImage(img,0,0);
 
-    const imgData = tctx.getImageData(0,0,temp.width,temp.height);
-    const data = imgData.data;
+    const original = tctx.getImageData(0,0,temp.width,temp.height);
+    const data = original.data;
 
     const output = ctx.getImageData(0,0,canvas.width,canvas.height);
     const out = output.data;
@@ -155,6 +150,7 @@ function protectThinEdges(img){
                 }
             }
 
+            // 얇은 선이면 원본 복구
             if(neighbors <= thinThreshold){
 
                 out[i]   = data[i];
@@ -171,7 +167,7 @@ function protectThinEdges(img){
 
 
 // =============================
-// ⭐ 자동 여백 제거 (진짜 강력 추천 기능)
+// 자동 여백 제거 (버그 수정됨)
 // =============================
 
 function trimCanvas(){
@@ -199,8 +195,9 @@ function trimCanvas(){
 
     if(top===null) return;
 
-    const width = right-left;
-    const height = bottom-top;
+    // ⭐ +1 버그 수정
+    const width = right-left + 1;
+    const height = bottom-top + 1;
 
     const trimmed = ctx.getImageData(left, top, width, height);
 
@@ -213,13 +210,13 @@ function trimCanvas(){
 
 
 // =============================
-// 다운로드
+// 다운로드 (파일명 자동)
 // =============================
 
 document.getElementById('download').addEventListener('click', ()=>{
 
     const link = document.createElement('a');
-    link.download = "blurred.png";
+    link.download = `blur_${Date.now()}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
 
@@ -229,5 +226,3 @@ document.getElementById('download').addEventListener('click', ()=>{
 
 </body>
 </html>
-
-
