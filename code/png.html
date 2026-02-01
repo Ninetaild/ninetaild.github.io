@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>PNG Auto Blur Tool</title>
+<style>
+body{
+    font-family: sans-serif;
+    padding:40px;
+    background:#111;
+    color:white;
+}
+canvas{
+    margin-top:20px;
+    border:1px solid #444;
+    max-width:100%;
+}
+button{
+    margin-top:20px;
+    padding:10px 20px;
+    font-size:16px;
+    cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<h2>PNG 자동 블러 + 밝기 조정</h2>
+<input type="file" id="upload" accept="image/png">
+
+<br>
+<canvas id="canvas"></canvas>
+<br>
+<button id="download">다운로드</button>
+
+<script>
+
+const blurStrength = 2;      // 전체 블러
+const brightness = -7;      // 밝기
+const thinThreshold = 2;    // px 이하 = 블러 거의 없음
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+document.getElementById('upload').addEventListener('change', e=>{
+    const file = e.target.files[0];
+    const img = new Image();
+
+    img.onload = ()=>{
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        // 원본 그림
+        ctx.filter = `blur(${blurStrength}px) brightness(${100+brightness}%)`;
+        ctx.drawImage(img,0,0);
+
+        // 얇은 영역 보호용 원본 다시 씌우기
+        protectThinEdges(img);
+    };
+
+    img.src = URL.createObjectURL(file);
+});
+
+function protectThinEdges(img){
+
+    // 원본 픽셀 읽기
+    const temp = document.createElement('canvas');
+    temp.width = img.width;
+    temp.height = img.height;
+    const tctx = temp.getContext('2d');
+    tctx.drawImage(img,0,0);
+
+    const imgData = tctx.getImageData(0,0,temp.width,temp.height);
+    const data = imgData.data;
+
+    const output = ctx.getImageData(0,0,canvas.width,canvas.height);
+    const out = output.data;
+
+    const w = temp.width;
+    const h = temp.height;
+
+    // 매우 단순하지만 꽤 효과적인 "얇은 픽셀 탐지"
+    for(let y=1; y<h-1; y++){
+        for(let x=1; x<w-1; x++){
+
+            const i = (y*w + x)*4;
+
+            const alpha = data[i+3];
+
+            if(alpha === 0) continue;
+
+            let neighbors = 0;
+
+            // 주변 알파 체크
+            for(let dy=-1; dy<=1; dy++){
+                for(let dx=-1; dx<=1; dx++){
+                    if(dx===0 && dy===0) continue;
+
+                    const ni = ((y+dy)*w + (x+dx))*4;
+                    if(data[ni+3] > 0) neighbors++;
+                }
+            }
+
+            // 이웃이 적으면 = 얇은 선
+            if(neighbors <= thinThreshold){
+
+                // 원본 픽셀 복구 (블러 제거)
+                out[i]   = data[i];
+                out[i+1] = data[i+1];
+                out[i+2] = data[i+2];
+                out[i+3] = data[i+3];
+            }
+        }
+    }
+
+    ctx.putImageData(output,0,0);
+}
+
+// 다운로드
+document.getElementById('download').addEventListener('click', ()=>{
+    const link = document.createElement('a');
+    link.download = "blurred.png";
+    link.href = canvas.toDataURL();
+    link.click();
+});
+
+</script>
+
+</body>
+</html>
