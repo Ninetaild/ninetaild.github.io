@@ -2,7 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>PNG Auto Blur Tool</title>
+<title>PNG Auto Blur Tool (Pro)</title>
+
 <style>
 body{
     font-family: sans-serif;
@@ -25,7 +26,8 @@ button{
 </head>
 <body>
 
-<h2>PNG 자동 블러 + 밝기 조정</h2>
+<h2>PNG 자동 블러 + 밝기 + 투명 보호 + 여백 제거</h2>
+
 <input type="file" id="upload" accept="image/png">
 
 <br>
@@ -35,9 +37,10 @@ button{
 
 <script>
 
-const blurStrength = 2;      // 전체 블러
-const brightness = -7;      // 밝기
-const thinThreshold = 2;    // px 이하 = 블러 거의 없음
+// ⭐ 튜닝 가능한 값
+const blurStrength = 7;     
+const brightness = -7;      
+const thinThreshold = 2;    
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -47,23 +50,76 @@ document.getElementById('upload').addEventListener('change', e=>{
     const img = new Image();
 
     img.onload = ()=>{
+
         canvas.width = img.width;
         canvas.height = img.height;
 
-        // 원본 그림
+        // ⭐ 원본 알파 저장
+        const alphaMask = getAlphaMask(img);
+
+        // ⭐ 블러 + 밝기
         ctx.filter = `blur(${blurStrength}px) brightness(${100+brightness}%)`;
         ctx.drawImage(img,0,0);
+        ctx.filter = 'none';
 
-        // 얇은 영역 보호용 원본 다시 씌우기
+        // ⭐ 얇은 선 보호
         protectThinEdges(img);
+
+        // ⭐ 투명 영역 복구 (halo 방지 핵심)
+        restoreAlpha(alphaMask);
+
+        // ⭐ 자동 여백 제거 (편집 속도 상승)
+        trimCanvas();
     };
 
     img.src = URL.createObjectURL(file);
 });
 
+
+// =============================
+// 투명 마스크 저장
+// =============================
+
+function getAlphaMask(img){
+
+    const temp = document.createElement('canvas');
+    temp.width = img.width;
+    temp.height = img.height;
+    const tctx = temp.getContext('2d');
+    tctx.drawImage(img,0,0);
+
+    const imgData = tctx.getImageData(0,0,temp.width,temp.height);
+    return imgData.data;
+}
+
+
+// =============================
+// 투명 복구
+// =============================
+
+function restoreAlpha(alphaData){
+
+    const output = ctx.getImageData(0,0,canvas.width,canvas.height);
+    const out = output.data;
+
+    for(let i=0; i<out.length; i+=4){
+
+        // 원본이 완전 투명이면 그대로 유지
+        if(alphaData[i+3] === 0){
+            out[i+3] = 0;
+        }
+    }
+
+    ctx.putImageData(output,0,0);
+}
+
+
+// =============================
+// 얇은 선 보호
+// =============================
+
 function protectThinEdges(img){
 
-    // 원본 픽셀 읽기
     const temp = document.createElement('canvas');
     temp.width = img.width;
     temp.height = img.height;
@@ -79,21 +135,19 @@ function protectThinEdges(img){
     const w = temp.width;
     const h = temp.height;
 
-    // 매우 단순하지만 꽤 효과적인 "얇은 픽셀 탐지"
     for(let y=1; y<h-1; y++){
         for(let x=1; x<w-1; x++){
 
             const i = (y*w + x)*4;
-
             const alpha = data[i+3];
 
             if(alpha === 0) continue;
 
             let neighbors = 0;
 
-            // 주변 알파 체크
             for(let dy=-1; dy<=1; dy++){
                 for(let dx=-1; dx<=1; dx++){
+
                     if(dx===0 && dy===0) continue;
 
                     const ni = ((y+dy)*w + (x+dx))*4;
@@ -101,10 +155,8 @@ function protectThinEdges(img){
                 }
             }
 
-            // 이웃이 적으면 = 얇은 선
             if(neighbors <= thinThreshold){
 
-                // 원본 픽셀 복구 (블러 제거)
                 out[i]   = data[i];
                 out[i+1] = data[i+1];
                 out[i+2] = data[i+2];
@@ -116,12 +168,61 @@ function protectThinEdges(img){
     ctx.putImageData(output,0,0);
 }
 
+
+
+// =============================
+// ⭐ 자동 여백 제거 (진짜 강력 추천 기능)
+// =============================
+
+function trimCanvas(){
+
+    const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
+    const data = imgData.data;
+
+    let top=null, bottom=null, left=null, right=null;
+
+    for(let y=0; y<canvas.height; y++){
+        for(let x=0; x<canvas.width; x++){
+
+            const alpha = data[(y*canvas.width + x)*4 + 3];
+
+            if(alpha !== 0){
+
+                if(top===null) top=y;
+                bottom=y;
+
+                if(left===null || x<left) left=x;
+                if(right===null || x>right) right=x;
+            }
+        }
+    }
+
+    if(top===null) return;
+
+    const width = right-left;
+    const height = bottom-top;
+
+    const trimmed = ctx.getImageData(left, top, width, height);
+
+    canvas.width = width;
+    canvas.height = height;
+
+    ctx.putImageData(trimmed,0,0);
+}
+
+
+
+// =============================
 // 다운로드
+// =============================
+
 document.getElementById('download').addEventListener('click', ()=>{
+
     const link = document.createElement('a');
     link.download = "blurred.png";
-    link.href = canvas.toDataURL();
+    link.href = canvas.toDataURL("image/png");
     link.click();
+
 });
 
 </script>
