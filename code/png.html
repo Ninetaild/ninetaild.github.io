@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>PNG Auto Blur Tool (Pro Stable)</title>
+<title>PNG Auto Blur Tool (Preset)</title>
 
 <style>
 body{
@@ -11,11 +11,26 @@ body{
     background:#111;
     color:white;
 }
+
+.controls{
+    margin-bottom:15px;
+}
+
+label{
+    margin-right:10px;
+}
+
+input, select{
+    margin-right:20px;
+    padding:5px;
+}
+
 canvas{
     margin-top:20px;
     border:1px solid #444;
     max-width:100%;
 }
+
 button{
     margin-top:20px;
     padding:10px 20px;
@@ -25,7 +40,28 @@ button{
 </style>
 </head>
 <body>
-    
+
+<div class="controls">
+
+<label>프리셋</label>
+<select id="preset">
+    <option value="general">일반 연상</option>
+    <option value="emotion">감정 마무리</option>
+</select>
+
+<br><br>
+
+<label>Blur</label>
+<input type="number" id="blur" step="0.1" value="0.6">
+
+<label>Brightness</label>
+<input type="number" id="brightness" step="1" value="-5">
+
+<label>Saturation</label>
+<input type="number" id="saturation" step="1" value="-12">
+
+</div>
+
 <input type="file" id="upload" accept="image/png">
 
 <br>
@@ -35,16 +71,38 @@ button{
 
 <script>
 
-// ⭐ 추천 세팅 (연상 이미지 최적값)
-const blurStrength = 0.6;     
-const brightness = -5;
-const saturation = -12;   // 🔥 -10보다 살짝 더 추천
-const thinThreshold = 2;   
+// 프리셋
+const presets = {
+    general:{
+        blur:0.6,
+        brightness:-5,
+        saturation:-12
+    },
+    emotion:{
+        blur:0.25,
+        brightness:-2,
+        saturation:-5
+    }
+};
+
+const blurInput = document.getElementById('blur');
+const brightInput = document.getElementById('brightness');
+const satInput = document.getElementById('saturation');
+
+document.getElementById('preset').addEventListener('change', e=>{
+
+    const p = presets[e.target.value];
+
+    blurInput.value = p.blur;
+    brightInput.value = p.brightness;
+    satInput.value = p.saturation;
+});
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
 document.getElementById('upload').addEventListener('change', e=>{
+
     const file = e.target.files[0];
     const img = new Image();
 
@@ -53,9 +111,10 @@ document.getElementById('upload').addEventListener('change', e=>{
         canvas.width = img.width;
         canvas.height = img.height;
 
-        const alphaMask = getAlphaMask(img);
+        const blurStrength = parseFloat(blurInput.value);
+        const brightness = parseFloat(brightInput.value);
+        const saturation = parseFloat(satInput.value);
 
-        // ⭐ 핵심 필터
         ctx.filter = `
             blur(${blurStrength}px)
             brightness(${100+brightness}%)
@@ -64,154 +123,10 @@ document.getElementById('upload').addEventListener('change', e=>{
 
         ctx.drawImage(img,0,0);
         ctx.filter = 'none';
-
-        protectThinEdges(img);
-        restoreAlpha(alphaMask);
-        trimCanvas();
     };
 
     img.src = URL.createObjectURL(file);
 });
-
-
-// =============================
-// 투명 마스크 저장
-// =============================
-
-function getAlphaMask(img){
-
-    const temp = document.createElement('canvas');
-    temp.width = img.width;
-    temp.height = img.height;
-    const tctx = temp.getContext('2d');
-    tctx.drawImage(img,0,0);
-
-    return tctx.getImageData(0,0,temp.width,temp.height).data;
-}
-
-
-// =============================
-// 투명 복구 (halo 방지)
-// =============================
-
-function restoreAlpha(alphaData){
-
-    const output = ctx.getImageData(0,0,canvas.width,canvas.height);
-    const out = output.data;
-
-    for(let i=0; i<out.length; i+=4){
-        if(alphaData[i+3] === 0){
-            out[i+3] = 0;
-        }
-    }
-
-    ctx.putImageData(output,0,0);
-}
-
-
-// =============================
-// 얇은 선 보호
-// =============================
-
-function protectThinEdges(img){
-
-    const temp = document.createElement('canvas');
-    temp.width = img.width;
-    temp.height = img.height;
-    const tctx = temp.getContext('2d');
-    tctx.drawImage(img,0,0);
-
-    const original = tctx.getImageData(0,0,temp.width,temp.height);
-    const data = original.data;
-
-    const output = ctx.getImageData(0,0,canvas.width,canvas.height);
-    const out = output.data;
-
-    const w = temp.width;
-    const h = temp.height;
-
-    for(let y=1; y<h-1; y++){
-        for(let x=1; x<w-1; x++){
-
-            const i = (y*w + x)*4;
-            const alpha = data[i+3];
-
-            if(alpha === 0) continue;
-
-            let neighbors = 0;
-
-            for(let dy=-1; dy<=1; dy++){
-                for(let dx=-1; dx<=1; dx++){
-
-                    if(dx===0 && dy===0) continue;
-
-                    const ni = ((y+dy)*w + (x+dx))*4;
-                    if(data[ni+3] > 0) neighbors++;
-                }
-            }
-
-            // 얇은 선이면 원본 복구
-            if(neighbors <= thinThreshold){
-
-                out[i]   = data[i];
-                out[i+1] = data[i+1];
-                out[i+2] = data[i+2];
-                out[i+3] = data[i+3];
-            }
-        }
-    }
-
-    ctx.putImageData(output,0,0);
-}
-
-
-
-// =============================
-// 자동 여백 제거 (버그 수정됨)
-// =============================
-
-function trimCanvas(){
-
-    const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
-    const data = imgData.data;
-
-    let top=null, bottom=null, left=null, right=null;
-
-    for(let y=0; y<canvas.height; y++){
-        for(let x=0; x<canvas.width; x++){
-
-            const alpha = data[(y*canvas.width + x)*4 + 3];
-
-            if(alpha !== 0){
-
-                if(top===null) top=y;
-                bottom=y;
-
-                if(left===null || x<left) left=x;
-                if(right===null || x>right) right=x;
-            }
-        }
-    }
-
-    if(top===null) return;
-
-    // ⭐ +1 버그 수정
-    const width = right-left + 1;
-    const height = bottom-top + 1;
-
-    const trimmed = ctx.getImageData(left, top, width, height);
-
-    canvas.width = width;
-    canvas.height = height;
-
-    ctx.putImageData(trimmed,0,0);
-}
-
-
-
-// =============================
-// 다운로드 (파일명 자동)
-// =============================
 
 document.getElementById('download').addEventListener('click', ()=>{
 
