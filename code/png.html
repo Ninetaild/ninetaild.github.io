@@ -1,143 +1,190 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<title>PNG Auto Blur Tool (Preset)</title>
-
-<style>
-body{
-    font-family: sans-serif;
-    padding:40px;
-    background:#111;
-    color:white;
-}
-
-.controls{
-    margin-bottom:15px;
-}
-
-label{
-    margin-right:10px;
-}
-
-input, select{
-    margin-right:20px;
-    padding:5px;
-}
-
-canvas{
-    margin-top:20px;
-    border:1px solid #444;
-    max-width:100%;
-}
-
-button{
-    margin-top:20px;
-    padding:10px 20px;
-    font-size:16px;
-    cursor:pointer;
-}
-</style>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Pretendard', sans-serif; padding: 20px; line-height: 1.6; background: #f0f2f0; color: #333; }
+        .controls { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; max-width: 800px; margin-left: auto; margin-right: auto; }
+        h2 { color: #0a5c0a; margin-top: 0; border-bottom: 2px solid #0a5c0a; padding-bottom: 10px; }
+        .control-group { margin-bottom: 15px; display: flex; align-items: center; flex-wrap: wrap; }
+        label { width: 220px; font-weight: bold; font-size: 0.9em; }
+        input[type="number"], input[type="text"], select { padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 120px; }
+        .btn-area { margin-top: 20px; display: flex; gap: 10px; }
+        button { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        #processBtn { background: #0a5c0a; color: white; }
+        #downloadAllBtn { background: #2c4c3c; color: white; display: none; }
+        #resultContainer { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
+        .result-item { background: white; padding: 10px; border-radius: 8px; text-align: center; }
+        canvas { max-width: 100%; height: auto; border: 1px solid #eee; background-color: #1a2e24; background-image: url('https://www.transparenttextures.com/patterns/carbon-fibre.png'); }
+        .file-info { font-size: 0.75em; color: #666; margin-top: 5px; }
+    </style>
 </head>
 <body>
 
 <div class="controls">
-
-<label>프리셋</label>
-<select id="preset">
-    <option value="general">일반 연상</option>
-    <option value="emotion">감정 마무리</option>
-</select>
-
-<br><br>
-
-<label>Blur</label>
-<input type="number" id="blur" step="0.1" value="0.6">
-
-<label>Brightness</label>
-<input type="number" id="brightness" step="1" value="-5">
-
-<label>Saturation</label>
-<input type="number" id="saturation" step="1" value="-12">
-
+    <h2>🌿 이미지 투명도/레이어 덮기</h2>
+    <div class="control-group">
+        <label>이미지 업로드:</label>
+        <input type="file" id="upload" accept="image/*" multiple>
+    </div>
+    <div class="control-group">
+        <label>출력 크기 선택 (1280 기준):</label>
+        <select id="resizeOption">
+            <option value="384">일러스트 (너비 30% - 384px)</option>
+            <option value="256">일반 이미지 (너비 20% - 256px)</option>
+            <option value="original">원본 크기 유지</option>
+        </select>
+    </div>
+    <div class="control-group">
+        <label>원본 이미지 투명도 (%):</label>
+        <input type="number" id="imgOpacity" value="85" min="0" max="100">
+    </div>
+    <div class="control-group">
+        <label>레이어 색상 (#) / 투명도 (%):</label>
+        <input type="text" id="layerColor" value="#0a5c0a" style="margin-right:5px;">
+        <input type="number" id="layerOpacity" value="8" min="0" max="100">
+    </div>
+    <div class="btn-area">
+        <button id="processBtn">결과보기</button>
+        <button id="downloadAllBtn">다운로드</button>
+    </div>
 </div>
 
-<input type="file" id="upload" accept="image/png">
+<div id="resultContainer"></div>
 
-<br>
-<canvas id="canvas"></canvas>
-<br>
-<button id="download">다운로드</button>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <script>
+    const upload = document.getElementById('upload');
+    const resultContainer = document.getElementById('resultContainer');
+    const processBtn = document.getElementById('processBtn');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    let processedFiles = [];
 
-// 프리셋
-const presets = {
-    general:{
-        blur:0.6,
-        brightness:-5,
-        saturation:-12
-    },
-    emotion:{
-        blur:0.25,
-        brightness:-2,
-        saturation:-5
+    processBtn.addEventListener('click', async () => {
+        const files = upload.files;
+        if (files.length === 0) return alert('파일을 선택해주세요.');
+
+        resultContainer.innerHTML = '';
+        processedFiles = [];
+        
+        const config = {
+            imgOp: document.getElementById('imgOpacity').value / 100,
+            lCol: document.getElementById('layerColor').value,
+            lOp: document.getElementById('layerOpacity').value / 100,
+            targetWidth: document.getElementById('resizeOption').value
+        };
+
+        for (let file of files) {
+            await processFile(file, config);
+        }
+        downloadAllBtn.style.display = 'inline-block';
+    });
+
+    function processFile(file, cfg) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    // 임시 캔버스에서 픽셀 분석
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCanvas.width = img.width;
+                    tempCanvas.height = img.height;
+                    tempCtx.drawImage(img, 0, 0);
+
+                    const data = tempCtx.getImageData(0, 0, img.width, img.height).data;
+                    let minX = img.width, minY = img.height, maxX = 0, maxY = 0;
+                    let hasPixels = false;
+
+                    for (let y = 0; y < img.height; y++) {
+                        for (let x = 0; x < img.width; x++) {
+                            if (data[(y * img.width + x) * 4 + 3] > 0) {
+                                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                                if (y < minY) minY = y; if (y > maxY) maxY = y;
+                                hasPixels = true;
+                            }
+                        }
+                    }
+
+                    if (!hasPixels) { resolve(); return; }
+
+                    // 크롭 영역 계산 (여백 포함)
+                    const cropX = Math.max(0, minX - 1);
+                    const cropY = Math.max(0, minY - 1);
+                    const cropW = Math.min(img.width - cropX, (maxX - minX) + 3);
+                    const cropH = Math.min(img.height - cropY, (maxY - minY) + 3);
+
+                    // 결과용 캔버스 생성
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    // 리사이징 계산
+                    let finalW = cropW;
+                    let finalH = cropH;
+                    if (cfg.targetWidth !== 'original') {
+                        const ratio = parseInt(cfg.targetWidth) / cropW;
+                        finalW = parseInt(cfg.targetWidth);
+                        finalH = cropH * ratio;
+                    }
+
+                    canvas.width = finalW;
+                    canvas.height = finalH;
+
+                    // 1. 이미지 그리기 (리사이징 포함)
+                    ctx.globalAlpha = cfg.imgOp;
+                    ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, finalW, finalH);
+
+                    // 2. 픽셀별 레이어 덮기 (리사이징된 좌표 기준)
+                    ctx.globalAlpha = cfg.lOp;
+                    ctx.fillStyle = cfg.lCol;
+                    
+                    // 리사이징된 픽셀 데이터를 다시 가져와서 정밀 레이어링
+                    const finalData = ctx.getImageData(0, 0, finalW, finalH).data;
+                    for (let y = 0; y < finalH; y++) {
+                        for (let x = 0; x < finalW; x++) {
+                            if (finalData[(y * finalW + x) * 4 + 3] > 0) {
+                                // 도트 있는 지점에 색상 레이어 (작가님 요청 구간 반영)
+                                ctx.fillRect(x, y, 1, 1); 
+                            }
+                        }
+                    }
+                    
+                    // 3. 전체 범위 덮기
+                    ctx.fillRect(0, 0, finalW, finalH);
+
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'result-item';
+                    const info = document.createElement('div');
+                    info.className = 'file-info';
+                    info.innerText = `${Math.round(finalW)}x${Math.round(finalH)}`;
+                    
+                    itemDiv.appendChild(canvas);
+                    itemDiv.appendChild(info);
+                    resultContainer.appendChild(itemDiv);
+                    processedFiles.push({ canvas, name: file.name });
+                    resolve();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
     }
-};
 
-const blurInput = document.getElementById('blur');
-const brightInput = document.getElementById('brightness');
-const satInput = document.getElementById('saturation');
-
-document.getElementById('preset').addEventListener('change', e=>{
-
-    const p = presets[e.target.value];
-
-    blurInput.value = p.blur;
-    brightInput.value = p.brightness;
-    satInput.value = p.saturation;
-});
-
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-
-document.getElementById('upload').addEventListener('change', e=>{
-
-    const file = e.target.files[0];
-    const img = new Image();
-
-    img.onload = ()=>{
-
-        canvas.width = img.width;
-        canvas.height = img.height;
-
-        const blurStrength = parseFloat(blurInput.value);
-        const brightness = parseFloat(brightInput.value);
-        const saturation = parseFloat(satInput.value);
-
-        ctx.filter = `
-            blur(${blurStrength}px)
-            brightness(${100+brightness}%)
-            saturate(${100+saturation}%)
-        `;
-
-        ctx.drawImage(img,0,0);
-        ctx.filter = 'none';
-    };
-
-    img.src = URL.createObjectURL(file);
-});
-
-document.getElementById('download').addEventListener('click', ()=>{
-
-    const link = document.createElement('a');
-    link.download = `blur_${Date.now()}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-
-});
-
+    downloadAllBtn.addEventListener('click', () => {
+        const zip = new JSZip();
+        processedFiles.forEach(item => {
+            const dataUrl = item.canvas.toDataURL('image/png');
+            zip.file(`shiryeognim_${item.name}`, dataUrl.split(',')[1], {base64: true});
+        });
+        zip.generateAsync({type:"blob"}).then(c => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(c);
+            a.download = "shiryeognim_bulk_result.zip";
+            a.click();
+        });
+    });
 </script>
-
 </body>
 </html>
