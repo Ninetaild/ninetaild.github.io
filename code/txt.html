@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>신령님 대본 정제기</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; padding: 20px; line-height: 1.6; background: #f0f2f0; color: #333; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); max-width: 900px; margin: 0 auto; }
+        h2 { color: #2c4c3c; border-bottom: 2px solid #2c4c3c; padding-bottom: 10px; }
+        .setup { display: flex; gap: 20px; margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px; }
+        .input-group { display: flex; align-items: center; gap: 10px; }
+        label { font-weight: bold; font-size: 0.9em; }
+        input[type="text"] { padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 60px; text-align: center; }
+        textarea { width: 100%; height: 250px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1em; resize: vertical; }
+        .btn-area { margin: 20px 0; display: flex; gap: 10px; }
+        button { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; flex: 1; }
+        #convertBtn { background: #2c4c3c; color: white; }
+        #convertBtn:hover { background: #1a2e24; }
+        #copyBtn { background: #eee; color: #333; }
+        #copyBtn:hover { background: #ddd; }
+        .desc { font-size: 0.85em; color: #666; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📝 대본 이음매 정제기</h2>
+    
+    <div class="setup">
+        <div class="input-group">
+            <label>[ ] →</label>
+            <input type="text" id="bracketReplacer" placeholder="공백" title="비워두면 제거됩니다">
+        </div>
+        <div class="input-group">
+            <label>&lt; &gt; →</label>
+            <input type="text" id="angleReplacer" placeholder="공백" title="비워두면 제거됩니다">
+        </div>
+        <p style="font-size: 0.8em; margin: 0; align-self: center; color: #888;">* 비워두면 기호와 안의 내용이 모두 삭제됩니다.</p>
+    </div>
+
+    <textarea id="inputText" placeholder="여기에 대본을 붙여넣으세요..."></textarea>
+
+    <div class="btn-area">
+        <button id="convertBtn">텍스트 정제하기</button>
+        <button id="copyBtn">결과 복사하기</button>
+    </div>
+
+    <textarea id="outputText" placeholder="정제된 결과가 여기에 표시됩니다..." readonly></textarea>
+    
+    <p class="desc">
+        * <b>사용 팁:</b> TTS용 대본에서 주석을 제거하여 블로그나 자막용 텍스트를 만들 때 유용합니다. <br>
+        * <b>변환 규칙:</b> [내용]이나 &lt;내용&gt; 전체를 찾아 설정한 기호로 바꿉니다.
+    </p>
+</div>
+
+<script>
+    const inputText = document.getElementById('inputText');
+    const outputText = document.getElementById('outputText');
+    const bracketReplacer = document.getElementById('bracketReplacer');
+    const angleReplacer = document.getElementById('angleReplacer');
+    const convertBtn = document.getElementById('convertBtn');
+    const copyBtn = document.getElementById('copyBtn');
+
+    convertBtn.addEventListener('click', () => {
+        let text = inputText.value;
+        
+        // [ ] 및 안의 내용 처리
+        const bVal = bracketReplacer.value;
+        const bracketRegex = /\[.*?\]/g;
+        text = text.replace(bracketRegex, bVal);
+
+        // < > 및 안의 내용 처리
+        const aVal = angleReplacer.value;
+        const angleRegex = /<.*?>/g;
+        text = text.replace(angleRegex, aVal);
+
+        // 연속된 공백 정리 (선택 사항)
+        text = text.replace(/ +/g, ' ').trim();
+
+        outputText.value = text;
+    });
+
+    copyBtn.addEventListener('click', () => {
+        outputText.select();
+        document.execCommand('copy');
+        alert('정제된 대본이 클립보드에 복사되었습니다.');
+    });
+</script>
+
+</body>
+</html>
