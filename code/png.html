@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>신령님 이미지 조각기 - V4 (고정 캔버스)</title>
+    <title>신령님 이미지 조각기 V5 - 자유형 레이어 복구</title>
     <style>
         body { font-family: 'Pretendard', sans-serif; padding: 20px; line-height: 1.6; background: #f0f2f0; color: #333; }
         .controls { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; max-width: 800px; margin-left: auto; margin-right: auto; }
@@ -23,7 +23,7 @@
 <body>
 
 <div class="controls">
-    <h2>🌿 신령님 이미지 조각기 V4</h2>
+    <h2>🌿 신령님 이미지 조각기 V5 (자유형 레이어)</h2>
     <div class="control-group">
         <label>이미지 업로드:</label>
         <input type="file" id="upload" accept="image/*" multiple>
@@ -46,7 +46,7 @@
         <input type="text" id="layerColor" value="#0a5c0a">
     </div>
     <div class="btn-area">
-        <button id="processBtn">1280x720 조각 생성</button>
+        <button id="processBtn">정밀 조각 실행</button>
         <button id="downloadAllBtn">ZIP 다운로드</button>
     </div>
 </div>
@@ -64,7 +64,7 @@
 
     processBtn.addEventListener('click', async () => {
         const files = upload.files;
-        if (files.length === 0) return alert('파일을 먼저 올려주세요.');
+        if (files.length === 0) return alert('이미지를 업로드해주세요.');
         resultContainer.innerHTML = '';
         processedFiles = [];
         
@@ -87,47 +87,61 @@
             reader.onload = (e) => {
                 const img = new Image();
                 img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    
-                    // 핵심: 칠판 해상도(1280x720)에 고정
-                    canvas.width = 1280;
-                    canvas.height = 720;
-
-                    // 1. 이미지 실제 비율 계산
+                    // 1. 비율 및 크기 계산
                     let finalW = cfg.targetWidth;
                     let finalH = img.height * (cfg.targetWidth / img.width);
-
-                    // 2. 세로가 너무 긴 이미지(페트병 등) 처리: 높이 최대 350px 제한
                     if (finalH > 350) {
                         const hRatio = 350 / finalH;
                         finalW *= hRatio;
                         finalH = 350;
                     }
 
-                    // 3. 투명 배경 위에 원본 그리기 (85%)
-                    const xPos = (1280 - finalW) / 2;
-                    const yPos = (720 - finalH) / 2;
-                    
-                    ctx.globalAlpha = cfg.imgOp;
-                    ctx.drawImage(img, xPos, yPos, finalW, finalH);
-
-                    // 4. 정밀 레이어 덮기 (해당 이미지 영역만)
-                    const imgData = ctx.getImageData(xPos, yPos, finalW, finalH);
+                    // 2. 임시 캔버스에서 리사이징된 픽셀 데이터 추출
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCanvas.width = Math.ceil(finalW);
+                    tempCanvas.height = Math.ceil(finalH);
+                    tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+                    const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
                     const data = imgData.data;
 
+                    // 3. 고정 캔버스(1280x720) 설정
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 1280;
+                    canvas.height = 720;
+                    const xPos = (1280 - tempCanvas.width) / 2;
+                    const yPos = (720 - tempCanvas.height) / 2;
+
+                    // 4. 원본 이미지 그리기
+                    ctx.globalAlpha = cfg.imgOp;
+                    ctx.drawImage(img, xPos, yPos, tempCanvas.width, tempCanvas.height);
+
+                    // 5. 정밀 픽셀 스캔 및 자유형 레이어 생성
                     ctx.globalAlpha = cfg.lOp;
                     ctx.fillStyle = cfg.lCol;
+                    
+                    let minX = tempCanvas.width, minY = tempCanvas.height, maxX = 0, maxY = 0;
+                    let hasPixels = false;
 
-                    for (let y = 0; y < finalH; y++) {
-                        for (let x = 0; x < finalW; x++) {
-                            if (data[(y * Math.floor(finalW) + x) * 4 + 3] > 0) {
-                                ctx.fillRect(xPos + x, yPos + y, 1, 1);
+                    for (let y = 0; y < tempCanvas.height; y++) {
+                        for (let x = 0; x < tempCanvas.width; x++) {
+                            const alpha = data[(y * tempCanvas.width + x) * 4 + 3];
+                            if (alpha > 0) {
+                                hasPixels = true;
+                                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                                if (y < minY) minY = y; if (y > maxY) maxY = y;
+
+                                // 도트 지점에 1px 더 크게 사각형 레이어 (자유형 구현)
+                                ctx.fillRect(xPos + x - 0.5, yPos + y - 0.5, 2, 2);
                             }
                         }
                     }
-                    // 전체 영역 +1px 레이어 (번짐 효과)
-                    ctx.fillRect(xPos - 1, yPos - 1, finalW + 2, finalH + 2);
+
+                    // 6. 전체 범위 (x1-1 ~ x2+1) 사각형 레이어 추가
+                    if (hasPixels) {
+                        ctx.fillRect(xPos + minX - 1, yPos + minY - 1, (maxX - minX) + 3, (maxY - minY) + 3);
+                    }
 
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'result-item';
@@ -151,7 +165,7 @@
         zip.generateAsync({type:"blob"}).then(c => {
             const a = document.createElement('a');
             a.href = URL.createObjectURL(c);
-            a.download = "shiryeognim_fixed_canvas.zip";
+            a.download = "shiryeognim_perfect_pieces.zip";
             a.click();
         });
     });
