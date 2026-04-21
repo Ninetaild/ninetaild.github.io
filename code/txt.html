@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>신령님 대본 정제기</title>
+    <title>TOOL_txt</title>
     <style>
         body { font-family: 'Pretendard', sans-serif; padding: 20px; line-height: 1.6; background: #f0f2f0; color: #333; }
         .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); max-width: 900px; margin: 0 auto; }
@@ -24,7 +24,7 @@
 <body>
 
 <div class="container">
-    <h2>📝 대본 이음매 정제기</h2>
+    <h2>📝</h2>
     
     <div class="setup">
         <div class="input-group">
@@ -35,22 +35,16 @@
             <label>&lt; &gt; →</label>
             <input type="text" id="angleReplacer" placeholder="공백" title="비워두면 제거됩니다">
         </div>
-        <p style="font-size: 0.8em; margin: 0; align-self: center; color: #888;">* 비워두면 기호와 안의 내용이 모두 삭제됩니다.</p>
     </div>
 
-    <textarea id="inputText" placeholder="여기에 대본을 붙여넣으세요..."></textarea>
+    <textarea id="inputText" placeholder="Paste"></textarea>
 
     <div class="btn-area">
-        <button id="convertBtn">텍스트 정제하기</button>
-        <button id="copyBtn">결과 복사하기</button>
+        <button id="convertBtn">Run</button>
+        <button id="copyBtn">Copy</button>
     </div>
 
-    <textarea id="outputText" placeholder="정제된 결과가 여기에 표시됩니다..." readonly></textarea>
-    
-    <p class="desc">
-        * <b>사용 팁:</b> TTS용 대본에서 주석을 제거하여 블로그나 자막용 텍스트를 만들 때 유용합니다. <br>
-        * <b>변환 규칙:</b> [내용]이나 &lt;내용&gt; 전체를 찾아 설정한 기호로 바꿉니다.
-    </p>
+    <textarea id="outputText" placeholder="＃" readonly></textarea>
 </div>
 
 <script>
