@@ -132,19 +132,18 @@ function App() {
                 
                 let rawResults = [];
 
-                // Yahoo Finance 검색 결과 처리 부분을 아래와 같이 수정
+                // Yahoo Finance 검색 결과 유연하게 처리
                 if (data && data.quotes) {
-                rawResults = data.quotes.filter(q => {
-                  const type = (q.quoteType || '').toUpperCase();
-                  // EQUITY, ETF 뿐만 아니라 일반적인 주식 형태는 모두 허용
-                  return type === 'EQUITY' || type === 'ETF' || type === 'MUTUALFUND' || type === 'STOCKS';
-                });
-    
-    // 만약 필터링 후에도 결과가 없다면, 필터를 풀고 상위 5개를 그냥 보여주도록 안전장치 추가
-    if (rawResults.length === 0 && data.quotes.length > 0) {
-        rawResults = data.quotes.slice(0, 5);
-    }
-}
+                    rawResults = data.quotes.filter(q => {
+                        const type = (q.quoteType || '').toUpperCase();
+                        return type === 'EQUITY' || type === 'ETF' || type === 'MUTUALFUND' || type === 'STOCKS';
+                    });
+                    
+                    // 만약 필터링 결과가 비어있다면 안전하게 상위 항목들을 가져옴
+                    if (rawResults.length === 0 && data.quotes.length > 0) {
+                        rawResults = data.quotes.slice(0, 5);
+                    }
+                }
 
                 // 중복 제거 (티커 기준)
                 const uniqueResults = [];
