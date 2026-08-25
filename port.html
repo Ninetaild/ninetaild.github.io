@@ -23,9 +23,7 @@ const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" heigh
 const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 
 // ============================================================
-// 여기에 배포한 Cloudflare Worker 주소를 넣어주세요.
-// 예: "https://yahoo-proxy.yourname.workers.dev"
-// yahoo-proxy-worker.js 를 Cloudflare Workers에 배포한 뒤 나오는 주소입니다.
+// [수정 완료] URL 뒤의 슬래시 제거 (중복 슬래시 방지)
 // ============================================================
 const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
 
@@ -38,8 +36,7 @@ const fetchViaWorker = async (path, options = {}) => {
 
 // Fallback mock data in case Yahoo Finance API is blocked
 const generateMockSearchResults = (query, marketFilter) => {
-    const mocks = [
-    ];
+    const mocks = [];
     return mocks.filter(m => 
         (marketFilter === 'ALL' || m.market === marketFilter) &&
         (m.symbol.toLowerCase().includes(query.toLowerCase()) || m.shortname.toLowerCase().includes(query.toLowerCase()))
@@ -57,7 +54,7 @@ function App() {
         }
     }); // Array of individual purchase lots
     const [quotes, setQuotes] = useState({}); // Live/Mocked price quotes
-    const [fxRates, setFxRates] = useState({ USD: 1350, JPY: 9, KRW: 1 }); // Default fallbacks (JPY is per 1 JPY to KRW)
+    const [fxRates, setFxRates] = useState({ USD: 1350, JPY: 9, KRW: 1 }); // Default fallbacks
     
     // UI State
     const [searchQuery, setSearchQuery] = useState('');
@@ -112,14 +109,12 @@ function App() {
         
         const cacheKey = `${searchQuery.trim().toLowerCase()}_${marketFilter}`;
         
-        // 1. Check if we already have the results in cache
         if (searchCache.current[cacheKey]) {
             setSearchResults(searchCache.current[cacheKey]);
             setIsSearching(false);
             return;
         }
 
-        // 2. Setup AbortController to cancel previous requests if typing continues
         const abortController = new AbortController();
         
         const timeoutId = setTimeout(async () => {
@@ -132,14 +127,13 @@ function App() {
                 
                 let rawResults = [];
 
-                // Yahoo Finance 검색 결과 유연하게 처리
+                // [수정 완료] Yahoo Finance 검색 결과의 quoteType 검증 (ETF, EQUITY 등 대소문자 무관하게 모두 허용)
                 if (data && data.quotes) {
                     rawResults = data.quotes.filter(q => {
                         const type = (q.quoteType || '').toUpperCase();
                         return type === 'EQUITY' || type === 'ETF' || type === 'MUTUALFUND' || type === 'STOCKS';
                     });
                     
-                    // 만약 필터링 결과가 비어있다면 안전하게 상위 항목들을 가져옴
                     if (rawResults.length === 0 && data.quotes.length > 0) {
                         rawResults = data.quotes.slice(0, 5);
                     }
@@ -165,25 +159,22 @@ function App() {
                     return { ...q, market, currency };
                 }).filter(q => marketFilter === 'ALL' || q.market === marketFilter);
 
-                // 캐시에 저장 및 결과 반영
                 searchCache.current[cacheKey] = results;
                 setSearchResults(results);
                 
             } catch (error) {
-                if (error.name === 'AbortError') return; // Ignore intentionally aborted requests
-                
-                // Fallback to mock data
+                if (error.name === 'AbortError') return;
                 setSearchResults(generateMockSearchResults(searchQuery, marketFilter));
             } finally {
                 if (!abortController.signal.aborted) {
                     setIsSearching(false);
                 }
             }
-        }, 300); // Reduced delay for snappier search feel
+        }, 300);
 
         return () => {
             clearTimeout(timeoutId);
-            abortController.abort(); // Cancel ongoing fetch if query changes
+            abortController.abort();
         };
     }, [searchQuery, marketFilter]);
 
@@ -198,22 +189,21 @@ function App() {
                     `/quote?symbols=${encodeURIComponent(uniqueSymbols.join(','))}`
                 );
                 
-                if (data && data.quotes) {
+                if (data && data.quoteResponse && data.quoteResponse.result) {
                     const newQuotes = {};
-                    Object.entries(data.quotes).forEach(([symbol, q]) => {
-                        newQuotes[symbol] = {
-                            price: q.price,
-                            changePercent: q.changePercent
+                    data.quoteResponse.result.forEach(q => {
+                        newQuotes[q.symbol] = {
+                            price: q.regularMarketPrice,
+                            changePercent: q.regularMarketChangePercent
                         };
                     });
                     setQuotes(prev => ({ ...prev, ...newQuotes }));
                 }
             } catch (error) {
-                // Mock quotes if API fails (assume 0% change or random small change for visual effect)
                 const newQuotes = {};
                 uniqueSymbols.forEach(sym => {
                     const avgPrice = lots.find(l => l.symbol === sym)?.avgPriceForeign || 100;
-                    const randomChange = (Math.random() * 6) - 3; // -3% to +3%
+                    const randomChange = (Math.random() * 6) - 3;
                     newQuotes[sym] = {
                         price: avgPrice * (1 + randomChange/100),
                         changePercent: randomChange
@@ -224,7 +214,7 @@ function App() {
         };
 
         fetchQuotes();
-        const intervalId = setInterval(fetchQuotes, 60000); // Refresh every minute
+        const intervalId = setInterval(fetchQuotes, 60000);
         return () => clearInterval(intervalId);
     }, [lots]);
 
@@ -253,16 +243,13 @@ function App() {
             const avgPriceKRW = item.totalInvestedKRW / item.totalQuantity;
             const avgPriceForeign = item.totalInvestedForeign / item.totalQuantity;
             
-            // Current Price & Value
             const quote = quotes[item.symbol];
             const currentPriceForeign = quote?.price || avgPriceForeign;
             const currentChangePercent = quote?.changePercent || 0;
             
-            // Convert current foreign price to KRW
             const currentPriceKRW = currentPriceForeign * fxRates[item.currency];
             const currentValueKRW = item.totalQuantity * currentPriceKRW;
             
-            // Overall return
             const returnKRW = currentValueKRW - item.totalInvestedKRW;
             const returnPercent = (returnKRW / item.totalInvestedKRW) * 100;
 
@@ -312,7 +299,6 @@ function App() {
 
     const handleDeleteLot = (id) => {
         setLots(lots.filter(l => l.id !== id));
-        // Close edit modal if last item is deleted
         if (lots.filter(l => l.symbol === editModalSymbol).length === 1) {
             setEditModalSymbol(null);
         }
@@ -355,7 +341,7 @@ function App() {
             quantity: totalQty,
             avgPriceKRW: mergedAvgPriceKRW,
             avgPriceForeign: mergedAvgPriceForeign,
-            date: new Date().toISOString().split('T')[0] // Set merged date to today
+            date: new Date().toISOString().split('T')[0]
         };
 
         setLots([...lots.filter(l => l.symbol !== symbol), mergedLot]);
@@ -364,7 +350,7 @@ function App() {
     const handleExport = () => {
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(lots));
         const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href",     dataStr);
+        downloadAnchorNode.setAttribute("href", dataStr);
         downloadAnchorNode.setAttribute("download", "portfolio_export.json");
         document.body.appendChild(downloadAnchorNode);
         downloadAnchorNode.click();
@@ -388,13 +374,12 @@ function App() {
         reader.readAsText(file);
     };
 
-    // Recursive slice and dice algorithm for generating the heatmap layout
     const generateTreemap = (items, x = 0, y = 0, w = 100, h = 100, isHorizontal = true) => {
         if (items.length === 0) return [];
         if (items.length === 1) return [{ ...items[0], x, y, w, h }];
         
         let sum = items.reduce((s, i) => s + i.currentValueKRW, 0);
-        if (sum === 0) return items.map(i => ({...i, x, y, w:0, h:0})); // Handle 0 value case
+        if (sum === 0) return items.map(i => ({...i, x, y, w:0, h:0}));
 
         let halfSum = 0;
         let splitIndex = 0;
@@ -434,10 +419,8 @@ function App() {
         return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: decimals, minimumFractionDigits: decimals }).format(num);
     };
 
-    // 토글용 시장 라벨 (전체/미장/국장/일장)
     const MARKET_TOGGLE_LABELS = { ALL: '전체', US: '미장', KR: '국장', JP: '일장' };
 
-    // 검색결과 배지용 세부 시장 라벨 (국장은 코스피/코스닥으로 세분화)
     const getSubMarketLabel = (item) => {
         if (item.market === 'KR') {
             if (item.symbol && item.symbol.endsWith('.KQ')) return '코스닥';
@@ -449,12 +432,10 @@ function App() {
     };
 
     const getHeatmapColor = (changePercent) => {
-        // Red for negative, Green for positive. Intensity mapped from 0 to 10%
         const intensity = Math.min(Math.abs(changePercent) / 10, 1);
-        const alpha = 0.2 + (intensity * 0.8); // Min opacity 0.2, Max 1.0
-        
-        if (changePercent >= 0) return `rgba(34, 197, 94, ${alpha})`; // Tailwind green-500
-        return `rgba(239, 68, 68, ${alpha})`; // Tailwind red-500
+        const alpha = 0.2 + (intensity * 0.8);
+        if (changePercent >= 0) return `rgba(34, 197, 94, ${alpha})`;
+        return `rgba(239, 68, 68, ${alpha})`;
     };
 
     return (
@@ -468,7 +449,6 @@ function App() {
                 onMouseEnter={() => setHoverSide('left')}
                 onMouseLeave={() => setHoverSide(null)}
             >
-                {/* Header & Controls */}
                 <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
                     <h1 className="text-xl font-bold text-white flex items-center gap-2">
                         <span>📈</span> Global Portfolio
@@ -484,7 +464,6 @@ function App() {
                     </div>
                 </div>
 
-                {/* Search Area */}
                 <div className="p-4 border-b border-slate-800 relative z-10">
                     <div className="flex gap-2 mb-3">
                         {['ALL', 'US', 'KR', 'JP'].map(market => (
@@ -506,7 +485,6 @@ function App() {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
-                        {/* Search Dropdown */}
                         {searchQuery && (
                             <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden max-h-96 overflow-y-auto">
                                 {isSearching ? (
@@ -535,7 +513,6 @@ function App() {
                     </div>
                 </div>
 
-                {/* Portfolio List */}
                 <div className="flex-1 overflow-y-auto p-4 relative">
                     <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-950 py-2 z-0">
                         <h2 className="text-lg font-semibold">Holdings</h2>
@@ -603,7 +580,7 @@ function App() {
                 </div>
             </div>
 
-            {/* Right Panel: Heatmap (Treemap) Area */}
+            {/* Right Panel: Heatmap Area */}
             <div 
                 className={`relative bg-slate-950 p-4 transition-all duration-500 ease-in-out flex flex-col ${
                     hoverSide === 'right' ? 'w-[70%]' : hoverSide === 'left' ? 'w-[30%] opacity-80' : 'w-[50%]'
@@ -646,7 +623,6 @@ function App() {
                 </div>
             </div>
 
-            {}
             {/* Add Lot Modal */}
             {addLotModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
