@@ -39,12 +39,6 @@ const fetchViaWorker = async (path, options = {}) => {
 // Fallback mock data in case Yahoo Finance API is blocked
 const generateMockSearchResults = (query, marketFilter) => {
     const mocks = [
-        { symbol: 'AAPL', shortname: 'Apple Inc.', exchDisp: 'NASDAQ', market: 'US', currency: 'USD' },
-        { symbol: 'TSLA', shortname: 'Tesla, Inc.', exchDisp: 'NASDAQ', market: 'US', currency: 'USD' },
-        { symbol: '005930.KS', shortname: 'Samsung Electronics Co., Ltd.', exchDisp: 'KSE', market: 'KR', currency: 'KRW' },
-        { symbol: '035420.KS', shortname: 'NAVER Corp.', exchDisp: 'KSE', market: 'KR', currency: 'KRW' },
-        { symbol: '2805.T', shortname: 'S&B Foods Inc.', exchDisp: 'Tokyo', market: 'JP', currency: 'JPY' },
-        { symbol: '7203.T', shortname: 'Toyota Motor Corp.', exchDisp: 'Tokyo', market: 'JP', currency: 'JPY' }
     ];
     return mocks.filter(m => 
         (marketFilter === 'ALL' || m.market === marketFilter) &&
