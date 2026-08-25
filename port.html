@@ -31,6 +31,14 @@
         return await res.json();
     };
 
+    const getCurrencySymbol = (curr) => {
+        switch (curr) {
+            case 'USD': return '$';
+            case 'JPY': return '¥';
+            case 'KRW': default: return '₩';
+        }
+    };
+
     function App() {
         const [lots, setLots] = useState(() => {
             try {
@@ -47,7 +55,6 @@
         const [marketFilter, setMarketFilter] = useState('ALL'); 
         const [displayCurrency, setDisplayCurrency] = useState('KRW'); 
         
-        // 3개의 페이지만 사용 (0: 포트폴리오, 1: 배당금, 2: 히트맵)
         const [currentPage, setCurrentPage] = useState(0); 
 
         const [selectedAccount, setSelectedAccount] = useState('ALL');
@@ -145,7 +152,7 @@
             return () => { clearTimeout(timeoutId); abortController.abort(); };
         }, [searchQuery, marketFilter]);
 
-        // VOO 및 개별 종목 시세/배당 데이터 수신 로직 보완 (중복 뻥튀기 방지 및 최근 12개월 배당 정합성 고려)
+        // 현재가 및 배당금 수신 로직 견고화 (VOO 등 주요 ETF 포함)
         useEffect(() => {
             const uniqueSymbols = [...new Set(lots.map(l => l.symbol))];
             if (uniqueSymbols.length === 0) return;
@@ -162,19 +169,15 @@
                         itemsArray.forEach(q => {
                             const sym = q.symbol;
                             if (sym) {
-                                const price = q.regularMarketPrice ?? q.price ?? 0;
-                                
-                                // VOO 및 일반 종목들의 배당 데이터 정합성을 위한 안전한 추출
-                                const rawYield = q.dividendYield ?? q.trailingAnnualDividendYield;
+                                const price = q.regularMarketPrice ?? q.price ?? q.regularMarketPreviousClose ?? 0;
+                                const rawYield = q.dividendYield ?? q.trailingAnnualDividendYield ?? 0;
                                 const dividendYield = rawYield ? (rawYield > 1 ? rawYield : rawYield * 100) : 0;
-                                
-                                // 최근 12개월(Trailing) 분배금 기준 또는 연간 배당금 확보
-                                const annualDividend = q.trailingAnnualDividendRate ?? (price * (dividendYield / 100)) ?? 0;
+                                const annualDividend = q.trailingAnnualDividendRate ?? q.dividendRate ?? (price * (dividendYield / 100)) ?? 0;
 
                                 newQuotes[sym] = {
                                     price,
                                     changePercent: q.regularMarketChangePercent ?? q.changePercent ?? 0,
-                                    longname: q.longname || q.shortname || '',
+                                    longname: q.longname || q.shortname || sym,
                                     dividendYield,
                                     annualDividend
                                 };
@@ -226,7 +229,6 @@
                 const returnKRW = currentValueKRW - item.totalInvestedKRW;
                 const returnPercent = (returnKRW / item.totalInvestedKRW) * 100;
                 
-                // 최근 12개월 총 배당 및 분배금 데이터 기반 환산
                 const annualDividendKRW = item.totalQuantity * annualDividendPerShare * fxRates[item.currency];
 
                 return {
@@ -421,13 +423,10 @@
         return (
             <div className="flex flex-col h-screen bg-slate-950 text-slate-200 font-sans overflow-hidden">
                 
-                {/* 메인 컨텐츠 뷰 영역 */}
                 <div className="flex flex-1 overflow-hidden relative">
                     
-                    {/* Page 0: 포트폴리오 메인 화면 */}
                     {currentPage === 0 && (
                         <div className="flex flex-1 overflow-hidden">
-                            {/* Left Panel: 보유 종목 및 검색 */}
                             <div className="w-[50%] flex flex-col border-r border-slate-800 overflow-hidden">
                                 <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
                                     <h1 className="text-xl font-bold text-white flex items-center gap-2">
@@ -440,7 +439,6 @@
                                     </div>
                                 </div>
 
-                                {/* Account Tabs & Management Bar */}
                                 <div className="px-4 py-2.5 bg-slate-900/60 border-b border-slate-800 flex items-center justify-between shrink-0">
                                     <div className="flex items-center gap-2 overflow-x-auto flex-1 mr-2">
                                         <button onClick={() => setSelectedAccount('ALL')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === 'ALL' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>전체 계좌</button>
@@ -478,7 +476,8 @@
                                     </div>
                                 )}
 
-                                <div className="p-4 border-b border-slate-800 relative z-10 shrink-0">
+                                {/* 검색 영역 z-index 최상위 확보 */}
+                                <div className="p-4 border-b border-slate-800 relative z-[99] shrink-0">
                                     <div className="flex gap-2 mb-3">
                                         {['ALL', 'US', 'KR', 'JP'].map(market => (
                                             <button key={market} onClick={() => setMarketFilter(market)} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${marketFilter === market ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
@@ -496,7 +495,7 @@
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                         />
                                         {searchQuery && (
-                                            <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden max-h-72 overflow-y-auto z-50">
+                                            <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl overflow-hidden max-h-72 overflow-y-auto z-[999]">
                                                 {isSearching ? (
                                                     <div className="p-4 text-center text-slate-400 text-sm">Searching...</div>
                                                 ) : searchResults.length > 0 ? (
@@ -515,7 +514,7 @@
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto p-4">
+                                <div className="flex-1 overflow-y-auto p-4 relative z-0">
                                     <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-950 py-2 z-10">
                                         <h2 className="text-sm font-semibold text-slate-400">Holdings ({selectedAccount})</h2>
                                         <div className="flex bg-slate-800 rounded-lg p-1">
@@ -539,12 +538,12 @@
                                                         </div>
                                                         <div className="flex gap-3 mt-1 text-xs text-slate-400">
                                                             <div>Qty: {formatNumber(item.totalQuantity, 'USD')}</div>
-                                                            <div>Avg: {displayCurrency === 'KRW' ? `₩${formatNumber(item.avgPriceKRW, 'KRW')}` : formatNumber(item.avgPriceForeign, item.currency)}</div>
+                                                            <div>Avg: {displayCurrency === 'KRW' ? `₩${formatNumber(item.avgPriceKRW, 'KRW')}` : `${getCurrencySymbol(item.currency)}${formatNumber(item.avgPriceForeign, item.currency)}`}</div>
                                                         </div>
                                                     </div>
                                                     <div className="text-right">
                                                         <div className="font-semibold text-sm">
-                                                            {displayCurrency === 'KRW' ? `₩${formatNumber(item.currentValueKRW, 'KRW')}` : formatNumber(item.totalQuantity * item.currentPriceForeign, item.currency)}
+                                                            {displayCurrency === 'KRW' ? `₩${formatNumber(item.currentValueKRW, 'KRW')}` : `${getCurrencySymbol(item.currency)}${formatNumber(item.totalQuantity * item.currentPriceForeign, item.currency)}`}
                                                         </div>
                                                         <div className={`text-xs font-medium ${item.returnPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                                             {item.returnPercent > 0 ? '+' : ''}{item.returnPercent.toFixed(2)}%
@@ -560,7 +559,6 @@
                                 </div>
                             </div>
 
-                            {/* Right Panel: 요약 통계 대시보드 */}
                             <div className="w-[50%] bg-slate-950 p-6 flex flex-col justify-center">
                                 <h2 className="text-2xl font-bold text-white mb-6">📊 포트폴리오 요약</h2>
                                 <div className="grid grid-cols-2 gap-4">
@@ -587,7 +585,6 @@
                         </div>
                     )}
 
-                    {/* Page 1: Dividend Dashboard */}
                     {currentPage === 1 && (
                         <div className="flex-1 p-6 overflow-y-auto bg-slate-950 flex flex-col">
                             <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
@@ -633,7 +630,6 @@
                         </div>
                     )}
 
-                    {/* Page 2: Heatmap */}
                     {currentPage === 2 && (
                         <div className="flex-1 p-6 bg-slate-950 flex flex-col overflow-hidden">
                             <h2 className="text-2xl font-bold text-white mb-4">🗺️ Market Heatmap</h2>
@@ -655,7 +651,6 @@
                     )}
                 </div>
 
-                {/* Bottom Navigation (총 3개 페이지네이션: < o o o >) */}
                 <div className="py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-center gap-4 shrink-0">
                     <button 
                         onClick={() => setCurrentPage(prev => (prev > 0 ? prev - 1 : 2))} 
@@ -681,7 +676,6 @@
                     </button>
                 </div>
 
-                {/* Add Lot Modal */}
                 {addLotModal && (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                         <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
@@ -720,7 +714,6 @@
                     </div>
                 )}
 
-                {/* Edit Lots Modal */}
                 {editModalSymbol && (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                         <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
