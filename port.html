@@ -30,6 +30,14 @@ const fetchViaWorker = async (path, options = {}) => {
     return await res.json();
 };
 
+const generateMockSearchResults = (query, marketFilter) => {
+    const mocks = [];
+    return mocks.filter(m => 
+        (marketFilter === 'ALL' || m.market === marketFilter) &&
+        (m.symbol.toLowerCase().includes(query.toLowerCase()) || m.shortname.toLowerCase().includes(query.toLowerCase()))
+    );
+};
+
 function App() {
     const [lots, setLots] = useState(() => {
         try {
@@ -45,6 +53,7 @@ function App() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [marketFilter, setMarketFilter] = useState('ALL'); 
     const [displayCurrency, setDisplayCurrency] = useState('KRW'); 
     const [hoverSide, setHoverSide] = useState(null); 
     
@@ -87,7 +96,7 @@ function App() {
             return;
         }
         
-        const cacheKey = searchQuery.trim().toLowerCase();
+        const cacheKey = `${searchQuery.trim().toLowerCase()}_${marketFilter}`;
         
         if (searchCache.current[cacheKey]) {
             setSearchResults(searchCache.current[cacheKey]);
@@ -134,14 +143,14 @@ function App() {
                     else if (q.symbol.endsWith('.T')) { market = 'JP'; currency = 'JPY'; }
                     
                     return { ...q, market, currency };
-                });
+                }).filter(q => marketFilter === 'ALL' || q.market === marketFilter);
 
                 searchCache.current[cacheKey] = results;
                 setSearchResults(results);
                 
             } catch (error) {
                 if (error.name === 'AbortError') return;
-                setSearchResults([]);
+                setSearchResults(generateMockSearchResults(searchQuery, marketFilter));
             } finally {
                 if (!abortController.signal.aborted) {
                     setIsSearching(false);
@@ -153,8 +162,9 @@ function App() {
             clearTimeout(timeoutId);
             abortController.abort();
         };
-    }, [searchQuery]);
+    }, [searchQuery, marketFilter]);
 
+    // Fetch Live Quotes for Portfolio holdings (구조 분해 및 파싱 에러 수정 완료)
     useEffect(() => {
         const uniqueSymbols = [...new Set(lots.map(l => l.symbol))];
         if (uniqueSymbols.length === 0) return;
@@ -165,6 +175,7 @@ function App() {
                     `/quote?symbols=${encodeURIComponent(uniqueSymbols.join(','))}`
                 );
                 
+                // 야후 파이낸스 quoteResponse 구조에 맞게 수정
                 const quoteResult = data?.quoteResponse?.result || data?.quotes;
                 if (quoteResult) {
                     const newQuotes = {};
@@ -391,6 +402,8 @@ function App() {
         return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: decimals, minimumFractionDigits: decimals }).format(num);
     };
 
+    const MARKET_TOGGLE_LABELS = { ALL: '전체', US: '미장', KR: '국장', JP: '일장' };
+
     const getSubMarketLabel = (item) => {
         if (item.market === 'KR') {
             if (item.symbol && item.symbol.endsWith('.KQ')) return '코스닥';
@@ -435,6 +448,17 @@ function App() {
                 </div>
 
                 <div className="p-4 border-b border-slate-800 relative z-10">
+                    <div className="flex gap-2 mb-3">
+                        {['ALL', 'US', 'KR', 'JP'].map(market => (
+                            <button
+                                key={market}
+                                onClick={() => setMarketFilter(market)}
+                                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${marketFilter === market ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                            >
+                                {MARKET_TOGGLE_LABELS[market]}
+                            </button>
+                        ))}
+                    </div>
                     <div className="relative">
                         <SearchIcon className="absolute left-3 top-3 text-slate-400" />
                         <input
@@ -539,7 +563,7 @@ function App() {
                 </div>
             </div>
 
-            {/* Right Panel: Heatmap Area */}
+            {/* Right Panel: Heatmap Area (안내 문구 제거 완료) */}
             <div 
                 className={`relative bg-slate-950 p-4 transition-all duration-500 ease-in-out flex flex-col ${
                     hoverSide === 'right' ? 'w-[70%]' : hoverSide === 'left' ? 'w-[30%] opacity-80' : 'w-[50%]'
