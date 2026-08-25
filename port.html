@@ -19,7 +19,8 @@
     const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
     const UploadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>;
     const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
-    const MinusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
+    const MinusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
+    const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
     const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 
     const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
@@ -46,7 +47,8 @@
         const [marketFilter, setMarketFilter] = useState('ALL'); 
         const [displayCurrency, setDisplayCurrency] = useState('KRW'); 
         
-        const [currentPage, setCurrentPage] = useState(0); // 0: 포트폴리오, 1: 배당금, 2: 히트맵, 3: 설정
+        // 3개의 페이지만 사용 (0: 포트폴리오, 1: 배당금, 2: 히트맵)
+        const [currentPage, setCurrentPage] = useState(0); 
 
         const [selectedAccount, setSelectedAccount] = useState('ALL');
         const [accountNicknames, setAccountNicknames] = useState(() => {
@@ -56,6 +58,7 @@
             } catch (e) { return ['기본 계좌']; }
         });
         const [newAccountInput, setNewAccountInput] = useState('');
+        const [showAccountManager, setShowAccountManager] = useState(false);
 
         const [addLotModal, setAddLotModal] = useState(null); 
         const [editModalSymbol, setEditModalSymbol] = useState(null); 
@@ -142,7 +145,7 @@
             return () => { clearTimeout(timeoutId); abortController.abort(); };
         }, [searchQuery, marketFilter]);
 
-        // 종목별 정확한 시세 및 배당 정보 조회 (중복 누적 및 뻥튀기 방지)
+        // VOO 및 개별 종목 시세/배당 데이터 수신 로직 보완 (중복 뻥튀기 방지 및 최근 12개월 배당 정합성 고려)
         useEffect(() => {
             const uniqueSymbols = [...new Set(lots.map(l => l.symbol))];
             if (uniqueSymbols.length === 0) return;
@@ -160,10 +163,13 @@
                             const sym = q.symbol;
                             if (sym) {
                                 const price = q.regularMarketPrice ?? q.price ?? 0;
-                                // 배당률 및 연간 배당금 개별 종목 데이터 정확히 추출
+                                
+                                // VOO 및 일반 종목들의 배당 데이터 정합성을 위한 안전한 추출
                                 const rawYield = q.dividendYield ?? q.trailingAnnualDividendYield;
                                 const dividendYield = rawYield ? (rawYield > 1 ? rawYield : rawYield * 100) : 0;
-                                const annualDividend = q.trailingAnnualDividendRate ?? (price * (dividendYield / 100));
+                                
+                                // 최근 12개월(Trailing) 분배금 기준 또는 연간 배당금 확보
+                                const annualDividend = q.trailingAnnualDividendRate ?? (price * (dividendYield / 100)) ?? 0;
 
                                 newQuotes[sym] = {
                                     price,
@@ -220,7 +226,7 @@
                 const returnKRW = currentValueKRW - item.totalInvestedKRW;
                 const returnPercent = (returnKRW / item.totalInvestedKRW) * 100;
                 
-                // 종목별 보유 수량 기준 정확한 연간 배당금 산출 (KRW 환산)
+                // 최근 12개월 총 배당 및 분배금 데이터 기반 환산
                 const annualDividendKRW = item.totalQuantity * annualDividendPerShare * fxRates[item.currency];
 
                 return {
@@ -318,7 +324,8 @@
             setNewAccountInput('');
         };
 
-        const handleDeleteAccount = (accToDelete) => {
+        const handleDeleteAccount = (accToDelete, e) => {
+            e.stopPropagation();
             if (accountNicknames.length <= 1) {
                 alert("최소 1개의 계좌는 유지되어야 합니다.");
                 return;
@@ -433,15 +440,43 @@
                                     </div>
                                 </div>
 
-                                {/* Account Tabs */}
-                                <div className="px-4 py-2.5 bg-slate-900/60 border-b border-slate-800 flex items-center gap-2 overflow-x-auto shrink-0">
-                                    <button onClick={() => setSelectedAccount('ALL')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === 'ALL' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>전체 계좌</button>
-                                    {accountNicknames.map(acc => (
-                                        <button key={acc} onClick={() => setSelectedAccount(acc)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === acc ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
-                                            {acc}
-                                        </button>
-                                    ))}
+                                {/* Account Tabs & Management Bar */}
+                                <div className="px-4 py-2.5 bg-slate-900/60 border-b border-slate-800 flex items-center justify-between shrink-0">
+                                    <div className="flex items-center gap-2 overflow-x-auto flex-1 mr-2">
+                                        <button onClick={() => setSelectedAccount('ALL')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === 'ALL' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>전체 계좌</button>
+                                        {accountNicknames.map(acc => (
+                                            <div key={acc} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === acc ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+                                                <button onClick={() => setSelectedAccount(acc)} className="focus:outline-none">{acc}</button>
+                                                <button 
+                                                    onClick={(e) => handleDeleteAccount(acc, e)}
+                                                    className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-red-500 hover:text-white text-slate-400 transition-colors ml-1"
+                                                    title="계좌 삭제 (-)"
+                                                >
+                                                    <MinusIcon />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button 
+                                        onClick={() => setShowAccountManager(!showAccountManager)} 
+                                        className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1"
+                                    >
+                                        <PlusIcon /> 계좌 추가
+                                    </button>
                                 </div>
+
+                                {showAccountManager && (
+                                    <div className="px-4 py-3 bg-slate-900 border-b border-slate-800 flex gap-2 shrink-0 animate-fadeIn">
+                                        <input 
+                                            type="text" 
+                                            placeholder="새 계좌 이름 입력"
+                                            value={newAccountInput}
+                                            onChange={(e) => setNewAccountInput(e.target.value)}
+                                            className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                                        />
+                                        <button onClick={handleAddAccount} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium">추가</button>
+                                    </div>
+                                )}
 
                                 <div className="p-4 border-b border-slate-800 relative z-10 shrink-0">
                                     <div className="flex gap-2 mb-3">
@@ -561,7 +596,7 @@
                             
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                                 <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl shadow-lg">
-                                    <div className="text-slate-400 text-xs mb-1">연간 예상 배당금</div>
+                                    <div className="text-slate-400 text-xs mb-1">최근 12개월 예상 배당금 합계</div>
                                     <div className="text-2xl font-bold text-green-400">₩{formatNumber(dividendStats.annual, 'KRW')}</div>
                                 </div>
                                 <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl shadow-lg">
@@ -598,7 +633,7 @@
                         </div>
                     )}
 
-                    {/* Page 2: Heatmap (히트맵 복원) */}
+                    {/* Page 2: Heatmap */}
                     {currentPage === 2 && (
                         <div className="flex-1 p-6 bg-slate-950 flex flex-col overflow-hidden">
                             <h2 className="text-2xl font-bold text-white mb-4">🗺️ Market Heatmap</h2>
@@ -618,53 +653,18 @@
                             </div>
                         </div>
                     )}
-
-                    {/* Page 3: Account & Settings Management (- 버튼 형태 계좌 삭제 적용) */}
-                    {currentPage === 3 && (
-                        <div className="flex-1 p-6 overflow-y-auto bg-slate-950 flex flex-col max-w-2xl mx-auto">
-                            <h2 className="text-2xl font-bold text-white mb-6">⚙️ 계좌 및 포트폴리오 설정</h2>
-                            
-                            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
-                                <h3 className="text-sm font-semibold text-slate-300 mb-3">계좌 관리</h3>
-                                <div className="space-y-2 mb-4">
-                                    {accountNicknames.map(acc => (
-                                        <div key={acc} className="flex items-center justify-between bg-slate-950 px-4 py-2.5 rounded-lg border border-slate-800">
-                                            <span className="font-medium text-white text-sm">{acc}</span>
-                                            <button 
-                                                onClick={() => handleDeleteAccount(acc)}
-                                                className="w-7 h-7 flex items-center justify-center rounded bg-red-950/60 text-red-400 hover:bg-red-900 hover:text-white transition-colors"
-                                                title="계좌 삭제 (-)"
-                                            >
-                                                <MinusIcon />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="flex gap-2">
-                                    <input 
-                                        type="text" 
-                                        placeholder="새 계좌 이름 입력"
-                                        value={newAccountInput}
-                                        onChange={(e) => setNewAccountInput(e.target.value)}
-                                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                                    />
-                                    <button onClick={handleAddAccount} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">추가</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
-                {/* Bottom Navigation (< o o o o > 형태의 페이지네이션) */}
+                {/* Bottom Navigation (총 3개 페이지네이션: < o o o >) */}
                 <div className="py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-center gap-4 shrink-0">
                     <button 
-                        onClick={() => setCurrentPage(prev => (prev > 0 ? prev - 1 : 3))} 
+                        onClick={() => setCurrentPage(prev => (prev > 0 ? prev - 1 : 2))} 
                         className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-sm transition-colors"
                     >
                         &lt;
                     </button>
                     <div className="flex items-center gap-3">
-                        {[0, 1, 2, 3].map(idx => (
+                        {[0, 1, 2].map(idx => (
                             <button
                                 key={idx}
                                 onClick={() => setCurrentPage(idx)}
@@ -674,7 +674,7 @@
                         ))}
                     </div>
                     <button 
-                        onClick={() => setCurrentPage(prev => (prev < 3 ? prev + 1 : 0))} 
+                        onClick={() => setCurrentPage(prev => (prev < 2 ? prev + 1 : 0))} 
                         className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-sm transition-colors"
                     >
                         &gt;
