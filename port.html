@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Global Portfolio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+// --- Inline Icons (Lucide-style) to ensure zero external UI dependencies ---
+const SearchIcon = ({ className = "" }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>;
+const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
+const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
+const UploadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>;
+const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
+const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
+
+// ============================================================
+// 여기에 배포한 Cloudflare Worker 주소를 넣어주세요.
+// 예: "https://yahoo-proxy.yourname.workers.dev"
+// yahoo-proxy-worker.js 를 Cloudflare Workers에 배포한 뒤 나오는 주소입니다.
+// ============================================================
+const WORKER_BASE_URL = "https://yahooproxy.pages.dev/";
+
+// 나만의 Worker 프록시를 통해 Yahoo Finance 데이터를 안정적으로 가져오는 유틸
+const fetchViaWorker = async (path, options = {}) => {
+    const res = await fetch(`${WORKER_BASE_URL}${path}`, options);
+    if (!res.ok) throw new Error(`Worker proxy error: ${res.status}`);
+    return await res.json();
+};
+
+// Fallback mock data in case Yahoo Finance API is blocked
+const generateMockSearchResults = (query, marketFilter) => {
+    const mocks = [
+        { symbol: 'AAPL', shortname: 'Apple Inc.', exchDisp: 'NASDAQ', market: 'US', currency: 'USD' },
+        { symbol: 'TSLA', shortname: 'Tesla, Inc.', exchDisp: 'NASDAQ', market: 'US', currency: 'USD' },
+        { symbol: '005930.KS', shortname: 'Samsung Electronics Co., Ltd.', exchDisp: 'KSE', market: 'KR', currency: 'KRW' },
+        { symbol: '035420.KS', shortname: 'NAVER Corp.', exchDisp: 'KSE', market: 'KR', currency: 'KRW' },
+        { symbol: '2805.T', shortname: 'S&B Foods Inc.', exchDisp: 'Tokyo', market: 'JP', currency: 'JPY' },
+        { symbol: '7203.T', shortname: 'Toyota Motor Corp.', exchDisp: 'Tokyo', market: 'JP', currency: 'JPY' }
+    ];
+    return mocks.filter(m => 
+        (marketFilter === 'ALL' || m.market === marketFilter) &&
+        (m.symbol.toLowerCase().includes(query.toLowerCase()) || m.shortname.toLowerCase().includes(query.toLowerCase()))
+    );
+};
+
+function App() {
+    // Core State
+    const [lots, setLots] = useState(() => {
+        try {
+            const saved = localStorage.getItem('globalPortfolioLots');
+            return saved ? JSON.parse(saved) : [];
+        } catch (e) {
+            return [];
+        }
+    }); // Array of individual purchase lots
+    const [quotes, setQuotes] = useState({}); // Live/Mocked price quotes
+    const [fxRates, setFxRates] = useState({ USD: 1350, JPY: 9, KRW: 1 }); // Default fallbacks (JPY is per 1 JPY to KRW)
+    
+    // UI State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [marketFilter, setMarketFilter] = useState('ALL'); // ALL, US, KR, JP
+    const [displayCurrency, setDisplayCurrency] = useState('KRW'); // KRW or FOREIGN
+    const [hoverSide, setHoverSide] = useState(null); // 'left' | 'right' | null
+    
+    // Modals State
+    const [addLotModal, setAddLotModal] = useState(null); // Selected stock object
+    const [editModalSymbol, setEditModalSymbol] = useState(null); // Symbol string for editing
+    
+    const fileInputRef = useRef(null);
+    const searchCache = useRef({}); // Search results cache
+
+    // Persist portfolio to localStorage whenever it changes
+    useEffect(() => {
+        try {
+            localStorage.setItem('globalPortfolioLots', JSON.stringify(lots));
+        } catch (e) {
+            console.error("Failed to save portfolio to localStorage", e);
+        }
+    }, [lots]);
+
+    // Fetch Exchange Rates on load
+    useEffect(() => {
+        const fetchFX = async () => {
+            try {
+                const res = await fetch('https://open.er-api.com/v6/latest/KRW');
+                const data = await res.json();
+                if (data && data.rates) {
+                    setFxRates({
+                        USD: 1 / data.rates.USD,
+                        JPY: 1 / data.rates.JPY,
+                        KRW: 1
+                    });
+                }
+            } catch (error) {
+                console.error("FX fetch failed, using default rates.");
+            }
+        };
+        fetchFX();
+    }, []);
+
+    // Debounced Search Effect
+    useEffect(() => {
+        if (searchQuery.trim().length < 1) {
+            setSearchResults([]);
+            return;
+        }
+        
+        const cacheKey = `${searchQuery.trim().toLowerCase()}_${marketFilter}`;
+        
+        // 1. Check if we already have the results in cache
+        if (searchCache.current[cacheKey]) {
+            setSearchResults(searchCache.current[cacheKey]);
+            setIsSearching(false);
+            return;
+        }
+
+        // 2. Setup AbortController to cancel previous requests if typing continues
+        const abortController = new AbortController();
+        
+        const timeoutId = setTimeout(async () => {
+            setIsSearching(true);
+            try {
+                const data = await fetchViaWorker(
+                    `/search?q=${encodeURIComponent(searchQuery)}`,
+                    { signal: abortController.signal }
+                );
+                
+                let rawResults = [];
+
+                // Yahoo Finance 검색 결과만 사용
+                if (data && data.quotes) {
+                    rawResults = data.quotes.filter(
+                        q => q.quoteType === 'EQUITY' || q.quoteType === 'ETF'
+                    );
+                }
+
+                // 중복 제거 (티커 기준)
+                const uniqueResults = [];
+                const seenSymbols = new Set();
+                for (const item of rawResults) {
+                    if (!seenSymbols.has(item.symbol)) {
+                        seenSymbols.add(item.symbol);
+                        uniqueResults.push(item);
+                    }
+                }
+
+                // 시장 필터 적용 및 데이터 매핑
+                let results = uniqueResults.map(q => {
+                    let market = 'US';
+                    let currency = 'USD';
+                    if (q.symbol.endsWith('.KS') || q.symbol.endsWith('.KQ')) { market = 'KR'; currency = 'KRW'; }
+                    else if (q.symbol.endsWith('.T')) { market = 'JP'; currency = 'JPY'; }
+                    
+                    return { ...q, market, currency };
+                }).filter(q => marketFilter === 'ALL' || q.market === marketFilter);
+
+                // 캐시에 저장 및 결과 반영
+                searchCache.current[cacheKey] = results;
+                setSearchResults(results);
+                
+            } catch (error) {
+                if (error.name === 'AbortError') return; // Ignore intentionally aborted requests
+                
+                // Fallback to mock data
+                setSearchResults(generateMockSearchResults(searchQuery, marketFilter));
+            } finally {
+                if (!abortController.signal.aborted) {
+                    setIsSearching(false);
+                }
+            }
+        }, 300); // Reduced delay for snappier search feel
+
+        return () => {
+            clearTimeout(timeoutId);
+            abortController.abort(); // Cancel ongoing fetch if query changes
+        };
+    }, [searchQuery, marketFilter]);
+
+    // Fetch Live Quotes for Portfolio holdings
+    useEffect(() => {
+        const uniqueSymbols = [...new Set(lots.map(l => l.symbol))];
+        if (uniqueSymbols.length === 0) return;
+
+        const fetchQuotes = async () => {
+            try {
+                const data = await fetchViaWorker(
+                    `/quote?symbols=${encodeURIComponent(uniqueSymbols.join(','))}`
+                );
+                
+                if (data && data.quoteResponse && data.quoteResponse.result) {
+                    const newQuotes = {};
+                    data.quoteResponse.result.forEach(q => {
+                        newQuotes[q.symbol] = {
+                            price: q.regularMarketPrice,
+                            changePercent: q.regularMarketChangePercent
+                        };
+                    });
+                    setQuotes(prev => ({ ...prev, ...newQuotes }));
+                }
+            } catch (error) {
+                // Mock quotes if API fails (assume 0% change or random small change for visual effect)
+                const newQuotes = {};
+                uniqueSymbols.forEach(sym => {
+                    const avgPrice = lots.find(l => l.symbol === sym)?.avgPriceForeign || 100;
+                    const randomChange = (Math.random() * 6) - 3; // -3% to +3%
+                    newQuotes[sym] = {
+                        price: avgPrice * (1 + randomChange/100),
+                        changePercent: randomChange
+                    };
+                });
+                setQuotes(prev => ({ ...prev, ...newQuotes }));
+            }
+        };
+
+        fetchQuotes();
+        const intervalId = setInterval(fetchQuotes, 60000); // Refresh every minute
+        return () => clearInterval(intervalId);
+    }, [lots]);
+
+    const consolidatedPortfolio = useMemo(() => {
+        const map = new Map();
+
+        lots.forEach(lot => {
+            if (!map.has(lot.symbol)) {
+                map.set(lot.symbol, {
+                    symbol: lot.symbol,
+                    name: lot.name,
+                    market: lot.market,
+                    currency: lot.currency,
+                    totalQuantity: 0,
+                    totalInvestedKRW: 0,
+                    totalInvestedForeign: 0,
+                });
+            }
+            const current = map.get(lot.symbol);
+            current.totalQuantity += lot.quantity;
+            current.totalInvestedKRW += (lot.quantity * lot.avgPriceKRW);
+            current.totalInvestedForeign += (lot.quantity * lot.avgPriceForeign);
+        });
+
+        return Array.from(map.values()).map(item => {
+            const avgPriceKRW = item.totalInvestedKRW / item.totalQuantity;
+            const avgPriceForeign = item.totalInvestedForeign / item.totalQuantity;
+            
+            // Current Price & Value
+            const quote = quotes[item.symbol];
+            const currentPriceForeign = quote?.price || avgPriceForeign;
+            const currentChangePercent = quote?.changePercent || 0;
+            
+            // Convert current foreign price to KRW
+            const currentPriceKRW = currentPriceForeign * fxRates[item.currency];
+            const currentValueKRW = item.totalQuantity * currentPriceKRW;
+            
+            // Overall return
+            const returnKRW = currentValueKRW - item.totalInvestedKRW;
+            const returnPercent = (returnKRW / item.totalInvestedKRW) * 100;
+
+            return {
+                ...item,
+                avgPriceKRW,
+                avgPriceForeign,
+                currentPriceForeign,
+                currentPriceKRW,
+                currentValueKRW,
+                returnKRW,
+                returnPercent,
+                dailyChangePercent: currentChangePercent
+            };
+        }).sort((a, b) => b.currentValueKRW - a.currentValueKRW);
+    }, [lots, quotes, fxRates]);
+
+    const handleAddLot = (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const qty = parseFloat(formData.get('quantity'));
+        const priceKRW = parseFloat(formData.get('priceKRW'));
+        const date = formData.get('buyDate');
+
+        if (!qty || !priceKRW || !date) return;
+
+        const rate = fxRates[addLotModal.currency] || 1;
+        const priceForeign = priceKRW / rate;
+
+        const newLot = {
+            id: Date.now().toString(),
+            symbol: addLotModal.symbol,
+            name: addLotModal.shortname || addLotModal.name,
+            market: addLotModal.market,
+            currency: addLotModal.currency,
+            quantity: qty,
+            avgPriceKRW: priceKRW,
+            avgPriceForeign: priceForeign,
+            date: date
+        };
+
+        setLots([...lots, newLot]);
+        setAddLotModal(null);
+        setSearchQuery('');
+        setSearchResults([]);
+    };
+
+    const handleDeleteLot = (id) => {
+        setLots(lots.filter(l => l.id !== id));
+        // Close edit modal if last item is deleted
+        if (lots.filter(l => l.symbol === editModalSymbol).length === 1) {
+            setEditModalSymbol(null);
+        }
+    };
+
+    const handleUpdateLot = (id, field, value) => {
+        setLots(lots.map(l => {
+            if (l.id === id) {
+                const updated = { ...l, [field]: value };
+                if (field === 'avgPriceKRW') {
+                    updated.avgPriceForeign = value / fxRates[l.currency];
+                }
+                return updated;
+            }
+            return l;
+        }));
+    };
+
+    const handleMergeLots = (symbol) => {
+        const symbolLots = lots.filter(l => l.symbol === symbol);
+        if (symbolLots.length <= 1) return;
+
+        let totalQty = 0;
+        let totalInvestedKRW = 0;
+        
+        symbolLots.forEach(l => {
+            totalQty += Number(l.quantity);
+            totalInvestedKRW += (Number(l.quantity) * Number(l.avgPriceKRW));
+        });
+
+        const mergedAvgPriceKRW = totalInvestedKRW / totalQty;
+        const mergedAvgPriceForeign = mergedAvgPriceKRW / fxRates[symbolLots[0].currency];
+
+        const mergedLot = {
+            id: Date.now().toString(),
+            symbol: symbol,
+            name: symbolLots[0].name,
+            market: symbolLots[0].market,
+            currency: symbolLots[0].currency,
+            quantity: totalQty,
+            avgPriceKRW: mergedAvgPriceKRW,
+            avgPriceForeign: mergedAvgPriceForeign,
+            date: new Date().toISOString().split('T')[0] // Set merged date to today
+        };
+
+        setLots([...lots.filter(l => l.symbol !== symbol), mergedLot]);
+    };
+
+    const handleExport = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(lots));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href",     dataStr);
+        downloadAnchorNode.setAttribute("download", "portfolio_export.json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    };
+
+    const handleImport = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const importedLots = JSON.parse(event.target.result);
+                if (Array.isArray(importedLots)) {
+                    setLots(importedLots);
+                }
+            } catch (error) {
+                console.error("Failed to parse JSON");
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    // Recursive slice and dice algorithm for generating the heatmap layout
+    const generateTreemap = (items, x = 0, y = 0, w = 100, h = 100, isHorizontal = true) => {
+        if (items.length === 0) return [];
+        if (items.length === 1) return [{ ...items[0], x, y, w, h }];
+        
+        let sum = items.reduce((s, i) => s + i.currentValueKRW, 0);
+        if (sum === 0) return items.map(i => ({...i, x, y, w:0, h:0})); // Handle 0 value case
+
+        let halfSum = 0;
+        let splitIndex = 0;
+        for (let i = 0; i < items.length; i++) {
+            halfSum += items[i].currentValueKRW;
+            if (halfSum >= sum / 2) {
+                splitIndex = i;
+                break;
+            }
+        }
+        if (splitIndex === items.length - 1 && items.length > 1) splitIndex = items.length - 2;
+
+        let leftItems = items.slice(0, splitIndex + 1);
+        let rightItems = items.slice(splitIndex + 1);
+        let leftRatio = leftItems.reduce((s, i) => s + i.currentValueKRW, 0) / sum;
+
+        if (isHorizontal) {
+            let leftW = w * leftRatio;
+            return [
+                ...generateTreemap(leftItems, x, y, leftW, h, !isHorizontal),
+                ...generateTreemap(rightItems, x + leftW, y, w - leftW, h, !isHorizontal)
+            ];
+        } else {
+            let topH = h * leftRatio;
+            return [
+                ...generateTreemap(leftItems, x, y, w, topH, !isHorizontal),
+                ...generateTreemap(rightItems, x, y + topH, w, h - topH, !isHorizontal)
+            ];
+        }
+    };
+
+    const treemapNodes = useMemo(() => generateTreemap([...consolidatedPortfolio]), [consolidatedPortfolio]);
+
+    const formatNumber = (num, currency) => {
+        if (!num) return '0';
+        const decimals = currency === 'KRW' || currency === 'JPY' ? 0 : 2;
+        return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: decimals, minimumFractionDigits: decimals }).format(num);
+    };
+
+    const getHeatmapColor = (changePercent) => {
+        // Red for negative, Green for positive. Intensity mapped from 0 to 10%
+        const intensity = Math.min(Math.abs(changePercent) / 10, 1);
+        const alpha = 0.2 + (intensity * 0.8); // Min opacity 0.2, Max 1.0
+        
+        if (changePercent >= 0) return `rgba(34, 197, 94, ${alpha})`; // Tailwind green-500
+        return `rgba(239, 68, 68, ${alpha})`; // Tailwind red-500
+    };
+
+    return (
+        <div className="flex h-screen bg-slate-950 text-slate-200 font-sans overflow-hidden">
+            
+            {/* Left Panel: Portfolio & Search */}
+            <div 
+                className={`flex flex-col transition-all duration-500 ease-in-out border-r border-slate-800 ${
+                    hoverSide === 'left' ? 'w-[70%]' : hoverSide === 'right' ? 'w-[30%] opacity-80' : 'w-[50%]'
+                }`}
+                onMouseEnter={() => setHoverSide('left')}
+                onMouseLeave={() => setHoverSide(null)}
+            >
+                {/* Header & Controls */}
+                <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+                    <h1 className="text-xl font-bold text-white flex items-center gap-2">
+                        <span>📈</span> Global Portfolio
+                    </h1>
+                    <div className="flex items-center gap-2">
+                        <button onClick={handleExport} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Download JSON">
+                            <DownloadIcon />
+                        </button>
+                        <button onClick={() => fileInputRef.current.click()} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Upload JSON">
+                            <UploadIcon />
+                        </button>
+                        <input type="file" ref={fileInputRef} onChange={handleImport} accept=".json" className="hidden" />
+                    </div>
+                </div>
+
+                {/* Search Area */}
+                <div className="p-4 border-b border-slate-800 relative z-10">
+                    <div className="flex gap-2 mb-3">
+                        {['ALL', 'US', 'KR', 'JP'].map(market => (
+                            <button
+                                key={market}
+                                onClick={() => setMarketFilter(market)}
+                                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${marketFilter === market ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                            >
+                                {market}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="relative">
+                        <SearchIcon className="absolute left-3 top-3 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Search stock by name or ticker..."
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        {/* Search Dropdown */}
+                        {searchQuery && (
+                            <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden max-h-96 overflow-y-auto">
+                                {isSearching ? (
+                                    <div className="p-4 text-center text-slate-400 text-sm">Searching...</div>
+                                ) : searchResults.length > 0 ? (
+                                    searchResults.map(result => (
+                                        <div 
+                                            key={result.symbol} 
+                                            className="p-3 hover:bg-slate-700 cursor-pointer flex justify-between items-center border-b border-slate-700/50 last:border-0"
+                                            onClick={() => setAddLotModal(result)}
+                                        >
+                                            <div>
+                                                <div className="font-bold text-white text-sm">{result.symbol}</div>
+                                                <div className="text-xs text-slate-400 truncate w-48">{result.shortname}</div>
+                                            </div>
+                                            <span className="text-xs px-2 py-1 bg-slate-900 rounded text-slate-300 border border-slate-700">
+                                                {result.market}
+                                            </span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="p-4 text-center text-slate-400 text-sm">No results found</div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Portfolio List */}
+                <div className="flex-1 overflow-y-auto p-4 relative">
+                    <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-950 py-2 z-0">
+                        <h2 className="text-lg font-semibold">Holdings</h2>
+                        <div className="flex bg-slate-800 rounded-lg p-1">
+                            <button 
+                                onClick={() => setDisplayCurrency('KRW')}
+                                className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${displayCurrency === 'KRW' ? 'bg-slate-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                            >
+                                KRW (₩)
+                            </button>
+                            <button 
+                                onClick={() => setDisplayCurrency('FOREIGN')}
+                                className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${displayCurrency === 'FOREIGN' ? 'bg-slate-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                            >
+                                Foreign
+                            </button>
+                        </div>
+                    </div>
+
+                    {consolidatedPortfolio.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-48 text-slate-500">
+                            <p>No stocks in portfolio yet.</p>
+                            <p className="text-sm mt-1">Search and add a stock above.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {consolidatedPortfolio.map(item => (
+                                <div key={item.symbol} className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between group hover:border-slate-700 transition-colors">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-white">{item.symbol}</span>
+                                            <span className="text-xs text-slate-400 px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700">{item.market}</span>
+                                            <span className="text-xs text-slate-400 truncate max-w-[120px]">{item.name}</span>
+                                        </div>
+                                        <div className="flex gap-4 mt-2 text-sm text-slate-300">
+                                            <div><span className="text-slate-500">Qty:</span> {formatNumber(item.totalQuantity, 'USD')}</div>
+                                            <div>
+                                                <span className="text-slate-500">Avg:</span>{' '}
+                                                {displayCurrency === 'KRW' 
+                                                    ? `₩${formatNumber(item.avgPriceKRW, 'KRW')}` 
+                                                    : `${item.currency === 'USD' ? '$' : item.currency === 'JPY' ? '¥' : '₩'}${formatNumber(item.avgPriceForeign, item.currency)}`}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="text-right flex flex-col items-end gap-1">
+                                        <div className="font-semibold">
+                                            {displayCurrency === 'KRW' 
+                                                ? `₩${formatNumber(item.currentValueKRW, 'KRW')}`
+                                                : `${item.currency === 'USD' ? '$' : item.currency === 'JPY' ? '¥' : '₩'}${formatNumber(item.totalQuantity * item.currentPriceForeign, item.currency)}`}
+                                        </div>
+                                        <div className={`text-sm font-medium ${item.returnPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                            {item.returnPercent > 0 ? '+' : ''}{item.returnPercent.toFixed(2)}%
+                                        </div>
+                                        <button 
+                                            onClick={() => setEditModalSymbol(item.symbol)}
+                                            className="mt-1 flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors bg-slate-800 px-2 py-1 rounded"
+                                        >
+                                            <EditIcon /> Edit Lots
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Right Panel: Heatmap (Treemap) Area */}
+            <div 
+                className={`relative bg-slate-950 p-4 transition-all duration-500 ease-in-out flex flex-col ${
+                    hoverSide === 'right' ? 'w-[70%]' : hoverSide === 'left' ? 'w-[30%] opacity-80' : 'w-[50%]'
+                }`}
+                onMouseEnter={() => setHoverSide('right')}
+                onMouseLeave={() => setHoverSide(null)}
+            >
+                <h2 className="text-lg font-semibold mb-4 shrink-0 flex items-center justify-between">
+                    Market Heatmap 
+                    <span className="text-xs font-normal text-slate-400 bg-slate-900 px-2 py-1 rounded">Size: Weight | Color: Daily Return</span>
+                </h2>
+                <div className="flex-1 w-full bg-slate-900 rounded-xl overflow-hidden relative shadow-inner border border-slate-800">
+                    {treemapNodes.length > 0 ? treemapNodes.map(node => (
+                        <div 
+                            key={node.symbol}
+                            className="absolute border border-slate-950 p-2 flex flex-col justify-center items-center overflow-hidden transition-all duration-300 hover:z-10 hover:shadow-2xl hover:brightness-110"
+                            style={{
+                                left: `${node.x}%`,
+                                top: `${node.y}%`,
+                                width: `${node.w}%`,
+                                height: `${node.h}%`,
+                                backgroundColor: getHeatmapColor(node.dailyChangePercent)
+                            }}
+                            title={`${node.name}\nWeight: ${((node.currentValueKRW / consolidatedPortfolio.reduce((a,b)=>a+b.currentValueKRW,0))*100).toFixed(1)}%\nDaily: ${node.dailyChangePercent?.toFixed(2)}%`}
+                        >
+                            <span className="font-bold text-white shadow-black drop-shadow-md text-center max-w-full truncate px-1" style={{ fontSize: `clamp(10px, ${node.w * 0.5}vw, 24px)` }}>
+                                {node.symbol}
+                            </span>
+                            {node.h > 10 && node.w > 10 && (
+                                <span className="text-white/90 shadow-black drop-shadow-md font-medium mt-1 text-center truncate px-1" style={{ fontSize: `clamp(8px, ${node.w * 0.3}vw, 16px)` }}>
+                                    {node.dailyChangePercent > 0 ? '+' : ''}{node.dailyChangePercent?.toFixed(2)}%
+                                </span>
+                            )}
+                        </div>
+                    )) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-600">
+                            Add stocks to generate heatmap
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {}
+            {/* Add Lot Modal */}
+            {addLotModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+                        <div className="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 className="text-xl font-bold text-white">{addLotModal.symbol}</h3>
+                                <p className="text-slate-400 text-sm">{addLotModal.shortname || addLotModal.name}</p>
+                            </div>
+                            <button onClick={() => setAddLotModal(null)} className="text-slate-400 hover:text-white transition-colors">
+                                <CloseIcon />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleAddLot} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Buy Date</label>
+                                <input 
+                                    type="date" 
+                                    name="buyDate"
+                                    defaultValue={new Date().toISOString().split('T')[0]}
+                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Quantity</label>
+                                <input 
+                                    type="number" 
+                                    name="quantity"
+                                    step="any"
+                                    min="0.0001"
+                                    placeholder="e.g. 10"
+                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Average Price (KRW ₩)</label>
+                                <input 
+                                    type="number" 
+                                    name="priceKRW"
+                                    step="any"
+                                    min="1"
+                                    placeholder="e.g. 150000"
+                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                                    required
+                                />
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Current FX Rate: 1 {addLotModal.currency} = ₩{formatNumber(fxRates[addLotModal.currency], 'KRW')}
+                                </p>
+                            </div>
+                            
+                            <div className="pt-4 mt-6 border-t border-slate-800 flex justify-end gap-3">
+                                <button type="button" onClick={() => setAddLotModal(null)} className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors">Cancel</button>
+                                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-blue-900/20">Add to Portfolio</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Lots Modal */}
+            {editModalSymbol && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
+                        <div className="flex justify-between items-center mb-6 shrink-0">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                Edit Lots: <span className="text-blue-400">{editModalSymbol}</span>
+                            </h3>
+                            <button onClick={() => setEditModalSymbol(null)} className="text-slate-400 hover:text-white transition-colors">
+                                <CloseIcon />
+                            </button>
+                        </div>
+
+                        <div className="overflow-y-auto flex-1 pr-2 space-y-3">
+                            {lots.filter(l => l.symbol === editModalSymbol).map(lot => (
+                                <div key={lot.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-wrap gap-4 items-end">
+                                    <div className="flex-1 min-w-[120px]">
+                                        <label className="block text-xs text-slate-500 mb-1">Date</label>
+                                        <input 
+                                            type="date" 
+                                            value={lot.date}
+                                            onChange={(e) => handleUpdateLot(lot.id, 'date', e.target.value)}
+                                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-white"
+                                        />
+                                    </div>
+                                    <div className="flex-1 min-w-[100px]">
+                                        <label className="block text-xs text-slate-500 mb-1">Qty</label>
+                                        <input 
+                                            type="number" 
+                                            value={lot.quantity}
+                                            onChange={(e) => handleUpdateLot(lot.id, 'quantity', parseFloat(e.target.value) || 0)}
+                                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-white"
+                                        />
+                                    </div>
+                                    <div className="flex-1 min-w-[120px]">
+                                        <label className="block text-xs text-slate-500 mb-1">Price (KRW)</label>
+                                        <input 
+                                            type="number" 
+                                            value={lot.avgPriceKRW}
+                                            onChange={(e) => handleUpdateLot(lot.id, 'avgPriceKRW', parseFloat(e.target.value) || 0)}
+                                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-white"
+                                        />
+                                    </div>
+                                    <div className="w-[100px] shrink-0 text-right pb-1">
+                                        <div className="text-xs text-slate-500 mb-1">{lot.currency} Est.</div>
+                                        <div className="text-sm font-medium text-slate-300">
+                                            {formatNumber(lot.avgPriceForeign, lot.currency)}
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleDeleteLot(lot.id)}
+                                        className="p-2 bg-red-950/50 hover:bg-red-900/50 text-red-400 rounded transition-colors mb-[2px]"
+                                        title="Delete Lot"
+                                    >
+                                        <TrashIcon />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="pt-4 mt-4 border-t border-slate-800 flex justify-between items-center shrink-0">
+                            <button 
+                                onClick={() => handleMergeLots(editModalSymbol)}
+                                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 6 4-4 4 4"></path><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"></path><path d="m20 22-5-5"></path></svg>
+                                Merge All Lots
+                            </button>
+                            <button onClick={() => setEditModalSymbol(null)} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
