@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Global Portfolio</title>
+  <title>Global Portfolio & Dividend Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -14,833 +14,732 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo, useRef } = React;
 
-const SearchIcon = ({ className = "" }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>;
-const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
-const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
-const UploadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>;
-const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
-const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
+    const SearchIcon = ({ className = "" }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>;
+    const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
+    const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
+    const UploadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>;
+    const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
+    const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 
-const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
+    const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
 
-const fetchViaWorker = async (path, options = {}) => {
-    const res = await fetch(`${WORKER_BASE_URL}${path}`, options);
-    if (!res.ok) throw new Error(`Worker proxy error: ${res.status}`);
-    return await res.json();
-};
+    const fetchViaWorker = async (path, options = {}) => {
+        const res = await fetch(`${WORKER_BASE_URL}${path}`, options);
+        if (!res.ok) throw new Error(`Worker proxy error: ${res.status}`);
+        return await res.json();
+    };
 
-function App() {
-    const [lots, setLots] = useState(() => {
-        try {
-            const saved = localStorage.getItem('globalPortfolioLots');
-            return saved ? JSON.parse(saved) : [];
-        } catch (e) {
-            return [];
-        }
-    }); 
-    const [quotes, setQuotes] = useState({}); 
-    const [fxRates, setFxRates] = useState({ USD: 1350, JPY: 9, KRW: 1 }); 
-    
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
-    const [isSearching, setIsSearching] = useState(false);
-    const [marketFilter, setMarketFilter] = useState('ALL'); 
-    const [displayCurrency, setDisplayCurrency] = useState('KRW'); 
-    const [hoverSide, setHoverSide] = useState(null); 
-    
-    // 계좌 별명 필터 및 상태 추가
-    const [selectedAccount, setSelectedAccount] = useState('ALL');
-    const [accountNicknames, setAccountNicknames] = useState(() => {
-        try {
-            const saved = localStorage.getItem('globalPortfolioAccounts');
-            return saved ? JSON.parse(saved) : ['기본 계좌'];
-        } catch (e) {
-            return ['기본 계좌'];
-        }
-    });
-    const [newAccountInput, setNewAccountInput] = useState('');
-    const [isAddingAccount, setIsAddingAccount] = useState(false);
+    function App() {
+        const [lots, setLots] = useState(() => {
+            try {
+                const saved = localStorage.getItem('globalPortfolioLots');
+                return saved ? JSON.parse(saved) : [];
+            } catch (e) { return []; }
+        }); 
+        const [quotes, setQuotes] = useState({}); 
+        const [fxRates, setFxRates] = useState({ USD: 1350, JPY: 9, KRW: 1 }); 
+        
+        const [searchQuery, setSearchQuery] = useState('');
+        const [searchResults, setSearchResults] = useState([]);
+        const [isSearching, setIsSearching] = useState(false);
+        const [marketFilter, setMarketFilter] = useState('ALL'); 
+        const [displayCurrency, setDisplayCurrency] = useState('KRW'); 
+        const [hoverSide, setHoverSide] = useState(null); 
+        
+        // 페이지네이션 상태 (< o o o >)
+        const [currentPage, setCurrentPage] = useState(0); // 0: 포트폴리오&히트맵, 1: 배당금 대시보드, 2: 계좌/설정 관리
 
-    const [addLotModal, setAddLotModal] = useState(null); 
-    const [editModalSymbol, setEditModalSymbol] = useState(null); 
-    
-    const fileInputRef = useRef(null);
-    const searchCache = useRef({}); 
+        const [selectedAccount, setSelectedAccount] = useState('ALL');
+        const [accountNicknames, setAccountNicknames] = useState(() => {
+            try {
+                const saved = localStorage.getItem('globalPortfolioAccounts');
+                return saved ? JSON.parse(saved) : ['기본 계좌'];
+            } catch (e) { return ['기본 계좌']; }
+        });
+        const [newAccountInput, setNewAccountInput] = useState('');
+        const [isAddingAccount, setIsAddingAccount] = useState(false);
 
-    useEffect(() => {
-        try {
+        const [addLotModal, setAddLotModal] = useState(null); 
+        const [editModalSymbol, setEditModalSymbol] = useState(null); 
+        
+        const fileInputRef = useRef(null);
+        const searchCache = useRef({}); 
+
+        useEffect(() => {
             localStorage.setItem('globalPortfolioLots', JSON.stringify(lots));
-        } catch (e) {
-            console.error("Failed to save portfolio to localStorage", e);
-        }
-    }, [lots]);
+        }, [lots]);
 
-    useEffect(() => {
-        try {
+        useEffect(() => {
             localStorage.setItem('globalPortfolioAccounts', JSON.stringify(accountNicknames));
-        } catch (e) {
-            console.error("Failed to save accounts to localStorage", e);
-        }
-    }, [accountNicknames]);
+        }, [accountNicknames]);
 
-    useEffect(() => {
-        const fetchFX = async () => {
-            try {
-                const res = await fetch('https://open.er-api.com/v6/latest/KRW');
-                const data = await res.json();
-                if (data && data.rates) {
-                    setFxRates({
-                        USD: 1 / data.rates.USD,
-                        JPY: 1 / data.rates.JPY,
-                        KRW: 1
-                    });
-                }
-            } catch (error) {
-                console.error("FX fetch failed, using default rates.");
-            }
-        };
-        fetchFX();
-    }, []);
-
-    useEffect(() => {
-        if (searchQuery.trim().length < 1) {
-            setSearchResults([]);
-            return;
-        }
-        
-        const cacheKey = `${searchQuery.trim().toLowerCase()}_${marketFilter}`;
-        if (searchCache.current[cacheKey]) {
-            setSearchResults(searchCache.current[cacheKey]);
-            setIsSearching(false);
-            return;
-        }
-
-        const abortController = new AbortController();
-        
-        const timeoutId = setTimeout(async () => {
-            setIsSearching(true);
-            try {
-                const data = await fetchViaWorker(
-                    `/search?q=${encodeURIComponent(searchQuery)}`,
-                    { signal: abortController.signal }
-                );
-                
-                let rawResults = [];
-                if (data && data.quotes) {
-                    rawResults = data.quotes.filter(q => {
-                        const type = (q.quoteType || '').toUpperCase();
-                        return type === 'EQUITY' || type === 'ETF' || type === 'MUTUALFUND' || type === 'STOCKS';
-                    });
-                    if (rawResults.length === 0 && data.quotes.length > 0) {
-                        rawResults = data.quotes.slice(0, 5);
+        useEffect(() => {
+            const fetchFX = async () => {
+                try {
+                    const res = await fetch('https://open.er-api.com/v6/latest/KRW');
+                    const data = await res.json();
+                    if (data && data.rates) {
+                        setFxRates({
+                            USD: 1 / data.rates.USD,
+                            JPY: 1 / data.rates.JPY,
+                            KRW: 1
+                        });
                     }
-                }
-
-                const uniqueResults = [];
-                const seenSymbols = new Set();
-                for (const item of rawResults) {
-                    if (!seenSymbols.has(item.symbol)) {
-                        seenSymbols.add(item.symbol);
-                        uniqueResults.push(item);
-                    }
-                }
-
-                let results = uniqueResults.map(q => {
-                    let market = 'US';
-                    let currency = 'USD';
-                    if (q.symbol.endsWith('.KS') || q.symbol.endsWith('.KQ')) { market = 'KR'; currency = 'KRW'; }
-                    else if (q.symbol.endsWith('.T')) { market = 'JP'; currency = 'JPY'; }
-                    
-                    // 한국 주식 한글 이름 보정 (longname 또는 shortname 활용)
-                    let name = q.longname || q.shortname || q.symbol;
-                    return { ...q, name, market, currency };
-                }).filter(q => marketFilter === 'ALL' || q.market === marketFilter);
-
-                searchCache.current[cacheKey] = results;
-                setSearchResults(results);
-            } catch (error) {
-                if (error.name === 'AbortError') return;
-                setSearchResults([]);
-            } finally {
-                if (!abortController.signal.aborted) {
-                    setIsSearching(false);
-                }
-            }
-        }, 300);
-
-        return () => {
-            clearTimeout(timeoutId);
-            abortController.abort();
-        };
-    }, [searchQuery, marketFilter]);
-
-    useEffect(() => {
-        const uniqueSymbols = [...new Set(lots.map(l => l.symbol))];
-        if (uniqueSymbols.length === 0) return;
-
-        const fetchQuotes = async () => {
-            try {
-                const data = await fetchViaWorker(
-                    `/quote?symbols=${encodeURIComponent(uniqueSymbols.join(','))}`
-                );
-                
-                const quoteResult = data?.quoteResponse?.result || data?.quotes;
-                if (quoteResult) {
-                    const newQuotes = {};
-                    (Array.isArray(quoteResult) ? quoteResult : Object.entries(quoteResult)).forEach(item => {
-                        const q = Array.isArray(quoteResult) ? item : item[1];
-                        const sym = q.symbol;
-                        if (sym) {
-                            newQuotes[sym] = {
-                                price: q.regularMarketPrice ?? q.price ?? 0,
-                                changePercent: q.regularMarketChangePercent ?? q.changePercent ?? 0,
-                                longname: q.longname || q.shortname || ''
-                            };
-                        }
-                    });
-                    setQuotes(prev => ({ ...prev, ...newQuotes }));
-                }
-            } catch (error) {
-                console.error("Quote fetch failed", error);
-            }
-        };
-
-        fetchQuotes();
-        const intervalId = setInterval(fetchQuotes, 60000);
-        return () => clearInterval(intervalId);
-    }, [lots]);
-
-    const filteredLots = useMemo(() => {
-        if (selectedAccount === 'ALL') return lots;
-        return lots.filter(l => (l.account || '기본 계좌') === selectedAccount);
-    }, [lots, selectedAccount]);
-
-    const consolidatedPortfolio = useMemo(() => {
-        const map = new Map();
-
-        filteredLots.forEach(lot => {
-            if (!map.has(lot.symbol)) {
-                map.set(lot.symbol, {
-                    symbol: lot.symbol,
-                    name: lot.name,
-                    market: lot.market,
-                    currency: lot.currency,
-                    totalQuantity: 0,
-                    totalInvestedKRW: 0,
-                    totalInvestedForeign: 0,
-                });
-            }
-            const current = map.get(lot.symbol);
-            current.totalQuantity += lot.quantity;
-            current.totalInvestedKRW += (lot.quantity * lot.avgPriceKRW);
-            current.totalInvestedForeign += (lot.quantity * lot.avgPriceForeign);
-        });
-
-        return Array.from(map.values()).map(item => {
-            const avgPriceKRW = item.totalInvestedKRW / item.totalQuantity;
-            const avgPriceForeign = item.totalInvestedForeign / item.totalQuantity;
-            
-            const quote = quotes[item.symbol];
-            const currentPriceForeign = quote?.price ?? avgPriceForeign;
-            const currentChangePercent = quote?.changePercent ?? 0;
-            const resolvedName = quote?.longname || item.name;
-            
-            const currentPriceKRW = currentPriceForeign * fxRates[item.currency];
-            const currentValueKRW = item.totalQuantity * currentPriceKRW;
-            
-            const returnKRW = currentValueKRW - item.totalInvestedKRW;
-            const returnPercent = (returnKRW / item.totalInvestedKRW) * 100;
-
-            return {
-                ...item,
-                name: resolvedName,
-                avgPriceKRW,
-                avgPriceForeign,
-                currentPriceForeign,
-                currentPriceKRW,
-                currentValueKRW,
-                returnKRW,
-                returnPercent,
-                dailyChangePercent: currentChangePercent
+                } catch (error) { console.error("FX fetch failed"); }
             };
-        }).sort((a, b) => b.currentValueKRW - a.currentValueKRW);
-    }, [filteredLots, quotes, fxRates]);
+            fetchFX();
+        }, []);
 
-    const handleAddLot = (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const qty = parseFloat(formData.get('quantity'));
-        const priceKRW = parseFloat(formData.get('priceKRW'));
-        const date = formData.get('buyDate');
-        const account = formData.get('account') || accountNicknames[0] || '기본 계좌';
-
-        if (!qty || !priceKRW || !date) return;
-
-        const rate = fxRates[addLotModal.currency] || 1;
-        const priceForeign = priceKRW / rate;
-
-        const newLot = {
-            id: Date.now().toString(),
-            symbol: addLotModal.symbol,
-            name: addLotModal.shortname || addLotModal.name,
-            market: addLotModal.market,
-            currency: addLotModal.currency,
-            quantity: qty,
-            avgPriceKRW: priceKRW,
-            avgPriceForeign: priceForeign,
-            date: date,
-            account: account
-        };
-
-        setLots([...lots, newLot]);
-        setAddLotModal(null);
-        setSearchQuery('');
-        setSearchResults([]);
-    };
-
-    const handleDeleteLot = (id) => {
-        setLots(lots.filter(l => l.id !== id));
-        if (lots.filter(l => l.symbol === editModalSymbol).length === 1) {
-            setEditModalSymbol(null);
-        }
-    };
-
-    const handleUpdateLot = (id, field, value) => {
-        setLots(lots.map(l => {
-            if (l.id === id) {
-                const updated = { ...l, [field]: value };
-                if (field === 'avgPriceKRW') {
-                    updated.avgPriceForeign = value / fxRates[l.currency];
-                }
-                return updated;
+        // 주식 검색 로직
+        useEffect(() => {
+            if (searchQuery.trim().length < 1) {
+                setSearchResults([]);
+                return;
             }
-            return l;
-        }));
-    };
+            const cacheKey = `${searchQuery.trim().toLowerCase()}_${marketFilter}`;
+            if (searchCache.current[cacheKey]) {
+                setSearchResults(searchCache.current[cacheKey]);
+                setIsSearching(false);
+                return;
+            }
 
-    const handleMergeLots = (symbol) => {
-        const symbolLots = filteredLots.filter(l => l.symbol === symbol);
-        if (symbolLots.length <= 1) return;
-
-        let totalQty = 0;
-        let totalInvestedKRW = 0;
-        
-        symbolLots.forEach(l => {
-            totalQty += Number(l.quantity);
-            totalInvestedKRW += (Number(l.quantity) * Number(l.avgPriceKRW));
-        });
-
-        const mergedAvgPriceKRW = totalInvestedKRW / totalQty;
-        const mergedAvgPriceForeign = mergedAvgPriceKRW / fxRates[symbolLots[0].currency];
-
-        const mergedLot = {
-            id: Date.now().toString(),
-            symbol: symbol,
-            name: symbolLots[0].name,
-            market: symbolLots[0].market,
-            currency: symbolLots[0].currency,
-            quantity: totalQty,
-            avgPriceKRW: mergedAvgPriceKRW,
-            avgPriceForeign: mergedAvgPriceForeign,
-            date: new Date().toISOString().split('T')[0],
-            account: symbolLots[0].account || '기본 계좌'
-        };
-
-        const otherLots = lots.filter(l => !(l.symbol === symbol && (selectedAccount === 'ALL' || (l.account || '기본 계좌') === selectedAccount)));
-        setLots([...otherLots, mergedLot]);
-    };
-
-    const handleAddAccount = () => {
-        if (!newAccountInput.trim()) return;
-        if (!accountNicknames.includes(newAccountInput.trim())) {
-            setAccountNicknames([...accountNicknames, newAccountInput.trim()]);
-        }
-        setSelectedAccount(newAccountInput.trim());
-        setNewAccountInput('');
-        setIsAddingAccount(false);
-    };
-
-    const handleExport = () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ lots, accountNicknames }));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", "portfolio_export.json");
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
-    };
-
-    const handleImport = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const parsed = JSON.parse(event.target.result);
-                if (Array.isArray(parsed)) {
-                    setLots(parsed);
-                } else if (parsed && Array.isArray(parsed.lots)) {
-                    setLots(parsed.lots);
-                    if (Array.isArray(parsed.accountNicknames)) {
-                        setAccountNicknames(parsed.accountNicknames);
+            const abortController = new AbortController();
+            const timeoutId = setTimeout(async () => {
+                setIsSearching(true);
+                try {
+                    const data = await fetchViaWorker(`/search?q=${encodeURIComponent(searchQuery)}`, { signal: abortController.signal });
+                    let rawResults = [];
+                    if (data && data.quotes) {
+                        rawResults = data.quotes.filter(q => {
+                            const type = (q.quoteType || '').toUpperCase();
+                            return type === 'EQUITY' || type === 'ETF' || type === 'MUTUALFUND' || type === 'STOCKS';
+                        });
+                        if (rawResults.length === 0) rawResults = data.quotes.slice(0, 5);
                     }
+
+                    const uniqueResults = [];
+                    const seen = new Set();
+                    for (const item of rawResults) {
+                        if (!seen.has(item.symbol)) {
+                            seen.add(item.symbol);
+                            uniqueResults.push(item);
+                        }
+                    }
+
+                    let results = uniqueResults.map(q => {
+                        let market = 'US', currency = 'USD';
+                        if (q.symbol.endsWith('.KS') || q.symbol.endsWith('.KQ')) { market = 'KR'; currency = 'KRW'; }
+                        else if (q.symbol.endsWith('.T')) { market = 'JP'; currency = 'JPY'; }
+                        return { ...q, name: q.longname || q.shortname || q.symbol, market, currency };
+                    }).filter(q => marketFilter === 'ALL' || q.market === marketFilter);
+
+                    searchCache.current[cacheKey] = results;
+                    setSearchResults(results);
+                } catch (error) {
+                    if (error.name !== 'AbortError') setSearchResults([]);
+                } finally {
+                    if (!abortController.signal.aborted) setIsSearching(false);
                 }
-            } catch (error) {
-                console.error("Failed to parse JSON");
+            }, 300);
+
+            return () => { clearTimeout(timeoutId); abortController.abort(); };
+        }, [searchQuery, marketFilter]);
+
+        // 시세 및 배당 정보 조회 로직 (data.txt 구조 반영)
+        useEffect(() => {
+            const uniqueSymbols = [...new Set(lots.map(l => l.symbol))];
+            if (uniqueSymbols.length === 0) return;
+
+            const fetchQuotes = async () => {
+                try {
+                    const data = await fetchViaWorker(`/quote?symbols=${encodeURIComponent(uniqueSymbols.join(','))}`);
+                    const quoteResult = data?.quoteResponse?.result || data?.quotes;
+                    if (quoteResult) {
+                        const newQuotes = {};
+                        (Array.isArray(quoteResult) ? quoteResult : Object.entries(quoteResult)).forEach(item => {
+                            const q = Array.isArray(quoteResult) ? item : item[1];
+                            const sym = q.symbol;
+                            if (sym) {
+                                newQuotes[sym] = {
+                                    price: q.regularMarketPrice ?? q.price ?? 0,
+                                    changePercent: q.regularMarketChangePercent ?? q.changePercent ?? 0,
+                                    longname: q.longname || q.shortname || '',
+                                    dividendYield: q.dividendYield ? q.dividendYield * 100 : (q.trailingAnnualDividendYield ? q.trailingAnnualDividendYield * 100 : 2.5), // 기본 추정 배당률 연동
+                                    annualDividend: q.trailingAnnualDividendRate || (q.regularMarketPrice ? q.regularMarketPrice * 0.025 : 0)
+                                };
+                            }
+                        });
+                        setQuotes(prev => ({ ...prev, ...newQuotes }));
+                    }
+                } catch (error) { console.error("Quote fetch failed", error); }
+            };
+
+            fetchQuotes();
+            const intervalId = setInterval(fetchQuotes, 60000);
+            return () => clearInterval(intervalId);
+        }, [lots]);
+
+        const filteredLots = useMemo(() => {
+            if (selectedAccount === 'ALL') return lots;
+            return lots.filter(l => (l.account || '기본 계좌') === selectedAccount);
+        }, [lots, selectedAccount]);
+
+        const consolidatedPortfolio = useMemo(() => {
+            const map = new Map();
+            filteredLots.forEach(lot => {
+                if (!map.has(lot.symbol)) {
+                    map.set(lot.symbol, {
+                        symbol: lot.symbol, name: lot.name, market: lot.market, currency: lot.currency,
+                        totalQuantity: 0, totalInvestedKRW: 0, totalInvestedForeign: 0,
+                    });
+                }
+                const current = map.get(lot.symbol);
+                current.totalQuantity += lot.quantity;
+                current.totalInvestedKRW += (lot.quantity * lot.avgPriceKRW);
+                current.totalInvestedForeign += (lot.quantity * lot.avgPriceForeign);
+            });
+
+            return Array.from(map.values()).map(item => {
+                const avgPriceKRW = item.totalInvestedKRW / item.totalQuantity;
+                const avgPriceForeign = item.totalInvestedForeign / item.totalQuantity;
+                const quote = quotes[item.symbol];
+                const currentPriceForeign = quote?.price ?? avgPriceForeign;
+                const currentChangePercent = quote?.changePercent ?? 0;
+                const resolvedName = quote?.longname || item.name;
+                const dividendYield = quote?.dividendYield ?? 2.5; // 기본 2.5% 추정 배당률
+                
+                const currentPriceKRW = currentPriceForeign * fxRates[item.currency];
+                const currentValueKRW = item.totalQuantity * currentPriceKRW;
+                const returnKRW = currentValueKRW - item.totalInvestedKRW;
+                const returnPercent = (returnKRW / item.totalInvestedKRW) * 100;
+                const annualDividendKRW = currentValueKRW * (dividendYield / 100);
+
+                return {
+                    ...item, name: resolvedName, avgPriceKRW, avgPriceForeign,
+                    currentPriceForeign, currentPriceKRW, currentValueKRW,
+                    returnKRW, returnPercent, dailyChangePercent: currentChangePercent,
+                    dividendYield, annualDividendKRW
+                };
+            }).sort((a, b) => b.currentValueKRW - a.currentValueKRW);
+        }, [filteredLots, quotes, fxRates]);
+
+        // 배당금 통계 계산
+        const dividendStats = useMemo(() => {
+            const totalAnnualKRW = consolidatedPortfolio.reduce((sum, item) => sum + item.annualDividendKRW, 0);
+            return {
+                annual: totalAnnualKRW,
+                monthly: totalAnnualKRW / 12,
+                avgYield: consolidatedPortfolio.length > 0 ? consolidatedPortfolio.reduce((sum, item) => sum + item.dividendYield, 0) / consolidatedPortfolio.length : 0
+            };
+        }, [consolidatedPortfolio]);
+
+        const handleAddLot = (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const qty = parseFloat(formData.get('quantity'));
+            const priceKRW = parseFloat(formData.get('priceKRW'));
+            const date = formData.get('buyDate');
+            const account = formData.get('account') || accountNicknames[0] || '기본 계좌';
+
+            if (!qty || !priceKRW || !date) return;
+            const rate = fxRates[addLotModal.currency] || 1;
+
+            const newLot = {
+                id: Date.now().toString(),
+                symbol: addLotModal.symbol,
+                name: addLotModal.shortname || addLotModal.name,
+                market: addLotModal.market,
+                currency: addLotModal.currency,
+                quantity: qty,
+                avgPriceKRW: priceKRW,
+                avgPriceForeign: priceKRW / rate,
+                date, account
+            };
+
+            setLots([...lots, newLot]);
+            setAddLotModal(null);
+            setSearchQuery('');
+            setSearchResults([]);
+        };
+
+        const handleDeleteLot = (id) => {
+            setLots(lots.filter(l => l.id !== id));
+        };
+
+        const handleUpdateLot = (id, field, value) => {
+            setLots(lots.map(l => {
+                if (l.id === id) {
+                    const updated = { ...l, [field]: value };
+                    if (field === 'avgPriceKRW') updated.avgPriceForeign = value / fxRates[l.currency];
+                    return updated;
+                }
+                return l;
+            }));
+        };
+
+        const handleMergeLots = (symbol) => {
+            const symbolLots = filteredLots.filter(l => l.symbol === symbol);
+            if (symbolLots.length <= 1) return;
+
+            let totalQty = 0, totalInvestedKRW = 0;
+            symbolLots.forEach(l => {
+                totalQty += Number(l.quantity);
+                totalInvestedKRW += (Number(l.quantity) * Number(l.avgPriceKRW));
+            });
+
+            const mergedAvgPriceKRW = totalInvestedKRW / totalQty;
+            const mergedLot = {
+                id: Date.now().toString(),
+                symbol, name: symbolLots[0].name, market: symbolLots[0].market, currency: symbolLots[0].currency,
+                quantity: totalQty, avgPriceKRW: mergedAvgPriceKRW, avgPriceForeign: mergedAvgPriceKRW / fxRates[symbolLots[0].currency],
+                date: new Date().toISOString().split('T')[0], account: symbolLots[0].account || '기본 계좌'
+            };
+
+            const otherLots = lots.filter(l => !(l.symbol === symbol && (selectedAccount === 'ALL' || (l.account || '기본 계좌') === selectedAccount)));
+            setLots([...otherLots, mergedLot]);
+        };
+
+        const handleAddAccount = () => {
+            if (!newAccountInput.trim()) return;
+            if (!accountNicknames.includes(newAccountInput.trim())) {
+                setAccountNicknames([...accountNicknames, newAccountInput.trim()]);
+            }
+            setSelectedAccount(newAccountInput.trim());
+            setNewAccountInput('');
+            setIsAddingAccount(false);
+        };
+
+        // 기본 계좌를 포함하여 삭제 가능하도록 처리
+        const handleDeleteAccount = (accToDelete) => {
+            if (accountNicknames.length <= 1) {
+                alert("최소 1개의 계좌는 유지되어야 합니다.");
+                return;
+            }
+            if (confirm(`'${accToDelete}' 계좌를 삭제하시겠습니까? 해당 계좌의 종목들도 함께 삭제됩니다.`)) {
+                const updatedAccounts = accountNicknames.filter(acc => acc !== accToDelete);
+                setAccountNicknames(updatedAccounts);
+                setLots(lots.filter(l => (l.account || '기본 계좌') !== accToDelete));
+                if (selectedAccount === accToDelete) setSelectedAccount('ALL');
             }
         };
-        reader.readAsText(file);
-    };
 
-    const generateTreemap = (items, x = 0, y = 0, w = 100, h = 100, isHorizontal = true) => {
-        if (items.length === 0) return [];
-        if (items.length === 1) return [{ ...items[0], x, y, w, h }];
-        
-        let sum = items.reduce((s, i) => s + i.currentValueKRW, 0);
-        if (sum === 0) return items.map(i => ({...i, x, y, w:0, h:0}));
+        const handleExport = () => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ lots, accountNicknames }));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "portfolio_export.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        };
 
-        let halfSum = 0;
-        let splitIndex = 0;
-        for (let i = 0; i < items.length; i++) {
-            halfSum += items[i].currentValueKRW;
-            if (halfSum >= sum / 2) {
-                splitIndex = i;
-                break;
+        const handleImport = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const parsed = JSON.parse(event.target.result);
+                    if (Array.isArray(parsed)) setLots(parsed);
+                    else if (parsed && Array.isArray(parsed.lots)) {
+                        setLots(parsed.lots);
+                        if (Array.isArray(parsed.accountNicknames)) setAccountNicknames(parsed.accountNicknames);
+                    }
+                } catch (error) { console.error("Failed to parse JSON"); }
+            };
+            reader.readAsText(file);
+        };
+
+        const generateTreemap = (items, x = 0, y = 0, w = 100, h = 100, isHorizontal = true) => {
+            if (items.length === 0) return [];
+            if (items.length === 1) return [{ ...items[0], x, y, w, h }];
+            let sum = items.reduce((s, i) => s + i.currentValueKRW, 0);
+            if (sum === 0) return items.map(i => ({...i, x, y, w:0, h:0}));
+
+            let halfSum = 0, splitIndex = 0;
+            for (let i = 0; i < items.length; i++) {
+                halfSum += items[i].currentValueKRW;
+                if (halfSum >= sum / 2) { splitIndex = i; break; }
             }
-        }
-        if (splitIndex === items.length - 1 && items.length > 1) splitIndex = items.length - 2;
+            if (splitIndex === items.length - 1 && items.length > 1) splitIndex = items.length - 2;
 
-        let leftItems = items.slice(0, splitIndex + 1);
-        let rightItems = items.slice(splitIndex + 1);
-        let leftRatio = leftItems.reduce((s, i) => s + i.currentValueKRW, 0) / sum;
+            let leftItems = items.slice(0, splitIndex + 1);
+            let rightItems = items.slice(splitIndex + 1);
+            let leftRatio = leftItems.reduce((s, i) => s + i.currentValueKRW, 0) / sum;
 
-        if (isHorizontal) {
-            let leftW = w * leftRatio;
-            return [
-                ...generateTreemap(leftItems, x, y, leftW, h, !isHorizontal),
-                ...generateTreemap(rightItems, x + leftW, y, w - leftW, h, !isHorizontal)
-            ];
-        } else {
-            let topH = h * leftRatio;
-            return [
-                ...generateTreemap(leftItems, x, y, w, topH, !isHorizontal),
-                ...generateTreemap(rightItems, x, y + topH, w, h - topH, !isHorizontal)
-            ];
-        }
-    };
+            if (isHorizontal) {
+                let leftW = w * leftRatio;
+                return [
+                    ...generateTreemap(leftItems, x, y, leftW, h, !isHorizontal),
+                    ...generateTreemap(rightItems, x + leftW, y, w - leftW, h, !isHorizontal)
+                ];
+            } else {
+                let topH = h * leftRatio;
+                return [
+                    ...generateTreemap(leftItems, x, y, w, topH, !isHorizontal),
+                    ...generateTreemap(rightItems, x, y + topH, w, h - topH, !isHorizontal)
+                ];
+            }
+        };
 
-    const treemapNodes = useMemo(() => generateTreemap([...consolidatedPortfolio]), [consolidatedPortfolio]);
+        const treemapNodes = useMemo(() => generateTreemap([...consolidatedPortfolio]), [consolidatedPortfolio]);
 
-    const formatNumber = (num, currency) => {
-        if (!num) return '0';
-        const decimals = currency === 'KRW' || currency === 'JPY' ? 0 : 2;
-        return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: decimals, minimumFractionDigits: decimals }).format(num);
-    };
+        const formatNumber = (num, currency) => {
+            if (!num) return '0';
+            const decimals = currency === 'KRW' || currency === 'JPY' ? 0 : 2;
+            return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: decimals, minimumFractionDigits: decimals }).format(num);
+        };
 
-    const MARKET_TOGGLE_LABELS = { ALL: '전체', US: '미장', KR: '국장', JP: '일장' };
+        const MARKET_TOGGLE_LABELS = { ALL: '전체', US: '미장', KR: '국장', JP: '일장' };
+        const getSubMarketLabel = (item) => {
+            if (item.market === 'KR') return item.symbol?.endsWith('.KQ') ? '코스닥' : '코스피';
+            if (item.market === 'JP') return '일장';
+            return '미장';
+        };
 
-    const getSubMarketLabel = (item) => {
-        if (item.market === 'KR') {
-            if (item.symbol && item.symbol.endsWith('.KQ')) return '코스닥';
-            return '코스피';
-        }
-        if (item.market === 'JP') return '일장';
-        if (item.market === 'US') return '미장';
-        return item.market;
-    };
+        const getHeatmapColor = (changePercent) => {
+            const intensity = Math.min(Math.abs(changePercent) / 10, 1);
+            const alpha = 0.2 + (intensity * 0.8);
+            return changePercent >= 0 ? `rgba(34, 197, 94, ${alpha})` : `rgba(239, 68, 68, ${alpha})`;
+        };
 
-    const getHeatmapColor = (changePercent) => {
-        const intensity = Math.min(Math.abs(changePercent) / 10, 1);
-        const alpha = 0.2 + (intensity * 0.8);
-        if (changePercent >= 0) return `rgba(34, 197, 94, ${alpha})`;
-        return `rgba(239, 68, 68, ${alpha})`;
-    };
+        return (
+            <div className="flex flex-col h-screen bg-slate-950 text-slate-200 font-sans overflow-hidden">
+                
+                {/* Main Content Area based on pagination */}
+                <div className="flex flex-1 overflow-hidden relative">
+                    
+                    {currentPage === 0 && (
+                        <>
+                            {/* Left Panel: Portfolio & Search (호버 시 구석에 얇게 남는 애니메이션 적용) */}
+                            <div 
+                                className={`flex flex-col transition-all duration-500 ease-in-out border-r border-slate-800 overflow-hidden ${
+                                    hoverSide === 'left' ? 'w-[92%]' : hoverSide === 'right' ? 'w-[8%] opacity-60' : 'w-[50%]'
+                                }`}
+                                onMouseEnter={() => setHoverSide('left')}
+                                onMouseLeave={() => setHoverSide(null)}
+                            >
+                                <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
+                                    <h1 className="text-xl font-bold text-white flex items-center gap-2">
+                                        <span>📈</span> Global Portfolio
+                                    </h1>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={handleExport} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Download JSON"><DownloadIcon /></button>
+                                        <button onClick={() => fileInputRef.current.click()} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Upload JSON"><UploadIcon /></button>
+                                        <input type="file" ref={fileInputRef} onChange={handleImport} accept=".json" className="hidden" />
+                                    </div>
+                                </div>
 
-    return (
-        <div className="flex h-screen bg-slate-950 text-slate-200 font-sans overflow-hidden">
-            
-            {/* Left Panel: Portfolio & Search */}
-            <div 
-                className={`flex flex-col transition-all duration-500 ease-in-out border-r border-slate-800 ${
-                    hoverSide === 'left' ? 'w-[70%]' : hoverSide === 'right' ? 'w-[30%] opacity-80' : 'w-[50%]'
-                }`}
-                onMouseEnter={() => setHoverSide('left')}
-                onMouseLeave={() => setHoverSide(null)}
-            >
-                <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
-                    <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                        <span>📈</span> Global Portfolio
-                    </h1>
-                    <div className="flex items-center gap-2">
-                        <button onClick={handleExport} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Download JSON">
-                            <DownloadIcon />
-                        </button>
-                        <button onClick={() => fileInputRef.current.click()} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Upload JSON">
-                            <UploadIcon />
-                        </button>
-                        <input type="file" ref={fileInputRef} onChange={handleImport} accept=".json" className="hidden" />
-                    </div>
-                </div>
+                                {/* Account Tabs */}
+                                <div className="px-4 py-2.5 bg-slate-900/60 border-b border-slate-800 flex items-center gap-2 overflow-x-auto shrink-0">
+                                    <button onClick={() => setSelectedAccount('ALL')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === 'ALL' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>전체 계좌</button>
+                                    {accountNicknames.map(acc => (
+                                        <button key={acc} onClick={() => setSelectedAccount(acc)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === acc ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+                                            {acc}
+                                        </button>
+                                    ))}
+                                </div>
 
-                {/* Account Tabs Bar */}
-                <div className="px-4 py-2.5 bg-slate-900/60 border-b border-slate-800 flex items-center gap-2 overflow-x-auto shrink-0">
-                    <button
-                        onClick={() => setSelectedAccount('ALL')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === 'ALL' ? 'bg-blue-600 text-white shadow' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
-                    >
-                        전체 계좌
-                    </button>
-                    {accountNicknames.map(acc => (
-                        <button
-                            key={acc}
-                            onClick={() => setSelectedAccount(acc)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === acc ? 'bg-blue-600 text-white shadow' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
-                        >
-                            {acc}
-                        </button>
-                    ))}
-                    {isAddingAccount ? (
-                        <div className="flex items-center gap-1 shrink-0">
-                            <input 
-                                type="text" 
-                                placeholder="계좌 별명"
-                                value={newAccountInput}
-                                onChange={(e) => setNewAccountInput(e.target.value)}
-                                className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white w-24 focus:outline-none focus:border-blue-500"
-                                autoFocus
-                            />
-                            <button onClick={handleAddAccount} className="px-2 py-1 bg-blue-600 text-white rounded text-xs font-medium">추가</button>
-                            <button onClick={() => setIsAddingAccount(false)} className="px-1 text-slate-400 hover:text-white text-xs">취소</button>
+                                <div className="p-4 border-b border-slate-800 relative z-10 shrink-0">
+                                    <div className="flex gap-2 mb-3">
+                                        {['ALL', 'US', 'KR', 'JP'].map(market => (
+                                            <button key={market} onClick={() => setMarketFilter(market)} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${marketFilter === market ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                                                {MARKET_TOGGLE_LABELS[market]}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="relative">
+                                        <SearchIcon className="absolute left-3 top-3 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search stock by name or ticker..."
+                                            className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                        />
+                                        {searchQuery && (
+                                            <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden max-h-72 overflow-y-auto z-50">
+                                                {isSearching ? (
+                                                    <div className="p-4 text-center text-slate-400 text-sm">Searching...</div>
+                                                ) : searchResults.length > 0 ? (
+                                                    searchResults.map(result => (
+                                                        <div key={result.symbol} className="p-3 hover:bg-slate-700 cursor-pointer flex justify-between items-center border-b border-slate-700/50" onClick={() => setAddLotModal(result)}>
+                                                            <div>
+                                                                <div className="font-bold text-white text-sm">{result.symbol}</div>
+                                                                <div className="text-xs text-slate-400 truncate w-48">{result.name}</div>
+                                                            </div>
+                                                            <span className="text-xs px-2 py-1 bg-slate-900 rounded text-slate-300 border border-slate-700">{getSubMarketLabel(result)}</span>
+                                                        </div>
+                                                    ))
+                                                ) : (<div className="p-4 text-center text-slate-400 text-sm">No results found</div>)}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-4">
+                                    <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-950 py-2 z-10">
+                                        <h2 className="text-sm font-semibold text-slate-400">Holdings ({selectedAccount})</h2>
+                                        <div className="flex bg-slate-800 rounded-lg p-1">
+                                            <button onClick={() => setDisplayCurrency('KRW')} className={`px-2.5 py-0.5 text-xs rounded font-medium ${displayCurrency === 'KRW' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>KRW</button>
+                                            <button onClick={() => setDisplayCurrency('FOREIGN')} className={`px-2.5 py-0.5 text-xs rounded font-medium ${displayCurrency === 'FOREIGN' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>Foreign</button>
+                                        </div>
+                                    </div>
+
+                                    {consolidatedPortfolio.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-36 text-slate-500 text-sm">
+                                            <p>No stocks in portfolio yet.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {consolidatedPortfolio.map(item => (
+                                                <div key={item.symbol} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between hover:border-slate-700 transition-colors">
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-white text-sm">{item.symbol}</span>
+                                                            <span className="text-[10px] text-slate-400 px-1 py-0.5 bg-slate-800 rounded">{getSubMarketLabel(item)}</span>
+                                                        </div>
+                                                        <div className="flex gap-3 mt-1 text-xs text-slate-400">
+                                                            <div>Qty: {formatNumber(item.totalQuantity, 'USD')}</div>
+                                                            <div>Avg: {displayCurrency === 'KRW' ? `₩${formatNumber(item.avgPriceKRW, 'KRW')}` : formatNumber(item.avgPriceForeign, item.currency)}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="font-semibold text-sm">
+                                                            {displayCurrency === 'KRW' ? `₩${formatNumber(item.currentValueKRW, 'KRW')}` : formatNumber(item.totalQuantity * item.currentPriceForeign, item.currency)}
+                                                        </div>
+                                                        <div className={`text-xs font-medium ${item.returnPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                            {item.returnPercent > 0 ? '+' : ''}{item.returnPercent.toFixed(2)}%
+                                                        </div>
+                                                        <button onClick={() => setEditModalSymbol(item.symbol)} className="mt-1 text-[10px] text-slate-400 hover:text-white bg-slate-800 px-2 py-0.5 rounded flex items-center gap-1 ml-auto">
+                                                            <EditIcon /> Edit
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Right Panel: Heatmap Area (호버 시 구석에 얇게 남는 애니메이션 적용) */}
+                            <div 
+                                className={`relative bg-slate-950 p-4 transition-all duration-500 ease-in-out flex flex-col overflow-hidden ${
+                                    hoverSide === 'right' ? 'w-[92%]' : hoverSide === 'left' ? 'w-[8%] opacity-60' : 'w-[50%]'
+                                }`}
+                                onMouseEnter={() => setHoverSide('right')}
+                                onMouseLeave={() => setHoverSide(null)}
+                            >
+                                <h2 className="text-lg font-semibold mb-4 shrink-0">Market Heatmap</h2>
+                                <div className="flex-1 w-full bg-slate-900 rounded-xl overflow-hidden relative shadow-inner border border-slate-800">
+                                    {treemapNodes.length > 0 ? treemapNodes.map(node => (
+                                        <div 
+                                            key={node.symbol}
+                                            className="absolute border border-slate-950 p-2 flex flex-col justify-center items-center overflow-hidden transition-all duration-300 hover:z-10"
+                                            style={{ left: `${node.x}%`, top: `${node.y}%`, width: `${node.w}%`, height: `${node.h}%`, backgroundColor: getHeatmapColor(node.dailyChangePercent) }}
+                                        >
+                                            {node.w > 12 && node.h > 12 && (
+                                                <>
+                                                    <span className="font-bold text-white text-xs drop-shadow">{node.symbol}</span>
+                                                    <span className="text-white/90 text-[10px] drop-shadow">{node.dailyChangePercent >= 0 ? '+' : ''}{node.dailyChangePercent?.toFixed(2)}%</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    )) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm">No Data</div>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Page 1: Dividend Dashboard (배당금 영역 추가) */}
+                    {currentPage === 1 && (
+                        <div className="flex-1 p-6 overflow-y-auto bg-slate-950 flex flex-col">
+                            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                                <span>💰</span> Dividend Dashboard ({selectedAccount})
+                            </h2>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl shadow-lg">
+                                    <div className="text-slate-400 text-xs mb-1">연간 예상 배당금</div>
+                                    <div className="text-2xl font-bold text-green-400">₩{formatNumber(dividendStats.annual, 'KRW')}</div>
+                                </div>
+                                <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl shadow-lg">
+                                    <div className="text-slate-400 text-xs mb-1">월 평균 예상 배당금</div>
+                                    <div className="text-2xl font-bold text-blue-400">₩{formatNumber(dividendStats.monthly, 'KRW')}</div>
+                                </div>
+                                <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl shadow-lg">
+                                    <div className="text-slate-400 text-xs mb-1">평균 배당수익률</div>
+                                    <div className="text-2xl font-bold text-yellow-400">{dividendStats.avgYield.toFixed(2)}%</div>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex-1">
+                                <div className="p-4 border-b border-slate-800 font-semibold text-sm">보유 종목별 배당 상세</div>
+                                <div className="divide-y divide-slate-800 overflow-y-auto max-h-[50vh]">
+                                    {consolidatedPortfolio.length === 0 ? (
+                                        <div className="p-6 text-center text-slate-500 text-sm">종목이 없습니다.</div>
+                                    ) : (
+                                        consolidatedPortfolio.map(item => (
+                                            <div key={item.symbol} className="p-4 flex items-center justify-between hover:bg-slate-800/50">
+                                                <div>
+                                                    <div className="font-bold text-white">{item.symbol} <span className="text-xs text-slate-400 font-normal">({item.name})</span></div>
+                                                    <div className="text-xs text-slate-400 mt-0.5">보유수량: {formatNumber(item.totalQuantity, 'USD')}주</div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-sm font-semibold text-green-400">+₩{formatNumber(item.annualDividendKRW, 'KRW')} /년</div>
+                                                    <div className="text-xs text-slate-400">예상 배당률: {item.dividendYield?.toFixed(2)}%</div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                    ) : (
-                        <button 
-                            onClick={() => setIsAddingAccount(true)}
-                            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg text-xs font-semibold whitespace-nowrap transition-colors"
-                        >
-                            + 계좌 추가
-                        </button>
+                    )}
+
+                    {/* Page 2: Account & Settings Management */}
+                    {currentPage === 2 && (
+                        <div className="flex-1 p-6 overflow-y-auto bg-slate-950 flex flex-col max-w-2xl mx-auto">
+                            <h2 className="text-2xl font-bold text-white mb-6">⚙️ 계좌 및 포트폴리오 설정</h2>
+                            
+                            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
+                                <h3 className="text-sm font-semibold text-slate-300 mb-3">계좌 관리 (기본 계좌 포함 삭제 가능)</h3>
+                                <div className="space-y-2 mb-4">
+                                    {accountNicknames.map(acc => (
+                                        <div key={acc} className="flex items-center justify-between bg-slate-950 px-4 py-2.5 rounded-lg border border-slate-800">
+                                            <span className="font-medium text-white text-sm">{acc}</span>
+                                            <button 
+                                                onClick={() => handleDeleteAccount(acc)}
+                                                className="text-xs text-red-400 hover:text-red-300 bg-red-950/40 px-2.5 py-1 rounded transition-colors flex items-center gap-1"
+                                            >
+                                                <TrashIcon /> 삭제
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2">
+                                    <input 
+                                        type="text" 
+                                        placeholder="새 계좌 이름 입력"
+                                        value={newAccountInput}
+                                        onChange={(e) => setNewAccountInput(e.target.value)}
+                                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                                    />
+                                    <button onClick={handleAddAccount} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">추가</button>
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </div>
 
-                <div className="p-4 border-b border-slate-800 relative z-10">
-                    <div className="flex gap-2 mb-3">
-                        {['ALL', 'US', 'KR', 'JP'].map(market => (
+                {/* Bottom Navigation (< o o o > 형태의 페이지네이션 및 커서 버튼) */}
+                <div className="py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-center gap-4 shrink-0">
+                    <button 
+                        onClick={() => setCurrentPage(prev => (prev > 0 ? prev - 1 : 2))} 
+                        className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-sm transition-colors"
+                    >
+                        &lt;
+                    </button>
+                    <div className="flex items-center gap-3">
+                        {[0, 1, 2].map(idx => (
                             <button
-                                key={market}
-                                onClick={() => setMarketFilter(market)}
-                                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${marketFilter === market ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-                            >
-                                {MARKET_TOGGLE_LABELS[market]}
-                            </button>
+                                key={idx}
+                                onClick={() => setCurrentPage(idx)}
+                                className={`w-3 h-3 rounded-full transition-all ${currentPage === idx ? 'bg-blue-500 scale-125' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                title={`Page ${idx + 1}`}
+                            />
                         ))}
                     </div>
-                    <div className="relative">
-                        <SearchIcon className="absolute left-3 top-3 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Search stock by name or ticker..."
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        {searchQuery && (
-                            <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden max-h-96 overflow-y-auto">
-                                {isSearching ? (
-                                    <div className="p-4 text-center text-slate-400 text-sm">Searching...</div>
-                                ) : searchResults.length > 0 ? (
-                                    searchResults.map(result => (
-                                        <div 
-                                            key={result.symbol} 
-                                            className="p-3 hover:bg-slate-700 cursor-pointer flex justify-between items-center border-b border-slate-700/50 last:border-0"
-                                            onClick={() => setAddLotModal(result)}
-                                        >
-                                            <div>
-                                                <div className="font-bold text-white text-sm">{result.symbol}</div>
-                                                <div className="text-xs text-slate-400 truncate w-48">{result.name}</div>
-                                            </div>
-                                            <span className="text-xs px-2 py-1 bg-slate-900 rounded text-slate-300 border border-slate-700">
-                                                {getSubMarketLabel(result)}
-                                            </span>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="p-4 text-center text-slate-400 text-sm">No results found</div>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    <button 
+                        onClick={() => setCurrentPage(prev => (prev < 2 ? prev + 1 : 0))} 
+                        className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-sm transition-colors"
+                    >
+                        &gt;
+                    </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 relative">
-                    <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-950 py-2 z-0">
-                        <h2 className="text-lg font-semibold">Holdings ({selectedAccount === 'ALL' ? '전체 계좌' : selectedAccount})</h2>
-                        <div className="flex bg-slate-800 rounded-lg p-1">
-                            <button 
-                                onClick={() => setDisplayCurrency('KRW')}
-                                className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${displayCurrency === 'KRW' ? 'bg-slate-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
-                            >
-                                KRW (₩)
-                            </button>
-                            <button 
-                                onClick={() => setDisplayCurrency('FOREIGN')}
-                                className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${displayCurrency === 'FOREIGN' ? 'bg-slate-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
-                            >
-                                Foreign
-                            </button>
-                        </div>
-                    </div>
-
-                    {consolidatedPortfolio.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-48 text-slate-500">
-                            <p>No stocks in portfolio yet.</p>
-                            <p className="text-sm mt-1">Search and add a stock above.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {consolidatedPortfolio.map(item => (
-                                <div key={item.symbol} className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between group hover:border-slate-700 transition-colors">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-bold text-white">{item.symbol}</span>
-                                            <span className="text-xs text-slate-400 px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700">{getSubMarketLabel(item)}</span>
-                                            <span className="text-xs text-slate-300 truncate max-w-[140px]" title={item.name}>{item.name}</span>
-                                        </div>
-                                        <div className="flex gap-4 mt-2 text-sm text-slate-300">
-                                            <div><span className="text-slate-500">Qty:</span> {formatNumber(item.totalQuantity, 'USD')}</div>
-                                            <div>
-                                                <span className="text-slate-500">Avg:</span>{' '}
-                                                {displayCurrency === 'KRW' 
-                                                    ? `₩${formatNumber(item.avgPriceKRW, 'KRW')}` 
-                                                    : `${item.currency === 'USD' ? '$' : item.currency === 'JPY' ? '¥' : '₩'}${formatNumber(item.avgPriceForeign, item.currency)}`}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="text-right flex flex-col items-end gap-1">
-                                        <div className="font-semibold">
-                                            {displayCurrency === 'KRW' 
-                                                ? `₩${formatNumber(item.currentValueKRW, 'KRW')}`
-                                                : `${item.currency === 'USD' ? '$' : item.currency === 'JPY' ? '¥' : '₩'}${formatNumber(item.totalQuantity * item.currentPriceForeign, item.currency)}`}
-                                        </div>
-                                        <div className={`text-sm font-medium ${item.returnPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                            {item.returnPercent > 0 ? '+' : ''}{item.returnPercent.toFixed(2)}%
-                                        </div>
-                                        <button 
-                                            onClick={() => setEditModalSymbol(item.symbol)}
-                                            className="mt-1 flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors bg-slate-800 px-2 py-1 rounded"
-                                        >
-                                            <EditIcon /> Edit Lots
-                                        </button>
-                                    </div>
+                {/* Add Lot Modal */}
+                {addLotModal && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h3 className="text-xl font-bold text-white">{addLotModal.symbol}</h3>
+                                    <p className="text-slate-400 text-sm">{addLotModal.name}</p>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Right Panel: Heatmap Area */}
-            <div 
-                className={`relative bg-slate-950 p-4 transition-all duration-500 ease-in-out flex flex-col ${
-                    hoverSide === 'right' ? 'w-[70%]' : hoverSide === 'left' ? 'w-[30%] opacity-80' : 'w-[50%]'
-                }`}
-                onMouseEnter={() => setHoverSide('right')}
-                onMouseLeave={() => setHoverSide(null)}
-            >
-                <h2 className="text-lg font-semibold mb-4 shrink-0 flex items-center justify-between">
-                    Market Heatmap ({selectedAccount === 'ALL' ? '전체 계좌' : selectedAccount})
-                </h2>
-                <div className="flex-1 w-full bg-slate-900 rounded-xl overflow-hidden relative shadow-inner border border-slate-800">
-                    {treemapNodes.length > 0 ? treemapNodes.map(node => (
-                        <div 
-                            key={node.symbol}
-                            className="absolute border border-slate-950 p-2 flex flex-col justify-center items-center overflow-hidden transition-all duration-300 hover:z-10 hover:shadow-2xl hover:brightness-110"
-                            style={{
-                                left: `${node.x}%`,
-                                top: `${node.y}%`,
-                                width: `${node.w}%`,
-                                height: `${node.h}%`,
-                                backgroundColor: getHeatmapColor(node.dailyChangePercent)
-                            }}
-                            title={`${node.name}\nWeight: ${((node.currentValueKRW / consolidatedPortfolio.reduce((a,b)=>a+b.currentValueKRW,0))*100).toFixed(1)}%\nDaily: ${node.dailyChangePercent?.toFixed(2)}%`}
-                        >
-                            <span className="font-bold text-white shadow-black drop-shadow-md text-center max-w-full truncate px-1" style={{ fontSize: `clamp(10px, ${node.w * 0.5}vw, 24px)` }}>
-                                {node.symbol}
-                            </span>
-                            {node.h > 10 && node.w > 10 && (
-                                <span className="text-white/90 shadow-black drop-shadow-md font-medium mt-1 text-center truncate px-1" style={{ fontSize: `clamp(8px, ${node.w * 0.3}vw, 16px)` }}>
-                                    {node.dailyChangePercent > 0 ? '+' : ''}{node.dailyChangePercent?.toFixed(2)}%
-                                </span>
-                            )}
-                        </div>
-                    )) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-600">
-                            Add stocks to generate heatmap
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Add Lot Modal */}
-            {addLotModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-                        <div className="flex justify-between items-start mb-6">
-                            <div>
-                                <h3 className="text-xl font-bold text-white">{addLotModal.symbol}</h3>
-                                <p className="text-slate-400 text-sm">{addLotModal.name}</p>
+                                <button onClick={() => setAddLotModal(null)} className="text-slate-400 hover:text-white"><CloseIcon /></button>
                             </div>
-                            <button onClick={() => setAddLotModal(null)} className="text-slate-400 hover:text-white transition-colors">
-                                <CloseIcon />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleAddLot} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-1">Account</label>
-                                <select 
-                                    name="account"
-                                    defaultValue={selectedAccount === 'ALL' ? (accountNicknames[0] || '기본 계좌') : selectedAccount}
-                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-                                >
-                                    {accountNicknames.map(acc => (
-                                        <option key={acc} value={acc}>{acc}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-1">Buy Date</label>
-                                <input 
-                                    type="date" 
-                                    name="buyDate"
-                                    defaultValue={new Date().toISOString().split('T')[0]}
-                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-1">Quantity</label>
-                                <input 
-                                    type="number" 
-                                    name="quantity"
-                                    step="any"
-                                    min="0.0001"
-                                    placeholder="e.g. 10"
-                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-1">Average Price (KRW ₩)</label>
-                                <input 
-                                    type="number" 
-                                    name="priceKRW"
-                                    step="any"
-                                    min="1"
-                                    placeholder="e.g. 150000"
-                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-                                    required
-                                />
-                                <p className="text-xs text-slate-500 mt-1">
-                                    Current FX Rate: 1 {addLotModal.currency} = ₩{formatNumber(fxRates[addLotModal.currency], 'KRW')}
-                                </p>
-                            </div>
-                            
-                            <div className="pt-4 mt-6 border-t border-slate-800 flex justify-end gap-3">
-                                <button type="button" onClick={() => setAddLotModal(null)} className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors">Cancel</button>
-                                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-blue-900/20">Add to Portfolio</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Edit Lots Modal */}
-            {editModalSymbol && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
-                        <div className="flex justify-between items-center mb-6 shrink-0">
-                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                Edit Lots: <span className="text-blue-400">{editModalSymbol}</span>
-                            </h3>
-                            <button onClick={() => setEditModalSymbol(null)} className="text-slate-400 hover:text-white transition-colors">
-                                <CloseIcon />
-                            </button>
-                        </div>
-
-                        <div className="overflow-y-auto flex-1 pr-2 space-y-3">
-                            {filteredLots.filter(l => l.symbol === editModalSymbol).map(lot => (
-                                <div key={lot.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-wrap gap-4 items-end">
-                                    <div className="flex-1 min-w-[110px]">
-                                        <label className="block text-xs text-slate-500 mb-1">Account</label>
-                                        <select 
-                                            value={lot.account || accountNicknames[0] || '기본 계좌'}
-                                            onChange={(e) => handleUpdateLot(lot.id, 'account', e.target.value)}
-                                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white"
-                                        >
-                                            {accountNicknames.map(acc => (
-                                                <option key={acc} value={acc}>{acc}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="flex-1 min-w-[110px]">
-                                        <label className="block text-xs text-slate-500 mb-1">Date</label>
-                                        <input 
-                                            type="date" 
-                                            value={lot.date}
-                                            onChange={(e) => handleUpdateLot(lot.id, 'date', e.target.value)}
-                                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-white"
-                                        />
-                                    </div>
-                                    <div className="flex-1 min-w-[90px]">
-                                        <label className="block text-xs text-slate-500 mb-1">Qty</label>
-                                        <input 
-                                            type="number" 
-                                            value={lot.quantity}
-                                            onChange={(e) => handleUpdateLot(lot.id, 'quantity', parseFloat(e.target.value) || 0)}
-                                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-white"
-                                        />
-                                    </div>
-                                    <div className="flex-1 min-w-[110px]">
-                                        <label className="block text-xs text-slate-500 mb-1">Price (KRW)</label>
-                                        <input 
-                                            type="number" 
-                                            value={lot.avgPriceKRW}
-                                            onChange={(e) => handleUpdateLot(lot.id, 'avgPriceKRW', parseFloat(e.target.value) || 0)}
-                                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-white"
-                                        />
-                                    </div>
-                                    <button 
-                                        onClick={() => handleDeleteLot(lot.id)}
-                                        className="p-2 bg-red-950/50 hover:bg-red-900/50 text-red-400 rounded transition-colors mb-[2px]"
-                                        title="Delete Lot"
-                                    >
-                                        <TrashIcon />
-                                    </button>
+                            <form onSubmit={handleAddLot} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1">Account</label>
+                                    <select name="account" defaultValue={selectedAccount === 'ALL' ? (accountNicknames[0] || '기본 계좌') : selectedAccount} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white">
+                                        {accountNicknames.map(acc => <option key={acc} value={acc}>{acc}</option>)}
+                                    </select>
                                 </div>
-                            ))}
-                        </div>
-
-                        <div className="pt-4 mt-4 border-t border-slate-800 flex justify-between items-center shrink-0">
-                            <button 
-                                onClick={() => handleMergeLots(editModalSymbol)}
-                                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 6 4-4 4 4"></path><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"></path><path d="m20 22-5-5"></path></svg>
-                                Merge All Lots
-                            </button>
-                            <button onClick={() => setEditModalSymbol(null)} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
-                                Done
-                            </button>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1">Buy Date</label>
+                                    <input type="date" name="buyDate" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white" required />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1">Quantity</label>
+                                    <input type="number" name="quantity" step="any" min="0.0001" placeholder="10" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white" required />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1">Average Price (KRW ₩)</label>
+                                    <input type="number" name="priceKRW" step="any" min="1" placeholder="150000" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white" required />
+                                </div>
+                                <div className="pt-4 flex justify-end gap-3">
+                                    <button type="button" onClick={() => setAddLotModal(null)} className="px-4 py-2 text-slate-300 text-sm">Cancel</button>
+                                    <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">Add</button>
+                                </div>
+                            </form>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
-    );
-}
+                )}
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+                {/* Edit Lots Modal */}
+                {editModalSymbol && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-xl font-bold text-white">Edit Lots: <span className="text-blue-400">{editModalSymbol}</span></h3>
+                                <button onClick={() => setEditModalSymbol(null)} className="text-slate-400 hover:text-white"><CloseIcon /></button>
+                            </div>
+                            <div className="overflow-y-auto flex-1 space-y-3 pr-2">
+                                {filteredLots.filter(l => l.symbol === editModalSymbol).map(lot => (
+                                    <div key={lot.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-wrap gap-4 items-end">
+                                        <div className="flex-1 min-w-[110px]">
+                                            <label className="block text-xs text-slate-500 mb-1">Account</label>
+                                            <select value={lot.account || accountNicknames[0]} onChange={(e) => handleUpdateLot(lot.id, 'account', e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white">
+                                                {accountNicknames.map(acc => <option key={acc} value={acc}>{acc}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="flex-1 min-w-[90px]">
+                                            <label className="block text-xs text-slate-500 mb-1">Qty</label>
+                                            <input type="number" value={lot.quantity} onChange={(e) => handleUpdateLot(lot.id, 'quantity', parseFloat(e.target.value) || 0)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-white" />
+                                        </div>
+                                        <div className="flex-1 min-w-[110px]">
+                                            <label className="block text-xs text-slate-500 mb-1">Price (KRW)</label>
+                                            <input type="number" value={lot.avgPriceKRW} onChange={(e) => handleUpdateLot(lot.id, 'avgPriceKRW', parseFloat(e.target.value) || 0)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-white" />
+                                        </div>
+                                        <button onClick={() => handleDeleteLot(lot.id)} className="p-2 bg-red-950/50 text-red-400 rounded"><TrashIcon /></button>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="pt-4 mt-4 border-t border-slate-800 flex justify-between">
+                                <button onClick={() => handleMergeLots(editModalSymbol)} className="px-4 py-2 bg-slate-800 text-slate-300 text-sm rounded-lg">Merge All</button>
+                                <button onClick={() => setEditModalSymbol(null)} className="px-6 py-2 bg-blue-600 text-white text-sm rounded-lg">Done</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
