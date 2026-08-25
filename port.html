@@ -19,6 +19,7 @@
     const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
     const UploadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>;
     const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
+    const MinusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
     const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 
     const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
@@ -44,10 +45,8 @@
         const [isSearching, setIsSearching] = useState(false);
         const [marketFilter, setMarketFilter] = useState('ALL'); 
         const [displayCurrency, setDisplayCurrency] = useState('KRW'); 
-        const [hoverSide, setHoverSide] = useState(null); 
         
-        // 페이지네이션 상태 (< o o o >)
-        const [currentPage, setCurrentPage] = useState(0); // 0: 포트폴리오&히트맵, 1: 배당금 대시보드, 2: 계좌/설정 관리
+        const [currentPage, setCurrentPage] = useState(0); // 0: 포트폴리오, 1: 배당금, 2: 히트맵, 3: 설정
 
         const [selectedAccount, setSelectedAccount] = useState('ALL');
         const [accountNicknames, setAccountNicknames] = useState(() => {
@@ -57,7 +56,6 @@
             } catch (e) { return ['기본 계좌']; }
         });
         const [newAccountInput, setNewAccountInput] = useState('');
-        const [isAddingAccount, setIsAddingAccount] = useState(false);
 
         const [addLotModal, setAddLotModal] = useState(null); 
         const [editModalSymbol, setEditModalSymbol] = useState(null); 
@@ -90,7 +88,6 @@
             fetchFX();
         }, []);
 
-        // 주식 검색 로직
         useEffect(() => {
             if (searchQuery.trim().length < 1) {
                 setSearchResults([]);
@@ -145,7 +142,7 @@
             return () => { clearTimeout(timeoutId); abortController.abort(); };
         }, [searchQuery, marketFilter]);
 
-        // 시세 및 배당 정보 조회 로직 (data.txt 구조 반영)
+        // 종목별 정확한 시세 및 배당 정보 조회 (중복 누적 및 뻥튀기 방지)
         useEffect(() => {
             const uniqueSymbols = [...new Set(lots.map(l => l.symbol))];
             if (uniqueSymbols.length === 0) return;
@@ -153,19 +150,27 @@
             const fetchQuotes = async () => {
                 try {
                     const data = await fetchViaWorker(`/quote?symbols=${encodeURIComponent(uniqueSymbols.join(','))}`);
-                    const quoteResult = data?.quoteResponse?.result || data?.quotes;
-                    if (quoteResult) {
+                    const quoteList = data?.quoteResponse?.result || data?.quotes;
+                    
+                    if (quoteList) {
                         const newQuotes = {};
-                        (Array.isArray(quoteResult) ? quoteResult : Object.entries(quoteResult)).forEach(item => {
-                            const q = Array.isArray(quoteResult) ? item : item[1];
+                        const itemsArray = Array.isArray(quoteList) ? quoteList : Object.values(quoteList);
+                        
+                        itemsArray.forEach(q => {
                             const sym = q.symbol;
                             if (sym) {
+                                const price = q.regularMarketPrice ?? q.price ?? 0;
+                                // 배당률 및 연간 배당금 개별 종목 데이터 정확히 추출
+                                const rawYield = q.dividendYield ?? q.trailingAnnualDividendYield;
+                                const dividendYield = rawYield ? (rawYield > 1 ? rawYield : rawYield * 100) : 0;
+                                const annualDividend = q.trailingAnnualDividendRate ?? (price * (dividendYield / 100));
+
                                 newQuotes[sym] = {
-                                    price: q.regularMarketPrice ?? q.price ?? 0,
+                                    price,
                                     changePercent: q.regularMarketChangePercent ?? q.changePercent ?? 0,
                                     longname: q.longname || q.shortname || '',
-                                    dividendYield: q.dividendYield ? q.dividendYield * 100 : (q.trailingAnnualDividendYield ? q.trailingAnnualDividendYield * 100 : 2.5), // 기본 추정 배당률 연동
-                                    annualDividend: q.trailingAnnualDividendRate || (q.regularMarketPrice ? q.regularMarketPrice * 0.025 : 0)
+                                    dividendYield,
+                                    annualDividend
                                 };
                             }
                         });
@@ -206,13 +211,17 @@
                 const currentPriceForeign = quote?.price ?? avgPriceForeign;
                 const currentChangePercent = quote?.changePercent ?? 0;
                 const resolvedName = quote?.longname || item.name;
-                const dividendYield = quote?.dividendYield ?? 2.5; // 기본 2.5% 추정 배당률
+                
+                const dividendYield = quote?.dividendYield ?? 0;
+                const annualDividendPerShare = quote?.annualDividend ?? (currentPriceForeign * (dividendYield / 100));
                 
                 const currentPriceKRW = currentPriceForeign * fxRates[item.currency];
                 const currentValueKRW = item.totalQuantity * currentPriceKRW;
                 const returnKRW = currentValueKRW - item.totalInvestedKRW;
                 const returnPercent = (returnKRW / item.totalInvestedKRW) * 100;
-                const annualDividendKRW = currentValueKRW * (dividendYield / 100);
+                
+                // 종목별 보유 수량 기준 정확한 연간 배당금 산출 (KRW 환산)
+                const annualDividendKRW = item.totalQuantity * annualDividendPerShare * fxRates[item.currency];
 
                 return {
                     ...item, name: resolvedName, avgPriceKRW, avgPriceForeign,
@@ -223,13 +232,14 @@
             }).sort((a, b) => b.currentValueKRW - a.currentValueKRW);
         }, [filteredLots, quotes, fxRates]);
 
-        // 배당금 통계 계산
         const dividendStats = useMemo(() => {
             const totalAnnualKRW = consolidatedPortfolio.reduce((sum, item) => sum + item.annualDividendKRW, 0);
+            const totalValuation = consolidatedPortfolio.reduce((sum, item) => sum + item.currentValueKRW, 0);
+            const avgYield = totalValuation > 0 ? (totalAnnualKRW / totalValuation) * 100 : 0;
             return {
                 annual: totalAnnualKRW,
                 monthly: totalAnnualKRW / 12,
-                avgYield: consolidatedPortfolio.length > 0 ? consolidatedPortfolio.reduce((sum, item) => sum + item.dividendYield, 0) / consolidatedPortfolio.length : 0
+                avgYield
             };
         }, [consolidatedPortfolio]);
 
@@ -306,10 +316,8 @@
             }
             setSelectedAccount(newAccountInput.trim());
             setNewAccountInput('');
-            setIsAddingAccount(false);
         };
 
-        // 기본 계좌를 포함하여 삭제 가능하도록 처리
         const handleDeleteAccount = (accToDelete) => {
             if (accountNicknames.length <= 1) {
                 alert("최소 1개의 계좌는 유지되어야 합니다.");
@@ -406,19 +414,14 @@
         return (
             <div className="flex flex-col h-screen bg-slate-950 text-slate-200 font-sans overflow-hidden">
                 
-                {/* Main Content Area based on pagination */}
+                {/* 메인 컨텐츠 뷰 영역 */}
                 <div className="flex flex-1 overflow-hidden relative">
                     
+                    {/* Page 0: 포트폴리오 메인 화면 */}
                     {currentPage === 0 && (
-                        <>
-                            {/* Left Panel: Portfolio & Search (호버 시 구석에 얇게 남는 애니메이션 적용) */}
-                            <div 
-                                className={`flex flex-col transition-all duration-500 ease-in-out border-r border-slate-800 overflow-hidden ${
-                                    hoverSide === 'left' ? 'w-[92%]' : hoverSide === 'right' ? 'w-[8%] opacity-60' : 'w-[50%]'
-                                }`}
-                                onMouseEnter={() => setHoverSide('left')}
-                                onMouseLeave={() => setHoverSide(null)}
-                            >
+                        <div className="flex flex-1 overflow-hidden">
+                            {/* Left Panel: 보유 종목 및 검색 */}
+                            <div className="w-[50%] flex flex-col border-r border-slate-800 overflow-hidden">
                                 <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
                                     <h1 className="text-xl font-bold text-white flex items-center gap-2">
                                         <span>📈</span> Global Portfolio
@@ -522,38 +525,34 @@
                                 </div>
                             </div>
 
-                            {/* Right Panel: Heatmap Area (호버 시 구석에 얇게 남는 애니메이션 적용) */}
-                            <div 
-                                className={`relative bg-slate-950 p-4 transition-all duration-500 ease-in-out flex flex-col overflow-hidden ${
-                                    hoverSide === 'right' ? 'w-[92%]' : hoverSide === 'left' ? 'w-[8%] opacity-60' : 'w-[50%]'
-                                }`}
-                                onMouseEnter={() => setHoverSide('right')}
-                                onMouseLeave={() => setHoverSide(null)}
-                            >
-                                <h2 className="text-lg font-semibold mb-4 shrink-0">Market Heatmap</h2>
-                                <div className="flex-1 w-full bg-slate-900 rounded-xl overflow-hidden relative shadow-inner border border-slate-800">
-                                    {treemapNodes.length > 0 ? treemapNodes.map(node => (
-                                        <div 
-                                            key={node.symbol}
-                                            className="absolute border border-slate-950 p-2 flex flex-col justify-center items-center overflow-hidden transition-all duration-300 hover:z-10"
-                                            style={{ left: `${node.x}%`, top: `${node.y}%`, width: `${node.w}%`, height: `${node.h}%`, backgroundColor: getHeatmapColor(node.dailyChangePercent) }}
-                                        >
-                                            {node.w > 12 && node.h > 12 && (
-                                                <>
-                                                    <span className="font-bold text-white text-xs drop-shadow">{node.symbol}</span>
-                                                    <span className="text-white/90 text-[10px] drop-shadow">{node.dailyChangePercent >= 0 ? '+' : ''}{node.dailyChangePercent?.toFixed(2)}%</span>
-                                                </>
-                                            )}
+                            {/* Right Panel: 요약 통계 대시보드 */}
+                            <div className="w-[50%] bg-slate-950 p-6 flex flex-col justify-center">
+                                <h2 className="text-2xl font-bold text-white mb-6">📊 포트폴리오 요약</h2>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+                                        <div className="text-slate-400 text-xs mb-1">총 평가금액</div>
+                                        <div className="text-xl font-bold text-white">₩{formatNumber(consolidatedPortfolio.reduce((acc, cur) => acc + cur.currentValueKRW, 0), 'KRW')}</div>
+                                    </div>
+                                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+                                        <div className="text-slate-400 text-xs mb-1">총 투자원금</div>
+                                        <div className="text-xl font-bold text-white">₩{formatNumber(consolidatedPortfolio.reduce((acc, cur) => acc + cur.totalInvestedKRW, 0), 'KRW')}</div>
+                                    </div>
+                                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+                                        <div className="text-slate-400 text-xs mb-1">총 평가손익</div>
+                                        <div className={`text-xl font-bold ${consolidatedPortfolio.reduce((acc, cur) => acc + cur.returnKRW, 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                            ₩{formatNumber(consolidatedPortfolio.reduce((acc, cur) => acc + cur.returnKRW, 0), 'KRW')}
                                         </div>
-                                    )) : (
-                                        <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm">No Data</div>
-                                    )}
+                                    </div>
+                                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+                                        <div className="text-slate-400 text-xs mb-1">예상 연간 배당금</div>
+                                        <div className="text-xl font-bold text-blue-400">₩{formatNumber(dividendStats.annual, 'KRW')}</div>
+                                    </div>
                                 </div>
                             </div>
-                        </>
+                        </div>
                     )}
 
-                    {/* Page 1: Dividend Dashboard (배당금 영역 추가) */}
+                    {/* Page 1: Dividend Dashboard */}
                     {currentPage === 1 && (
                         <div className="flex-1 p-6 overflow-y-auto bg-slate-950 flex flex-col">
                             <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
@@ -589,7 +588,7 @@
                                                 </div>
                                                 <div className="text-right">
                                                     <div className="text-sm font-semibold text-green-400">+₩{formatNumber(item.annualDividendKRW, 'KRW')} /년</div>
-                                                    <div className="text-xs text-slate-400">예상 배당률: {item.dividendYield?.toFixed(2)}%</div>
+                                                    <div className="text-xs text-slate-400">배당률: {item.dividendYield?.toFixed(2)}%</div>
                                                 </div>
                                             </div>
                                         ))
@@ -599,22 +598,44 @@
                         </div>
                     )}
 
-                    {/* Page 2: Account & Settings Management */}
+                    {/* Page 2: Heatmap (히트맵 복원) */}
                     {currentPage === 2 && (
+                        <div className="flex-1 p-6 bg-slate-950 flex flex-col overflow-hidden">
+                            <h2 className="text-2xl font-bold text-white mb-4">🗺️ Market Heatmap</h2>
+                            <div className="flex-1 w-full bg-slate-900 rounded-xl overflow-hidden relative shadow-inner border border-slate-800">
+                                {treemapNodes.length > 0 ? treemapNodes.map(node => (
+                                    <div 
+                                        key={node.symbol}
+                                        className="absolute border border-slate-950 p-2 flex flex-col justify-center items-center overflow-hidden transition-all duration-300 hover:z-10"
+                                        style={{ left: `${node.x}%`, top: `${node.y}%`, width: `${node.w}%`, height: `${node.h}%`, backgroundColor: getHeatmapColor(node.dailyChangePercent) }}
+                                    >
+                                        <span className="font-bold text-white text-xs drop-shadow">{node.symbol}</span>
+                                        <span className="text-white/90 text-[10px] drop-shadow">{node.dailyChangePercent >= 0 ? '+' : ''}{node.dailyChangePercent?.toFixed(2)}%</span>
+                                    </div>
+                                )) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm">No Data</div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Page 3: Account & Settings Management (- 버튼 형태 계좌 삭제 적용) */}
+                    {currentPage === 3 && (
                         <div className="flex-1 p-6 overflow-y-auto bg-slate-950 flex flex-col max-w-2xl mx-auto">
                             <h2 className="text-2xl font-bold text-white mb-6">⚙️ 계좌 및 포트폴리오 설정</h2>
                             
                             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
-                                <h3 className="text-sm font-semibold text-slate-300 mb-3">계좌 관리 (기본 계좌 포함 삭제 가능)</h3>
+                                <h3 className="text-sm font-semibold text-slate-300 mb-3">계좌 관리</h3>
                                 <div className="space-y-2 mb-4">
                                     {accountNicknames.map(acc => (
                                         <div key={acc} className="flex items-center justify-between bg-slate-950 px-4 py-2.5 rounded-lg border border-slate-800">
                                             <span className="font-medium text-white text-sm">{acc}</span>
                                             <button 
                                                 onClick={() => handleDeleteAccount(acc)}
-                                                className="text-xs text-red-400 hover:text-red-300 bg-red-950/40 px-2.5 py-1 rounded transition-colors flex items-center gap-1"
+                                                className="w-7 h-7 flex items-center justify-center rounded bg-red-950/60 text-red-400 hover:bg-red-900 hover:text-white transition-colors"
+                                                title="계좌 삭제 (-)"
                                             >
-                                                <TrashIcon /> 삭제
+                                                <MinusIcon />
                                             </button>
                                         </div>
                                     ))}
@@ -634,16 +655,16 @@
                     )}
                 </div>
 
-                {/* Bottom Navigation (< o o o > 형태의 페이지네이션 및 커서 버튼) */}
+                {/* Bottom Navigation (< o o o o > 형태의 페이지네이션) */}
                 <div className="py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-center gap-4 shrink-0">
                     <button 
-                        onClick={() => setCurrentPage(prev => (prev > 0 ? prev - 1 : 2))} 
+                        onClick={() => setCurrentPage(prev => (prev > 0 ? prev - 1 : 3))} 
                         className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-sm transition-colors"
                     >
                         &lt;
                     </button>
                     <div className="flex items-center gap-3">
-                        {[0, 1, 2].map(idx => (
+                        {[0, 1, 2, 3].map(idx => (
                             <button
                                 key={idx}
                                 onClick={() => setCurrentPage(idx)}
@@ -653,7 +674,7 @@
                         ))}
                     </div>
                     <button 
-                        onClick={() => setCurrentPage(prev => (prev < 2 ? prev + 1 : 0))} 
+                        onClick={() => setCurrentPage(prev => (prev < 3 ? prev + 1 : 0))} 
                         className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-sm transition-colors"
                     >
                         &gt;
