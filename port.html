@@ -22,19 +22,14 @@ const UploadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" heig
 const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
 const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 
-// ============================================================
-// [수정 완료] URL 뒤의 슬래시 제거 (중복 슬래시 방지)
-// ============================================================
 const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
 
-// 나만의 Worker 프록시를 통해 Yahoo Finance 데이터를 안정적으로 가져오는 유틸
 const fetchViaWorker = async (path, options = {}) => {
     const res = await fetch(`${WORKER_BASE_URL}${path}`, options);
     if (!res.ok) throw new Error(`Worker proxy error: ${res.status}`);
     return await res.json();
 };
 
-// Fallback mock data in case Yahoo Finance API is blocked
 const generateMockSearchResults = (query, marketFilter) => {
     const mocks = [];
     return mocks.filter(m => 
@@ -44,7 +39,6 @@ const generateMockSearchResults = (query, marketFilter) => {
 };
 
 function App() {
-    // Core State
     const [lots, setLots] = useState(() => {
         try {
             const saved = localStorage.getItem('globalPortfolioLots');
@@ -52,26 +46,23 @@ function App() {
         } catch (e) {
             return [];
         }
-    }); // Array of individual purchase lots
-    const [quotes, setQuotes] = useState({}); // Live/Mocked price quotes
-    const [fxRates, setFxRates] = useState({ USD: 1350, JPY: 9, KRW: 1 }); // Default fallbacks
+    }); 
+    const [quotes, setQuotes] = useState({}); 
+    const [fxRates, setFxRates] = useState({ USD: 1350, JPY: 9, KRW: 1 }); 
     
-    // UI State
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
-    const [marketFilter, setMarketFilter] = useState('ALL'); // ALL, US, KR, JP
-    const [displayCurrency, setDisplayCurrency] = useState('KRW'); // KRW or FOREIGN
-    const [hoverSide, setHoverSide] = useState(null); // 'left' | 'right' | null
+    const [marketFilter, setMarketFilter] = useState('ALL'); 
+    const [displayCurrency, setDisplayCurrency] = useState('KRW'); 
+    const [hoverSide, setHoverSide] = useState(null); 
     
-    // Modals State
-    const [addLotModal, setAddLotModal] = useState(null); // Selected stock object
-    const [editModalSymbol, setEditModalSymbol] = useState(null); // Symbol string for editing
+    const [addLotModal, setAddLotModal] = useState(null); 
+    const [editModalSymbol, setEditModalSymbol] = useState(null); 
     
     const fileInputRef = useRef(null);
-    const searchCache = useRef({}); // Search results cache
+    const searchCache = useRef({}); 
 
-    // Persist portfolio to localStorage whenever it changes
     useEffect(() => {
         try {
             localStorage.setItem('globalPortfolioLots', JSON.stringify(lots));
@@ -80,7 +71,6 @@ function App() {
         }
     }, [lots]);
 
-    // Fetch Exchange Rates on load
     useEffect(() => {
         const fetchFX = async () => {
             try {
@@ -100,7 +90,6 @@ function App() {
         fetchFX();
     }, []);
 
-    // Debounced Search Effect
     useEffect(() => {
         if (searchQuery.trim().length < 1) {
             setSearchResults([]);
@@ -127,7 +116,6 @@ function App() {
                 
                 let rawResults = [];
 
-                // [수정 완료] Yahoo Finance 검색 결과의 quoteType 검증 (ETF, EQUITY 등 대소문자 무관하게 모두 허용)
                 if (data && data.quotes) {
                     rawResults = data.quotes.filter(q => {
                         const type = (q.quoteType || '').toUpperCase();
@@ -139,7 +127,6 @@ function App() {
                     }
                 }
 
-                // 중복 제거 (티커 기준)
                 const uniqueResults = [];
                 const seenSymbols = new Set();
                 for (const item of rawResults) {
@@ -149,7 +136,6 @@ function App() {
                     }
                 }
 
-                // 시장 필터 적용 및 데이터 매핑
                 let results = uniqueResults.map(q => {
                     let market = 'US';
                     let currency = 'USD';
@@ -178,7 +164,7 @@ function App() {
         };
     }, [searchQuery, marketFilter]);
 
-    // Fetch Live Quotes for Portfolio holdings
+    // Fetch Live Quotes for Portfolio holdings (구조 분해 및 파싱 에러 수정 완료)
     useEffect(() => {
         const uniqueSymbols = [...new Set(lots.map(l => l.symbol))];
         if (uniqueSymbols.length === 0) return;
@@ -189,27 +175,24 @@ function App() {
                     `/quote?symbols=${encodeURIComponent(uniqueSymbols.join(','))}`
                 );
                 
-                if (data && data.quoteResponse && data.quoteResponse.result) {
+                // 야후 파이낸스 quoteResponse 구조에 맞게 수정
+                const quoteResult = data?.quoteResponse?.result || data?.quotes;
+                if (quoteResult) {
                     const newQuotes = {};
-                    data.quoteResponse.result.forEach(q => {
-                        newQuotes[q.symbol] = {
-                            price: q.regularMarketPrice,
-                            changePercent: q.regularMarketChangePercent
-                        };
+                    (Array.isArray(quoteResult) ? quoteResult : Object.entries(quoteResult)).forEach(item => {
+                        const q = Array.isArray(quoteResult) ? item : item[1];
+                        const sym = q.symbol;
+                        if (sym) {
+                            newQuotes[sym] = {
+                                price: q.regularMarketPrice ?? q.price,
+                                changePercent: q.regularMarketChangePercent ?? q.changePercent ?? 0
+                            };
+                        }
                     });
                     setQuotes(prev => ({ ...prev, ...newQuotes }));
                 }
             } catch (error) {
-                const newQuotes = {};
-                uniqueSymbols.forEach(sym => {
-                    const avgPrice = lots.find(l => l.symbol === sym)?.avgPriceForeign || 100;
-                    const randomChange = (Math.random() * 6) - 3;
-                    newQuotes[sym] = {
-                        price: avgPrice * (1 + randomChange/100),
-                        changePercent: randomChange
-                    };
-                });
-                setQuotes(prev => ({ ...prev, ...newQuotes }));
+                console.error("Quote fetch failed", error);
             }
         };
 
@@ -244,8 +227,8 @@ function App() {
             const avgPriceForeign = item.totalInvestedForeign / item.totalQuantity;
             
             const quote = quotes[item.symbol];
-            const currentPriceForeign = quote?.price || avgPriceForeign;
-            const currentChangePercent = quote?.changePercent || 0;
+            const currentPriceForeign = quote?.price ?? avgPriceForeign;
+            const currentChangePercent = quote?.changePercent ?? 0;
             
             const currentPriceKRW = currentPriceForeign * fxRates[item.currency];
             const currentValueKRW = item.totalQuantity * currentPriceKRW;
@@ -580,7 +563,7 @@ function App() {
                 </div>
             </div>
 
-            {/* Right Panel: Heatmap Area */}
+            {/* Right Panel: Heatmap Area (안내 문구 제거 완료) */}
             <div 
                 className={`relative bg-slate-950 p-4 transition-all duration-500 ease-in-out flex flex-col ${
                     hoverSide === 'right' ? 'w-[70%]' : hoverSide === 'left' ? 'w-[30%] opacity-80' : 'w-[50%]'
@@ -589,8 +572,7 @@ function App() {
                 onMouseLeave={() => setHoverSide(null)}
             >
                 <h2 className="text-lg font-semibold mb-4 shrink-0 flex items-center justify-between">
-                    Market Heatmap 
-                    <span className="text-xs font-normal text-slate-400 bg-slate-900 px-2 py-1 rounded">Size: Weight | Color: Daily Return</span>
+                    Market Heatmap
                 </h2>
                 <div className="flex-1 w-full bg-slate-900 rounded-xl overflow-hidden relative shadow-inner border border-slate-800">
                     {treemapNodes.length > 0 ? treemapNodes.map(node => (
