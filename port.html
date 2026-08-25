@@ -27,7 +27,7 @@ const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" heigh
 // 예: "https://yahoo-proxy.yourname.workers.dev"
 // yahoo-proxy-worker.js 를 Cloudflare Workers에 배포한 뒤 나오는 주소입니다.
 // ============================================================
-const WORKER_BASE_URL = "https://yahooproxy.pages.dev/";
+const WORKER_BASE_URL = "https://yahoo-proxy.yourname.workers.dev";
 
 // 나만의 Worker 프록시를 통해 Yahoo Finance 데이터를 안정적으로 가져오는 유틸
 const fetchViaWorker = async (path, options = {}) => {
@@ -198,12 +198,12 @@ function App() {
                     `/quote?symbols=${encodeURIComponent(uniqueSymbols.join(','))}`
                 );
                 
-                if (data && data.quoteResponse && data.quoteResponse.result) {
+                if (data && data.quotes) {
                     const newQuotes = {};
-                    data.quoteResponse.result.forEach(q => {
-                        newQuotes[q.symbol] = {
-                            price: q.regularMarketPrice,
-                            changePercent: q.regularMarketChangePercent
+                    Object.entries(data.quotes).forEach(([symbol, q]) => {
+                        newQuotes[symbol] = {
+                            price: q.price,
+                            changePercent: q.changePercent
                         };
                     });
                     setQuotes(prev => ({ ...prev, ...newQuotes }));
@@ -434,6 +434,20 @@ function App() {
         return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: decimals, minimumFractionDigits: decimals }).format(num);
     };
 
+    // 토글용 시장 라벨 (전체/미장/국장/일장)
+    const MARKET_TOGGLE_LABELS = { ALL: '전체', US: '미장', KR: '국장', JP: '일장' };
+
+    // 검색결과 배지용 세부 시장 라벨 (국장은 코스피/코스닥으로 세분화)
+    const getSubMarketLabel = (item) => {
+        if (item.market === 'KR') {
+            if (item.symbol && item.symbol.endsWith('.KQ')) return '코스닥';
+            return '코스피';
+        }
+        if (item.market === 'JP') return '일장';
+        if (item.market === 'US') return '미장';
+        return item.market;
+    };
+
     const getHeatmapColor = (changePercent) => {
         // Red for negative, Green for positive. Intensity mapped from 0 to 10%
         const intensity = Math.min(Math.abs(changePercent) / 10, 1);
@@ -479,7 +493,7 @@ function App() {
                                 onClick={() => setMarketFilter(market)}
                                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${marketFilter === market ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
                             >
-                                {market}
+                                {MARKET_TOGGLE_LABELS[market]}
                             </button>
                         ))}
                     </div>
@@ -509,7 +523,7 @@ function App() {
                                                 <div className="text-xs text-slate-400 truncate w-48">{result.shortname}</div>
                                             </div>
                                             <span className="text-xs px-2 py-1 bg-slate-900 rounded text-slate-300 border border-slate-700">
-                                                {result.market}
+                                                {getSubMarketLabel(result)}
                                             </span>
                                         </div>
                                     ))
@@ -553,7 +567,7 @@ function App() {
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2">
                                             <span className="font-bold text-white">{item.symbol}</span>
-                                            <span className="text-xs text-slate-400 px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700">{item.market}</span>
+                                            <span className="text-xs text-slate-400 px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700">{getSubMarketLabel(item)}</span>
                                             <span className="text-xs text-slate-400 truncate max-w-[120px]">{item.name}</span>
                                         </div>
                                         <div className="flex gap-4 mt-2 text-sm text-slate-300">
