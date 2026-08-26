@@ -48,7 +48,7 @@ const { useEffect, useMemo, useRef, useState } = React;
 const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
 const SYMBOLS_URL = "https://ninetaild.github.io/data/symbols.json";
 
-// 브랜드 한글/영문 자동 별칭 매핑 (symbols.json 키워드 누락 보완용)
+// 한글 브랜드 키워드 자동 매핑
 const BRAND_ALIASES = {
   "lg": ["lg", "엘지"],
   "엘지": ["lg", "엘지"],
@@ -83,6 +83,7 @@ const marketLabel = (symbol = "") => {
 };
 
 const format = (value, currency = "KRW") => {
+  if (value === null || value === undefined) return "-";
   const n = Number(value);
   if (!Number.isFinite(n)) return "-";
   const digits = currency === "USD" ? 2 : 0;
@@ -90,16 +91,21 @@ const format = (value, currency = "KRW") => {
 };
 
 const money = (value, currency = "KRW") => {
+  if (value === null || value === undefined) return "-";
   const symbol = currency === "USD" ? "$" : currency === "JPY" ? "¥" : "₩";
   return symbol + format(value, currency);
 };
 
 const signedMoney = (value, currency = "KRW") => {
+  if (value === null || value === undefined) return "-";
   const n = Number(value) || 0;
   return `${n >= 0 ? "+" : "-"}${money(Math.abs(n), currency)}`;
 };
 
-const colorForReturn = (value) => value > 0 ? "text-emerald-400" : value < 0 ? "text-rose-400" : "text-slate-400";
+const colorForReturn = (value) => {
+  if (value === null || value === undefined) return "text-slate-400";
+  return value > 0 ? "text-emerald-400" : value < 0 ? "text-rose-400" : "text-slate-400";
+};
 
 const SearchIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>;
 const PlusIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>;
@@ -152,6 +158,7 @@ function App() {
       .catch(e => console.error("symbols load failed", e));
   }, []);
 
+  // 환율 로딩 (USDKRW=X, JPYKRW=X)
   useEffect(() => {
     const loadFx = async () => {
       try {
@@ -178,7 +185,7 @@ function App() {
     return () => clearInterval(id);
   }, []);
 
-  // 한국/미국/일본 시세 통합 로더
+  // ① 정확한 symbol만 조회하도록 개선 + 디버깅 로그 추가
   useEffect(() => {
     if (!lots.length) {
       setQuotes({});
@@ -187,22 +194,8 @@ function App() {
 
     const reqSymbols = new Set();
     lots.forEach(lot => {
-      if (!lot.symbol) return;
-      const raw = String(lot.symbol).toUpperCase();
-      const clean = cleanTicker(raw);
-
-      reqSymbols.add(raw);
-      reqSymbols.add(clean);
-
-      if (/^\d{6}$/.test(clean)) {
-        reqSymbols.add(`${clean}.KS`);
-        reqSymbols.add(`${clean}.KQ`);
-      } else if (/^\d{4}$/.test(clean)) {
-        reqSymbols.add(`${clean}.T`);
-      } else if (clean.includes(".")) {
-        reqSymbols.add(clean.replace(/\./g, "-"));
-      } else if (clean.includes("-")) {
-        reqSymbols.add(clean.replace(/-/g, "."));
+      if (lot.symbol) {
+        reqSymbols.add(String(lot.symbol).toUpperCase());
       }
     });
 
@@ -213,11 +206,16 @@ function App() {
       setQuoteError("");
       try {
         const queryStr = [...reqSymbols].join(",");
+
+        console.log("Requested symbols:", queryStr);
+
         const res = await fetch(`${WORKER_BASE_URL}/quote?symbols=${encodeURIComponent(queryStr)}`);
         
         let list = [];
         if (res.ok) {
           const data = await res.json();
+          console.log("Yahoo Worker response:", data);
+
           if (Array.isArray(data?.quoteResponse?.result)) {
             list = data.quoteResponse.result;
           } else if (Array.isArray(data?.quotes)) {
@@ -235,28 +233,24 @@ function App() {
           const rawSym = String(q.symbol || q.ticker || "").toUpperCase();
           if (!rawSym) continue;
 
-          const price = Number(
-            q.regularMarketPrice ?? 
-            q.price ?? 
-            q.postMarketPrice ?? 
-            q.regularMarketPreviousClose ?? 
-            q.previousClose ?? 
-            q.close ?? 0
-          );
+          // 현재가 (없을 경우 null로 저장)
+          const priceVal = q.regularMarketPrice ?? q.price ?? q.postMarketPrice ?? q.regularMarketPreviousClose ?? q.previousClose;
+          const price = Number.isFinite(Number(priceVal)) ? Number(priceVal) : null;
 
           const changePercent = Number(q.regularMarketChangePercent ?? q.changePercent ?? 0);
 
-          let yieldPct = Number(q.dividendYield ?? q.trailingAnnualDividendYield ?? q.yield ?? 0);
-          if (yieldPct > 0 && yieldPct <= 1) yieldPct *= 100;
-
-          let annualDiv = Number(q.trailingAnnualDividendRate ?? q.dividendRate ?? q.annualDividendRate ?? q.annualDividend ?? 0);
-          if (!annualDiv && yieldPct > 0 && price > 0) annualDiv = (price * yieldPct) / 100;
-          if (!yieldPct && annualDiv > 0 && price > 0) yieldPct = (annualDiv / price) * 100;
+          // 연간 주당 분배금 (수익률 역산 우선 제거, 순수 주당 배당금 채택)
+          let annualDiv = Number(
+            q.trailingAnnualDividendRate ?? 
+            q.dividendRate ?? 
+            q.annualDividendRate ?? 
+            q.annualDividend ?? 
+            0
+          );
 
           const itemData = {
             price,
             changePercent,
-            dividendYield: yieldPct,
             annualDividend: annualDiv,
             name: q.longName || q.shortName || q.displayName || rawSym
           };
@@ -269,9 +263,7 @@ function App() {
             clean.toLowerCase(),
             `${clean}.KS`,
             `${clean}.KQ`,
-            `${clean}.T`,
-            clean.replace(/\./g, "-"),
-            clean.replace(/-/g, ".")
+            `${clean}.T`
           ];
 
           keys.forEach(k => { if (k) nextQuotes[k] = itemData; });
@@ -291,7 +283,6 @@ function App() {
     return () => { cancelled = true; clearInterval(id); };
   }, [lots]);
 
-  // 키워드 확장 검색 (한글 브랜드 매핑 추가)
   const symbolsBySearch = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
@@ -334,6 +325,7 @@ function App() {
       : lots.filter(l => (l.account || "기본 계좌") === selectedAccount);
   }, [lots, selectedAccount]);
 
+  // ② 현재가 null 처리 및 손익/수익률/분배금 통합 계산 로직
   const portfolio = useMemo(() => {
     const map = new Map();
     for (const lot of visibleLots) {
@@ -365,47 +357,97 @@ function App() {
                 quotes[clean] ||
                 quotes[`${clean}.KS`] ||
                 quotes[`${clean}.KQ`] ||
-                quotes[`${clean}.T`] ||
-                quotes[clean.replace(/\./g, "-")] ||
-                quotes[clean.replace(/-/g, ".")] || {};
+                quotes[`${clean}.T`] || {};
 
-      const rate = fx[p.currency] || 1;
-      const currentForeign = Number(q.price || 0);
-      const currentKRW = currentForeign * rate;
-      const valueKRW = p.qty * currentKRW;
-      const profit = valueKRW - p.investedKRW;
-      const profitPct = p.investedKRW ? (profit / p.investedKRW) * 100 : 0;
+      const fxRate = Number(fx[p.currency] || 0);
 
-      const annualDividendForeign = Number(q.annualDividend || 0);
-      const annualDividendKRW = p.qty * annualDividendForeign * rate;
+      // Yahoo 현재가 (없으면 null로 처리하여 평단가 대체 방지)
+      const currentPriceForeign = Number.isFinite(q.price) ? q.price : null;
+
+      // 현재가 → 원화
+      const currentPriceKRW = currentPriceForeign !== null && fxRate > 0
+        ? currentPriceForeign * fxRate
+        : null;
+
+      // 평가금액
+      const currentValueKRW = currentPriceKRW !== null
+        ? p.qty * currentPriceKRW
+        : null;
+
+      // 손익 및 수익률
+      const profit = currentValueKRW !== null
+        ? currentValueKRW - p.investedKRW
+        : null;
+
+      const profitPct = profit !== null && p.investedKRW > 0
+        ? (profit / p.investedKRW) * 100
+        : null;
+
+      // 주당 연간 분배금 및 수익률 역산
+      const annualDividendPerShare = Number(q.annualDividend || 0);
+
+      const dividendYield = (currentPriceForeign !== null && currentPriceForeign > 0 && annualDividendPerShare > 0)
+        ? (annualDividendPerShare / currentPriceForeign) * 100
+        : 0;
+
+      const annualDividendKRW = (annualDividendPerShare > 0 && fxRate > 0)
+        ? p.qty * annualDividendPerShare * fxRate
+        : 0;
+
+      const netDividendKRW = annualDividendKRW * (1 - taxRate / 100);
+
+      const avgPriceKRW = p.qty > 0 ? p.investedKRW / p.qty : 0;
+      const avgPriceForeign = p.qty > 0 ? p.investedForeign / p.qty : 0;
 
       return {
         ...p,
         name: q.name || p.name,
-        currentForeign,
-        currentKRW,
-        valueKRW,
+        avgPriceKRW,
+        avgPriceForeign,
+        currentPriceForeign,
+        currentPriceKRW,
+        valueKRW: currentValueKRW,
         profit,
         profitPct,
         changePercent: Number(q.changePercent || 0),
-        dividendYield: Number(q.dividendYield || 0),
-        annualDividendForeign,
+        dividendYield,
+        annualDividendForeign: annualDividendPerShare,
         annualDividendKRW,
-        netDividendKRW: annualDividendKRW * (1 - taxRate / 100)
+        netDividendKRW
       };
-    }).sort((a, b) => b.valueKRW - a.valueKRW);
+    }).sort((a, b) => ((b.valueKRW ?? 0) - (a.valueKRW ?? 0)));
   }, [visibleLots, quotes, fx, taxRate]);
 
   const stats = useMemo(() => {
-    const invested = portfolio.reduce((s, x) => s + x.investedKRW, 0);
-    const value = portfolio.reduce((s, x) => s + x.valueKRW, 0);
-    const profit = value - invested;
-    const annual = portfolio.reduce((s, x) => s + x.annualDividendKRW, 0);
-    const net = portfolio.reduce((s, x) => s + x.netDividendKRW, 0);
+    let totalInvested = 0;
+    let totalValued = 0;
+    let validValuedInvested = 0;
+    let annual = 0;
+    let net = 0;
+
+    portfolio.forEach(x => {
+      totalInvested += x.investedKRW;
+      annual += x.annualDividendKRW;
+      net += x.netDividendKRW;
+
+      if (x.valueKRW !== null) {
+        totalValued += x.valueKRW;
+        validValuedInvested += x.investedKRW;
+      }
+    });
+
+    const hasValidQuotes = portfolio.some(x => x.valueKRW !== null);
+    const profit = hasValidQuotes ? totalValued - validValuedInvested : null;
+    const profitPct = (profit !== null && validValuedInvested > 0) ? (profit / validValuedInvested) * 100 : null;
+
     return {
-      invested, value, profit,
-      profitPct: invested ? (profit / invested) * 100 : 0,
-      annual, net, monthly: net / 12
+      invested: totalInvested,
+      value: hasValidQuotes ? totalValued : null,
+      profit,
+      profitPct,
+      annual,
+      net,
+      monthly: net / 12
     };
   }, [portfolio]);
 
@@ -597,7 +639,7 @@ function App() {
       <div ref={containerRef} onScroll={handleScroll} className="page-container">
         {/* PAGE 1: 포트폴리오 메인 */}
         <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
-          <div className="max-w-6xl mx-auto space-y-4">
+          <div className="max-w-7xl mx-auto space-y-4">
             <div className="relative">
               <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 focus-within:border-blue-500">
                 <SearchIcon className="w-5 h-5 text-slate-500 mr-2" />
@@ -605,7 +647,7 @@ function App() {
                   value={search}
                   onChange={e => { setSearch(e.target.value); setSearchOpen(true); }}
                   onFocus={() => setSearchOpen(true)}
-                  placeholder="종목명 또는 티커 검색 (예: 삼성전자, LG전자, AAPL, 7203)"
+                  placeholder="종목명 또는 티커 검색 (예: 삼성전자, LG전자, VOO, 7203)"
                   className="w-full bg-transparent outline-none text-sm text-white placeholder-slate-500"
                 />
                 {search && (
@@ -637,7 +679,7 @@ function App() {
               <Stat title="총 평가금액" value={money(stats.value)} />
               <Stat title="총 투자원금" value={money(stats.invested)} />
               <Stat title="평가손익" value={signedMoney(stats.profit)} valueClass={colorForReturn(stats.profit)} />
-              <Stat title="수익률" value={`${stats.profitPct >= 0 ? "+" : ""}${stats.profitPct.toFixed(2)}%`} valueClass={colorForReturn(stats.profitPct)} />
+              <Stat title="수익률" value={stats.profitPct !== null ? `${stats.profitPct >= 0 ? "+" : ""}${stats.profitPct.toFixed(2)}%` : "-"} valueClass={colorForReturn(stats.profitPct)} />
             </div>
 
             <div className="flex justify-between items-center text-xs text-slate-400 px-1">
@@ -647,13 +689,15 @@ function App() {
 
             {quoteError && <div className="text-xs text-amber-400 bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl">{quoteError}</div>}
 
+            {/* 메인 테이블: 수량, 평단가, 매수금액, 현재가, 평가금액, 손익, 수익률 명확 표출 */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-              <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_80px] gap-3 px-4 py-3 text-xs text-slate-400 font-medium border-b border-slate-800">
+              <div className="hidden md:grid grid-cols-[2fr_1fr_1.2fr_1.2fr_1.2fr_1.2fr_70px] gap-3 px-4 py-3 text-xs text-slate-400 font-medium border-b border-slate-800">
                 <div>종목명</div>
-                <div>보유수량</div>
+                <div>수량</div>
+                <div>평단가 / 매수원금</div>
                 <div>현재가</div>
                 <div>평가금액</div>
-                <div>손익</div>
+                <div>손익 / 수익률</div>
                 <div className="text-right">관리</div>
               </div>
 
@@ -661,20 +705,32 @@ function App() {
                 <div className="p-12 text-center text-slate-500 text-sm">등록된 종목이 없습니다. 상단 검색창에서 종목을 검색 후 추가하세요.</div>
               ) : portfolio.map(item => (
                 <div key={item.symbol} className="px-4 py-3.5 border-b border-slate-800/60 last:border-0 hover:bg-slate-800/30 transition-colors">
-                  <div className="grid md:grid-cols-[2fr_1fr_1fr_1fr_1fr_80px] gap-2 md:gap-3 items-center">
+                  <div className="grid md:grid-cols-[2fr_1fr_1.2fr_1.2fr_1.2fr_1.2fr_70px] gap-2 md:gap-3 items-center">
                     <div>
                       <div className="font-semibold text-white text-sm truncate">{item.name}</div>
                       <div className="text-xs text-slate-400">{cleanTicker(item.symbol)} · {marketLabel(item.symbol)}</div>
                     </div>
-                    <div className="text-sm">{format(item.qty, item.currency)} 주</div>
-                    <div className="text-sm font-medium">
-                      {item.currentForeign ? money(item.currentForeign, item.currency) : "-"}
-                      <div className="text-xs text-slate-400 font-normal">{item.currentForeign ? money(item.currentKRW, "KRW") : ""}</div>
+                    <div className="text-sm font-medium">{format(item.qty, item.currency)} 주</div>
+                    <div>
+                      <div className="text-sm font-medium">{money(item.avgPriceKRW, "KRW")}</div>
+                      <div className="text-xs text-slate-400">{money(item.investedKRW, "KRW")}</div>
                     </div>
-                    <div className="text-sm font-medium">{item.currentForeign ? money(item.valueKRW) : "-"}</div>
-                    <div className={`text-sm font-medium ${item.currentForeign ? colorForReturn(item.profit) : "text-slate-400"}`}>
-                      {item.currentForeign ? signedMoney(item.profit) : "-"}
-                      <div className="text-xs">{item.currentForeign ? `${item.profitPct >= 0 ? "+" : ""}${item.profitPct.toFixed(2)}%` : ""}</div>
+                    <div>
+                      <div className="text-sm font-medium">
+                        {item.currentPriceForeign !== null ? money(item.currentPriceForeign, item.currency) : "-"}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        {item.currentPriceKRW !== null ? money(item.currentPriceKRW, "KRW") : "-"}
+                      </div>
+                    </div>
+                    <div className="text-sm font-medium">
+                      {item.valueKRW !== null ? money(item.valueKRW, "KRW") : "-"}
+                    </div>
+                    <div className={`text-sm font-medium ${colorForReturn(item.profit)}`}>
+                      {item.profit !== null ? signedMoney(item.profit, "KRW") : "-"}
+                      <div className="text-xs">
+                        {item.profitPct !== null ? `${item.profitPct >= 0 ? "+" : ""}${item.profitPct.toFixed(2)}%` : ""}
+                      </div>
                     </div>
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => setEditingStock(item)} title="수정" className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white">
@@ -727,18 +783,19 @@ function App() {
                       <div className="text-xs text-slate-400">{cleanTicker(item.symbol)} · {format(item.qty, item.currency)} 주</div>
                     </div>
                     <div>
-                      <div className="text-xs text-slate-400">주당 배당금 / 배당수익률</div>
+                      <div className="text-xs text-slate-400">주당 연간 배당금 / 수익률</div>
                       <div className="text-sm font-medium">
-                        {item.annualDividendForeign ? money(item.annualDividendForeign, item.currency) : "-"} ({item.dividendYield ? item.dividendYield.toFixed(2) + "%" : "-"})
+                        {item.annualDividendForeign > 0 ? money(item.annualDividendForeign, item.currency) : "-"} 
+                        ({item.dividendYield > 0 ? item.dividendYield.toFixed(2) + "%" : "-"})
                       </div>
                     </div>
                     <div>
                       <div className="text-xs text-slate-400">연간 배당금 (세전)</div>
-                      <div className="text-sm font-medium">{money(item.annualDividendKRW)}</div>
+                      <div className="text-sm font-medium">{item.annualDividendKRW > 0 ? money(item.annualDividendKRW) : "-"}</div>
                     </div>
                     <div>
                       <div className="text-xs text-slate-400">연간 배당금 (세후)</div>
-                      <div className="text-sm font-medium text-emerald-400">{money(item.netDividendKRW)}</div>
+                      <div className="text-sm font-medium text-emerald-400">{item.netDividendKRW > 0 ? money(item.netDividendKRW) : "-"}</div>
                     </div>
                   </div>
                 ))
@@ -762,8 +819,9 @@ function App() {
             ) : (
               <div className="flex flex-wrap gap-2 min-h-[520px] w-full">
                 {portfolio.map(item => {
-                  const totalVal = stats.value > 0 ? stats.value : 1;
-                  const weight = item.valueKRW > 0 ? (item.valueKRW / totalVal) : (1 / portfolio.length);
+                  const totalVal = (stats.value && stats.value > 0) ? stats.value : 1;
+                  const itemVal = item.valueKRW ?? 0;
+                  const weight = itemVal > 0 ? (itemVal / totalVal) : (1 / portfolio.length);
                   const weightPct = Math.max(weight * 100, 6);
                   const change = item.changePercent;
                   
@@ -797,7 +855,7 @@ function App() {
                         <div className={`text-base font-black font-mono mt-0.5 ${colorForReturn(change)}`}>
                           {change >= 0 ? "+" : ""}{change.toFixed(2)}%
                         </div>
-                        <div className="text-xs text-slate-100 font-medium">{item.valueKRW ? money(item.valueKRW) : "-"}</div>
+                        <div className="text-xs text-slate-100 font-medium">{item.valueKRW !== null ? money(item.valueKRW) : "-"}</div>
                       </div>
                     </div>
                   );
