@@ -1,754 +1,622 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Global Portfolio & Dividend Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Portfolio</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    html, body, #root { margin:0; width:100%; height:100%; }
+    body { background:#020617; overflow:hidden; }
+    * { box-sizing:border-box; }
+    .page-track {
+      display:flex;
+      width:100%;
+      height:100%;
+      overflow-x:auto;
+      overflow-y:hidden;
+      scroll-snap-type:x mandatory;
+      scroll-behavior:smooth;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+      cursor:grab;
+    }
+    .page-track:active { cursor:grabbing; }
+    .page-track::-webkit-scrollbar { display:none; }
+    .page {
+      flex:0 0 100%;
+      width:100%;
+      height:100%;
+      scroll-snap-align:start;
+      overflow-y:auto;
+      overflow-x:hidden;
+      overscroll-behavior-x:contain;
+    }
+    @media (min-width:768px) {
+      .page-track { scroll-snap-stop:always; }
+    }
+    .thin-scroll::-webkit-scrollbar { width:6px; height:6px; }
+    .thin-scroll::-webkit-scrollbar-thumb { background:#334155; border-radius:999px; }
+    .heat-cell { min-width:0; min-height:90px; }
+    input, select, button { -webkit-tap-highlight-color:transparent; }
+  </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel">
-    const { useState, useEffect, useMemo, useRef } = React;
+<div id="root"></div>
 
-    const SearchIcon = ({ className = "" }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>;
-    const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
-    const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>;
-    const UploadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>;
-    const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
-    const MinusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
-    const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
-    const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
-    const LayoutToggleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="3" x2="12" y2="21"></line></svg>;
+<script type="text/babel">
+const {useEffect, useMemo, useRef, useState} = React;
 
-    const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
+const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
+const SYMBOLS_URL = "https://ninetaild.github.io/data/symbols.json";
 
-    const fetchViaWorker = async (path, options = {}) => {
-        const res = await fetch(`${WORKER_BASE_URL}${path}`, options);
-        if (!res.ok) throw new Error(`Worker proxy error: ${res.status}`);
-        return await res.json();
-    };
+const SearchIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>;
+const PlusIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>;
+const TrashIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 15h8l1-15M10 11v6M14 11v6"/></svg>;
+const EditIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>;
+const DownloadIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>;
+const UploadIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></svg>;
+const CloseIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 6 12 12M18 6 6 18"/></svg>;
+const ChevronLeft = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>;
+const ChevronRight = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>;
 
-    const getCurrencySymbol = (curr) => {
-        switch (curr) {
-            case 'USD': return '$';
-            case 'JPY': return '¥';
-            case 'KRW': default: return '₩';
+const fetchViaWorker = async (path, options={}) => {
+  const res = await fetch(`${WORKER_BASE_URL}${path}`, options);
+  if (!res.ok) throw new Error(`Yahoo proxy error: ${res.status}`);
+  return await res.json();
+};
+
+const marketOf = (symbol="") => {
+  const s = symbol.toUpperCase();
+  if (s.endsWith(".KS") || s.endsWith(".KQ")) return "KR";
+  if (s.endsWith(".T")) return "JP";
+  return "US";
+};
+
+const currencyOf = (symbol="") => {
+  const m = marketOf(symbol);
+  return m === "KR" ? "KRW" : m === "JP" ? "JPY" : "USD";
+};
+
+const marketLabel = (symbol="") => {
+  const m = marketOf(symbol);
+  if (m === "KR") return symbol.toUpperCase().endsWith(".KQ") ? "코스닥" : "코스피";
+  if (m === "JP") return "일본";
+  return "미국";
+};
+
+const format = (value, currency="KRW") => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "-";
+  const digits = currency === "USD" ? 2 : 0;
+  return new Intl.NumberFormat("ko-KR", {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits
+  }).format(n);
+};
+
+const money = (value, currency="KRW") => {
+  const symbol = currency === "USD" ? "$" : currency === "JPY" ? "¥" : "₩";
+  return symbol + format(value, currency);
+};
+
+const signedMoney = (value, currency="KRW") => {
+  const n = Number(value) || 0;
+  return `${n >= 0 ? "+" : "-"}${money(Math.abs(n), currency)}`;
+};
+
+const colorForReturn = (value) => value > 0 ? "text-emerald-400" : value < 0 ? "text-rose-400" : "text-slate-400";
+
+function App() {
+  const [lots, setLots] = useState(() => {
+    try {
+      const saved = localStorage.getItem("globalPortfolioLots");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [accounts, setAccounts] = useState(() => {
+    try {
+      const saved = localStorage.getItem("globalPortfolioAccounts");
+      return saved ? JSON.parse(saved) : ["기본 계좌"];
+    } catch { return ["기본 계좌"]; }
+  });
+  const [selectedAccount, setSelectedAccount] = useState("ALL");
+  const [symbols, setSymbols] = useState([]);
+  const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [quotes, setQuotes] = useState({});
+  const [fx, setFx] = useState({USD:1350, JPY:9, KRW:1});
+  const [loadingQuotes, setLoadingQuotes] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
+  const [taxRate, setTaxRate] = useState(15.4);
+  const [showAccounts, setShowAccounts] = useState(false);
+  const [showAdd, setShowAdd] = useState(null);
+  const [editLot, setEditLot] = useState(null);
+  const [newAccount, setNewAccount] = useState("");
+  const [page, setPage] = useState(0);
+  const trackRef = useRef(null);
+  const drag = useRef({down:false,startX:0,startScroll:0,moved:false});
+  const importRef = useRef(null);
+
+  useEffect(() => localStorage.setItem("globalPortfolioLots", JSON.stringify(lots)), [lots]);
+  useEffect(() => localStorage.setItem("globalPortfolioAccounts", JSON.stringify(accounts)), [accounts]);
+
+  useEffect(() => {
+    fetch(SYMBOLS_URL, {cache:"no-store"})
+      .then(r => r.json())
+      .then(data => Array.isArray(data) && setSymbols(data))
+      .catch(e => console.error("symbols.json:", e));
+  }, []);
+
+  useEffect(() => {
+    const loadFx = async () => {
+      try {
+        const data = await fetchViaWorker("/quote?symbols=USDKRW=X,JPYKRW=X");
+        const list = data?.quoteResponse?.result || data?.quotes || [];
+        let usd = fx.USD, jpy = fx.JPY;
+        for (const q of Array.isArray(list) ? list : Object.values(list)) {
+          if (q.symbol === "USDKRW=X") usd = Number(q.regularMarketPrice ?? q.price ?? usd);
+          if (q.symbol === "JPYKRW=X") {
+            const raw = Number(q.regularMarketPrice ?? q.price ?? jpy);
+            jpy = raw > 100 ? raw / 100 : raw;
+          }
         }
+        setFx({USD:usd, JPY:jpy, KRW:1});
+      } catch (e) {
+        console.warn("FX failed", e);
+      }
     };
+    loadFx();
+    const id = setInterval(loadFx, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
 
-    function App() {
-        const [lots, setLots] = useState(() => {
-            try {
-                const saved = localStorage.getItem('globalPortfolioLots');
-                return saved ? JSON.parse(saved) : [];
-            } catch (e) { return []; }
-        }); 
-        const [quotes, setQuotes] = useState({}); 
-        const [fxRates, setFxRates] = useState({ USD: 1350, JPY: 9, KRW: 1 }); 
-        
-        const [searchQuery, setSearchQuery] = useState('');
-        const [searchResults, setSearchResults] = useState([]);
-        const [isSearching, setIsSearching] = useState(false);
-        const [localSymbols, setLocalSymbols] = useState([]); 
+  const symbolsBySearch = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+    const ranked = [];
+    for (const item of symbols) {
+      const symbol = String(item.symbol || "").toUpperCase();
+      const kws = Array.isArray(item.searchKeywords) ? item.searchKeywords.map(x => String(x).toLowerCase()) : [];
+      const exact = kws.some(x => x === q) || symbol.toLowerCase() === q;
+      const hit = symbol.toLowerCase().includes(q) || kws.some(x => x.includes(q));
+      if (!hit) continue;
 
-        const [marketFilter, setMarketFilter] = useState('ALL'); 
-        const [displayCurrency, setDisplayCurrency] = useState('KRW'); 
-        
-        const [currentPage, setCurrentPage] = useState(1); // 1: 히트맵, 2: 분배금
-        const [taxRate, setTaxRate] = useState(15.4); // 분배금 세금 기본값
-        const [isVerticalLayout, setIsVerticalLayout] = useState(false);
-
-        const [selectedAccount, setSelectedAccount] = useState('ALL');
-        const [accountNicknames, setAccountNicknames] = useState(() => {
-            try {
-                const saved = localStorage.getItem('globalPortfolioAccounts');
-                return saved ? JSON.parse(saved) : ['기본 계좌'];
-            } catch (e) { return ['기본 계좌']; }
-        });
-        const [newAccountInput, setNewAccountInput] = useState('');
-        const [showAccountManager, setShowAccountManager] = useState(false);
-
-        const [addLotModal, setAddLotModal] = useState(null); 
-        const [editModalSymbol, setEditModalSymbol] = useState(null); 
-        
-        const fileInputRef = useRef(null);
-        const searchCache = useRef({}); 
-
-        useEffect(() => {
-            localStorage.setItem('globalPortfolioLots', JSON.stringify(lots));
-        }, [lots]);
-
-        useEffect(() => {
-            localStorage.setItem('globalPortfolioAccounts', JSON.stringify(accountNicknames));
-        }, [accountNicknames]);
-
-        useEffect(() => {
-            fetch('https://ninetaild.github.io/data/symbols.json')
-                .then(res => res.json())
-                .then(data => {
-                    if (Array.isArray(data)) setLocalSymbols(data);
-                })
-                .catch(err => console.error("Failed to load symbols.json", err));
-        }, []);
-
-        // 환율 정보 받아오기
-        useEffect(() => {
-            const fetchFXFromYahoo = async () => {
-                try {
-                    const data = await fetchViaWorker(`/quote?symbols=USDKRW=X,JPYKRW=X`);
-                    const quoteList = data?.quoteResponse?.result || data?.quotes;
-                    if (quoteList) {
-                        let usdRate = 1350;
-                        let jpyRate = 9;
-                        quoteList.forEach(q => {
-                            if (q.symbol === 'USDKRW=X') {
-                                usdRate = q.regularMarketPrice ?? q.price ?? usdRate;
-                            } else if (q.symbol === 'JPYKRW=X') {
-                                const rawJpy = q.regularMarketPrice ?? q.price ?? jpyRate;
-                                jpyRate = rawJpy > 100 ? rawJpy / 100 : rawJpy;
-                            }
-                        });
-                        setFxRates({ USD: usdRate, JPY: jpyRate, KRW: 1 });
-                    }
-                } catch (error) { 
-                    try {
-                        const res = await fetch('https://open.er-api.com/v6/latest/KRW');
-                        const data = await res.json();
-                        if (data && data.rates) {
-                            setFxRates({ USD: 1 / data.rates.USD, JPY: 1 / data.rates.JPY, KRW: 1 });
-                        }
-                    } catch (e) { }
-                }
-            };
-            fetchFXFromYahoo();
-        }, []);
-
-        // 검색 처리 로직
-        useEffect(() => {
-            if (searchQuery.trim().length < 1) {
-                setSearchResults([]);
-                return;
-            }
-            const queryLower = searchQuery.trim().toLowerCase();
-            const cacheKey = `${queryLower}_${marketFilter}`;
-            if (searchCache.current[cacheKey]) {
-                setSearchResults(searchCache.current[cacheKey]);
-                setIsSearching(false);
-                return;
-            }
-
-            const abortController = new AbortController();
-            const timeoutId = setTimeout(async () => {
-                setIsSearching(true);
-                try {
-                    let results = [];
-                    if (localSymbols.length > 0) {
-                        const matched = localSymbols.filter(item => {
-                            if (marketFilter !== 'ALL' && item.market !== marketFilter) return false;
-                            const matchesSymbol = item.symbol?.toLowerCase().includes(queryLower);
-                            const matchesName = item.name?.toLowerCase().includes(queryLower);
-                            const matchesKeywords = item.searchKeywords && item.searchKeywords.some(kw => kw.toLowerCase().includes(queryLower));
-                            return matchesSymbol || matchesName || matchesKeywords;
-                        });
-
-                        results = matched.map(item => ({
-                            symbol: item.symbol,
-                            name: item.name,
-                            market: item.market || 'US',
-                            currency: item.currency || (item.market === 'KR' ? 'KRW' : item.market === 'JP' ? 'JPY' : 'USD'),
-                            searchKeywords: item.searchKeywords || []
-                        }));
-                    }
-
-                    if (results.length === 0) {
-                        const data = await fetchViaWorker(`/search?q=${encodeURIComponent(searchQuery)}`, { signal: abortController.signal });
-                        let rawResults = [];
-                        if (data && data.quotes) {
-                            rawResults = data.quotes.filter(q => {
-                                const type = (q.quoteType || '').toUpperCase();
-                                return type === 'EQUITY' || type === 'ETF' || type === 'MUTUALFUND' || type === 'STOCKS';
-                            });
-                            if (rawResults.length === 0) rawResults = data.quotes.slice(0, 5);
-                        }
-
-                        const uniqueResults = [];
-                        const seen = new Set();
-                        for (const item of rawResults) {
-                            if (!seen.has(item.symbol)) {
-                                seen.add(item.symbol);
-                                uniqueResults.push(item);
-                            }
-                        }
-
-                        results = uniqueResults.map(q => {
-                            let market = 'US', currency = 'USD';
-                            if (q.symbol.endsWith('.KS') || q.symbol.endsWith('.KQ')) { market = 'KR'; currency = 'KRW'; }
-                            else if (q.symbol.endsWith('.T')) { market = 'JP'; currency = 'JPY'; }
-                            const primaryName = q.longname || q.shortname || q.symbol;
-                            return { ...q, name: primaryName, market, currency, searchKeywords: [primaryName] };
-                        }).filter(q => marketFilter === 'ALL' || q.market === marketFilter);
-                    }
-
-                    searchCache.current[cacheKey] = results;
-                    setSearchResults(results);
-                } catch (error) {
-                    if (error.name !== 'AbortError') setSearchResults([]);
-                } finally {
-                    if (!abortController.signal.aborted) setIsSearching(false);
-                }
-            }, 300);
-
-            return () => { clearTimeout(timeoutId); abortController.abort(); };
-        }, [searchQuery, marketFilter, localSymbols]);
-
-        // 보유 주가 및 분배금 데이터 API 연동
-        useEffect(() => {
-            const uniqueSymbols = [...new Set(lots.map(l => l.symbol))];
-            if (uniqueSymbols.length === 0) return;
-
-            const fetchQuotes = async () => {
-                try {
-                    const data = await fetchViaWorker(`/quote?symbols=${encodeURIComponent(uniqueSymbols.join(','))}`);
-                    const quoteList = data?.quoteResponse?.result || data?.quotes;
-                    
-                    if (quoteList) {
-                        const newQuotes = {};
-                        const itemsArray = Array.isArray(quoteList) ? quoteList : Object.values(quoteList);
-                        
-                        itemsArray.forEach(q => {
-                            const sym = q.symbol;
-                            if (sym) {
-                                const price = q.regularMarketPrice ?? q.price ?? q.regularMarketPreviousClose ?? 0;
-                                const rawYield = q.dividendYield ?? q.trailingAnnualDividendYield ?? 0;
-                                const dividendYield = rawYield ? (rawYield > 1 ? rawYield : rawYield * 100) : 0;
-                                const annualDividend = q.trailingAnnualDividendRate ?? q.dividendRate ?? (price * (dividendYield / 100)) ?? 0;
-
-                                newQuotes[sym] = {
-                                    price,
-                                    changePercent: q.regularMarketChangePercent ?? q.changePercent ?? 0,
-                                    longname: q.longname || q.shortname || sym,
-                                    dividendYield,
-                                    annualDividend
-                                };
-                            }
-                        });
-                        setQuotes(prev => ({ ...prev, ...newQuotes }));
-                    }
-                } catch (error) { console.error("Quote & Dividend fetch failed", error); }
-            };
-
-            fetchQuotes();
-            const intervalId = setInterval(fetchQuotes, 60000);
-            return () => clearInterval(intervalId);
-        }, [lots]);
-
-        const filteredLots = useMemo(() => {
-            if (selectedAccount === 'ALL') return lots;
-            return lots.filter(l => (l.account || '기본 계좌') === selectedAccount);
-        }, [lots, selectedAccount]);
-
-        const consolidatedPortfolio = useMemo(() => {
-            const map = new Map();
-            filteredLots.forEach(lot => {
-                if (!map.has(lot.symbol)) {
-                    map.set(lot.symbol, {
-                        symbol: lot.symbol, name: lot.name, market: lot.market, currency: lot.currency,
-                        searchKeywords: lot.searchKeywords || [],
-                        totalQuantity: 0, totalInvestedKRW: 0, totalInvestedForeign: 0,
-                    });
-                }
-                const current = map.get(lot.symbol);
-                current.totalQuantity += lot.quantity;
-                current.totalInvestedKRW += (lot.quantity * lot.avgPriceKRW);
-                current.totalInvestedForeign += (lot.quantity * lot.avgPriceForeign);
-            });
-
-            return Array.from(map.values()).map(item => {
-                const avgPriceKRW = item.totalInvestedKRW / item.totalQuantity;
-                const avgPriceForeign = item.totalInvestedForeign / item.totalQuantity;
-                const quote = quotes[item.symbol];
-                const currentPriceForeign = quote?.price ?? avgPriceForeign;
-                const currentChangePercent = quote?.changePercent ?? 0;
-                const resolvedName = quote?.longname || item.name;
-                
-                const dividendYield = quote?.dividendYield ?? 0;
-                const annualDividendPerShare = quote?.annualDividend ?? (currentPriceForeign * (dividendYield / 100));
-                
-                const currentPriceKRW = currentPriceForeign * fxRates[item.currency];
-                const currentValueKRW = item.totalQuantity * currentPriceKRW;
-                const returnKRW = currentValueKRW - item.totalInvestedKRW;
-                const returnPercent = (returnKRW / item.totalInvestedKRW) * 100;
-                
-                const annualDividendKRW = item.totalQuantity * annualDividendPerShare * fxRates[item.currency];
-                const netAnnualDividendKRW = annualDividendKRW * (1 - taxRate / 100);
-
-                return {
-                    ...item, name: resolvedName, avgPriceKRW, avgPriceForeign,
-                    currentPriceForeign, currentPriceKRW, currentValueKRW,
-                    returnKRW, returnPercent, dailyChangePercent: currentChangePercent,
-                    dividendYield, annualDividendKRW, netAnnualDividendKRW
-                };
-            }).sort((a, b) => b.currentValueKRW - a.currentValueKRW);
-        }, [filteredLots, quotes, fxRates, taxRate]);
-
-        const dividendStats = useMemo(() => {
-            const totalAnnualKRW = consolidatedPortfolio.reduce((sum, item) => sum + item.annualDividendKRW, 0);
-            const totalNetAnnualKRW = consolidatedPortfolio.reduce((sum, item) => sum + item.netAnnualDividendKRW, 0);
-            const totalValuation = consolidatedPortfolio.reduce((sum, item) => sum + item.currentValueKRW, 0);
-            const avgYield = totalValuation > 0 ? (totalAnnualKRW / totalValuation) * 100 : 0;
-            return { annual: totalAnnualKRW, netAnnual: totalNetAnnualKRW, monthly: totalNetAnnualKRW / 12, avgYield };
-        }, [consolidatedPortfolio]);
-
-        const handleAddLot = (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const qty = parseFloat(formData.get('quantity'));
-            const priceKRW = parseFloat(formData.get('priceKRW'));
-            const date = formData.get('buyDate');
-            const account = formData.get('account') || accountNicknames[0] || '기본 계좌';
-
-            if (!qty || !priceKRW || !date) return;
-            const rate = fxRates[addLotModal.currency] || 1;
-
-            const newLot = {
-                id: Date.now().toString(),
-                symbol: addLotModal.symbol,
-                name: addLotModal.name,
-                market: addLotModal.market,
-                currency: addLotModal.currency,
-                searchKeywords: addLotModal.searchKeywords || [],
-                quantity: qty,
-                avgPriceKRW: priceKRW,
-                avgPriceForeign: priceKRW / rate,
-                date, account
-            };
-
-            setLots([...lots, newLot]);
-            setAddLotModal(null);
-            setSearchQuery('');
-            setSearchResults([]);
-        };
-
-        const handleDeleteLot = (id) => setLots(lots.filter(l => l.id !== id));
-        const handleUpdateLot = (id, field, value) => {
-            setLots(lots.map(l => {
-                if (l.id === id) {
-                    const updated = { ...l, [field]: value };
-                    if (field === 'avgPriceKRW') updated.avgPriceForeign = value / fxRates[l.currency];
-                    return updated;
-                }
-                return l;
-            }));
-        };
-
-        const handleMergeLots = (symbol) => {
-            const symbolLots = filteredLots.filter(l => l.symbol === symbol);
-            if (symbolLots.length <= 1) return;
-            let totalQty = 0, totalInvestedKRW = 0;
-            symbolLots.forEach(l => {
-                totalQty += Number(l.quantity);
-                totalInvestedKRW += (Number(l.quantity) * Number(l.avgPriceKRW));
-            });
-            const mergedAvgPriceKRW = totalInvestedKRW / totalQty;
-            const mergedLot = {
-                id: Date.now().toString(),
-                symbol, name: symbolLots[0].name, market: symbolLots[0].market, currency: symbolLots[0].currency,
-                searchKeywords: symbolLots[0].searchKeywords || [],
-                quantity: totalQty, avgPriceKRW: mergedAvgPriceKRW, avgPriceForeign: mergedAvgPriceKRW / fxRates[symbolLots[0].currency],
-                date: new Date().toISOString().split('T')[0], account: symbolLots[0].account || '기본 계좌'
-            };
-            const otherLots = lots.filter(l => !(l.symbol === symbol && (selectedAccount === 'ALL' || (l.account || '기본 계좌') === selectedAccount)));
-            setLots([...otherLots, mergedLot]);
-        };
-
-        const handleAddAccount = () => {
-            if (!newAccountInput.trim()) return;
-            if (!accountNicknames.includes(newAccountInput.trim())) {
-                setAccountNicknames([...accountNicknames, newAccountInput.trim()]);
-            }
-            setSelectedAccount(newAccountInput.trim());
-            setNewAccountInput('');
-        };
-
-        const handleDeleteAccount = (accToDelete, e) => {
-            e.stopPropagation();
-            if (accountNicknames.length <= 1) { alert("최소 1개의 계좌는 유지되어야 합니다."); return; }
-            if (confirm(`'${accToDelete}' 계좌를 삭제하시겠습니까?`)) {
-                setAccountNicknames(accountNicknames.filter(acc => acc !== accToDelete));
-                setLots(lots.filter(l => (l.account || '기본 계좌') !== accToDelete));
-                if (selectedAccount === accToDelete) setSelectedAccount('ALL');
-            }
-        };
-
-        const handleExport = () => {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ lots, accountNicknames }));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "portfolio_export.json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-        };
-
-        const handleImport = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                try {
-                    const parsed = JSON.parse(event.target.result);
-                    if (Array.isArray(parsed)) setLots(parsed);
-                    else if (parsed && Array.isArray(parsed.lots)) {
-                        setLots(parsed.lots);
-                        if (Array.isArray(parsed.accountNicknames)) setAccountNicknames(parsed.accountNicknames);
-                    }
-                } catch (error) { }
-            };
-            reader.readAsText(file);
-        };
-
-        const generateTreemap = (items, x = 0, y = 0, w = 100, h = 100, isHorizontal = true) => {
-            if (items.length === 0) return [];
-            if (items.length === 1) return [{ ...items[0], x, y, w, h }];
-            let sum = items.reduce((s, i) => s + i.currentValueKRW, 0);
-            if (sum === 0) return items.map(i => ({...i, x, y, w:0, h:0}));
-
-            let halfSum = 0, splitIndex = 0;
-            for (let i = 0; i < items.length; i++) {
-                halfSum += items[i].currentValueKRW;
-                if (halfSum >= sum / 2) { splitIndex = i; break; }
-            }
-            if (splitIndex === items.length - 1 && items.length > 1) splitIndex = items.length - 2;
-
-            let leftItems = items.slice(0, splitIndex + 1);
-            let rightItems = items.slice(splitIndex + 1);
-            let leftRatio = leftItems.reduce((s, i) => s + i.currentValueKRW, 0) / sum;
-
-            if (isHorizontal) {
-                let leftW = w * leftRatio;
-                return [
-                    ...generateTreemap(leftItems, x, y, leftW, h, !isHorizontal),
-                    ...generateTreemap(rightItems, x + leftW, y, w - leftW, h, !isHorizontal)
-                ];
-            } else {
-                let topH = h * leftRatio;
-                return [
-                    ...generateTreemap(leftItems, x, y, w, topH, !isHorizontal),
-                    ...generateTreemap(rightItems, x, y + topH, w, h - topH, !isHorizontal)
-                ];
-            }
-        };
-
-        const treemapNodes = useMemo(() => generateTreemap([...consolidatedPortfolio]), [consolidatedPortfolio]);
-
-        const formatNumber = (num, currency) => {
-            if (!num) return '0';
-            const decimals = currency === 'KRW' || currency === 'JPY' ? 0 : 2;
-            return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: decimals, minimumFractionDigits: decimals }).format(num);
-        };
-
-        const MARKET_TOGGLE_LABELS = { ALL: '전체', US: '미장', KR: '국장', JP: '일장' };
-        const getSubMarketLabel = (item) => {
-            if (item.market === 'KR') return item.symbol?.endsWith('.KQ') ? '코스닥' : '코스피';
-            if (item.market === 'JP') return '일장';
-            return '미장';
-        };
-
-        const getHeatmapColor = (changePercent) => {
-            const intensity = Math.min(Math.abs(changePercent) / 10, 1);
-            const alpha = 0.2 + (intensity * 0.8);
-            return changePercent >= 0 ? `rgba(34, 197, 94, ${alpha})` : `rgba(239, 68, 68, ${alpha})`;
-        };
-
-        return (
-            <div className="flex flex-col h-screen bg-slate-950 text-slate-200 font-sans overflow-hidden">
-                <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-lg font-bold text-white flex items-center gap-2">
-                            <span>📈</span> Portfolio Tracker
-                        </h1>
-                        <div className="flex bg-slate-950 border border-slate-800 rounded-lg p-1">
-                            <button onClick={() => setCurrentPage(1)} className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${currentPage === 1 ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                                🗺️ 1페이지 (히트맵)
-                            </button>
-                            <button onClick={() => setCurrentPage(2)} className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${currentPage === 2 ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                                💰 2페이지 (분배금)
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => setIsVerticalLayout(prev => !prev)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${isVerticalLayout ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
-                            <LayoutToggleIcon />
-                            <span className="hidden sm:inline">{isVerticalLayout ? '세로모드' : '가로모드'}</span>
-                        </button>
-                        <button onClick={handleExport} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Download JSON"><DownloadIcon /></button>
-                        <button onClick={() => fileInputRef.current.click()} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Upload JSON"><UploadIcon /></button>
-                        <input type="file" ref={fileInputRef} onChange={handleImport} accept=".json" className="hidden" />
-                    </div>
-                </div>
-
-                <div className={`flex flex-1 overflow-hidden relative ${isVerticalLayout ? 'flex-col' : 'flex-row'}`}>
-                    <div className={`${isVerticalLayout ? 'w-full h-[50%]' : 'w-[50%]' } flex flex-col border-r border-slate-800 overflow-hidden shrink-0 bg-slate-950`}>
-                        <div className="px-4 py-2.5 bg-slate-900/60 border-b border-slate-800 flex items-center justify-between shrink-0">
-                            <div className="flex items-center gap-2 overflow-x-auto flex-1 mr-2">
-                                <button onClick={() => setSelectedAccount('ALL')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === 'ALL' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>전체 계좌</button>
-                                {accountNicknames.map(acc => (
-                                    <div key={acc} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === acc ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
-                                        <button onClick={() => setSelectedAccount(acc)} className="focus:outline-none">{acc}</button>
-                                        <button onClick={(e) => handleDeleteAccount(acc, e)} className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-red-500 hover:text-white text-slate-400 transition-colors ml-1" title="계좌 삭제">
-                                            <MinusIcon />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                            <button onClick={() => setShowAccountManager(!showAccountManager)} className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1">
-                                <PlusIcon /> 계좌 추가
-                            </button>
-                        </div>
-
-                        {showAccountManager && (
-                            <div className="px-4 py-3 bg-slate-900 border-b border-slate-800 flex gap-2 shrink-0 animate-fadeIn">
-                                <input type="text" placeholder="새 계좌 이름 입력" value={newAccountInput} onChange={(e) => setNewAccountInput(e.target.value)} className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500" />
-                                <button onClick={handleAddAccount} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium">추가</button>
-                            </div>
-                        )}
-
-                        <div className="p-4 border-b border-slate-800 relative z-[99] shrink-0">
-                            <div className="flex gap-2 mb-3">
-                                {['ALL', 'US', 'KR', 'JP'].map(market => (
-                                    <button key={market} onClick={() => setMarketFilter(market)} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${marketFilter === market ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                                        {MARKET_TOGGLE_LABELS[market]}
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="relative">
-                                <SearchIcon className="absolute left-3 top-3 text-slate-400" />
-                                <input type="text" placeholder="종목명, 키워드 또는 티커 검색..." className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                                {searchQuery && (
-                                    <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl overflow-hidden max-h-72 overflow-y-auto z-[999]">
-                                        {isSearching ? (
-                                            <div className="p-4 text-center text-slate-400 text-sm">Searching...</div>
-                                        ) : searchResults.length > 0 ? (
-                                            searchResults.map(result => {
-                                                const primaryText = result.name || result.symbol;
-                                                const secondaryText = result.searchKeywords?.[1] || result.symbol;
-                                                return (
-                                                    <div key={result.symbol} className="p-3 hover:bg-slate-700 cursor-pointer flex justify-between items-center border-b border-slate-700/50" onClick={() => setAddLotModal(result)}>
-                                                        <div className="flex flex-col pr-2">
-                                                            <span className="font-bold text-white text-base">{primaryText}</span>
-                                                            <span className="text-xs text-slate-400 mt-0.5">{secondaryText}</span>
-                                                        </div>
-                                                        <span className="text-xs font-mono px-2 py-1 bg-slate-900 rounded text-blue-400 border border-slate-700 shrink-0">{result.symbol}</span>
-                                                    </div>
-                                                );
-                                            })
-                                        ) : (<div className="p-4 text-center text-slate-400 text-sm">No results found</div>)}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-4 relative z-0">
-                            <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-950 py-2 z-10">
-                                <h2 className="text-sm font-semibold text-slate-400">Holdings ({selectedAccount})</h2>
-                                <div className="flex bg-slate-800 rounded-lg p-1">
-                                    <button onClick={() => setDisplayCurrency('KRW')} className={`px-2.5 py-0.5 text-xs rounded font-medium ${displayCurrency === 'KRW' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>KRW</button>
-                                    <button onClick={() => setDisplayCurrency('FOREIGN')} className={`px-2.5 py-0.5 text-xs rounded font-medium ${displayCurrency === 'FOREIGN' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>Foreign</button>
-                                </div>
-                            </div>
-
-                            {consolidatedPortfolio.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-36 text-slate-500 text-sm"><p>No stocks in portfolio yet.</p></div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {consolidatedPortfolio.map(item => (
-                                        <div key={item.symbol} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between hover:border-slate-700 transition-colors">
-                                            <div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-bold text-white text-sm">{item.symbol}</span>
-                                                    <span className="text-[10px] text-slate-400 px-1 py-0.5 bg-slate-800 rounded">{getSubMarketLabel(item)}</span>
-                                                </div>
-                                                <div className="flex gap-3 mt-1 text-xs text-slate-400">
-                                                    <div>Qty: {formatNumber(item.totalQuantity, 'USD')}</div>
-                                                    <div>Avg: {displayCurrency === 'KRW' ? `₩${formatNumber(item.avgPriceKRW, 'KRW')}` : `${getCurrencySymbol(item.currency)}${formatNumber(item.avgPriceForeign, item.currency)}`}</div>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="font-semibold text-sm">
-                                                    {displayCurrency === 'KRW' ? `₩${formatNumber(item.currentValueKRW, 'KRW')}` : `${getCurrencySymbol(item.currency)}${formatNumber(item.totalQuantity * item.currentPriceForeign, item.currency)}`}
-                                                </div>
-                                                <div className={`text-xs font-medium ${item.returnPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                                    {item.returnPercent > 0 ? '+' : ''}{item.returnPercent.toFixed(2)}%
-                                                </div>
-                                                <button onClick={() => setEditModalSymbol(item.symbol)} className="mt-1 text-[10px] text-slate-400 hover:text-white bg-slate-800 px-2 py-0.5 rounded flex items-center gap-1 ml-auto">
-                                                    <EditIcon /> Edit
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className={`${isVerticalLayout ? 'w-full h-[50%]' : 'w-[50%]' } flex flex-col bg-slate-950 overflow-hidden`}>
-                        {currentPage === 1 && (
-                            <div className="flex-1 p-6 bg-slate-950 flex flex-col overflow-hidden">
-                                <h2 className="text-2xl font-bold text-white mb-4">🗺️ Market Heatmap</h2>
-                                <div className="flex-1 w-full bg-slate-900 rounded-xl overflow-hidden relative shadow-inner border border-slate-800">
-                                    {treemapNodes.length > 0 ? treemapNodes.map(node => (
-                                        <div key={node.symbol} className="absolute border border-slate-950 p-2 flex flex-col justify-center items-center overflow-hidden transition-all duration-300 hover:z-10" style={{ left: `${node.x}%`, top: `${node.y}%`, width: `${node.w}%`, height: `${node.h}%`, backgroundColor: getHeatmapColor(node.dailyChangePercent) }}>
-                                            <span className="font-bold text-white text-xs drop-shadow">{node.symbol}</span>
-                                            <span className="text-white/90 text-[10px] drop-shadow">{node.dailyChangePercent >= 0 ? '+' : ''}{node.dailyChangePercent?.toFixed(2)}%</span>
-                                        </div>
-                                    )) : (
-                                        <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm">No Data</div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {currentPage === 2 && (
-                            <div className="flex-1 p-6 overflow-y-auto bg-slate-950 flex flex-col">
-                                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                                        <span>💰</span> Dividend Dashboard ({selectedAccount})
-                                    </h2>
-                                    <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-xl">
-                                        <span className="text-xs text-slate-400 px-2 font-medium">세율:</span>
-                                        {[0, 15, 15.4].map(rate => (
-                                            <button key={rate} onClick={() => setTaxRate(rate)} className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${taxRate === rate ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
-                                                {rate}%
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg">
-                                        <div className="text-slate-400 text-xs mb-1">세후 연간 배당 합계</div>
-                                        <div className="text-xl font-bold text-green-400">₩{formatNumber(dividendStats.netAnnual, 'KRW')}</div>
-                                        <div className="text-[10px] text-slate-500 mt-1">세전: ₩{formatNumber(dividendStats.annual, 'KRW')}</div>
-                                    </div>
-                                    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg">
-                                        <div className="text-slate-400 text-xs mb-1">세후 월 평균 배당금</div>
-                                        <div className="text-xl font-bold text-blue-400">₩{formatNumber(dividendStats.monthly, 'KRW')}</div>
-                                    </div>
-                                    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg">
-                                        <div className="text-slate-400 text-xs mb-1">평균 배당수익률</div>
-                                        <div className="text-xl font-bold text-yellow-400">{dividendStats.avgYield.toFixed(2)}%</div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex-1 flex flex-col">
-                                    <div className="p-4 border-b border-slate-800 font-semibold text-sm">보유 종목별 배당 상세</div>
-                                    <div className="divide-y divide-slate-800 overflow-y-auto flex-1">
-                                        {consolidatedPortfolio.length === 0 ? (
-                                            <div className="p-6 text-center text-slate-500 text-sm">종목이 없습니다.</div>
-                                        ) : (
-                                            consolidatedPortfolio.map(item => (
-                                                <div key={item.symbol} className="p-4 flex items-center justify-between hover:bg-slate-800/50">
-                                                    <div>
-                                                        <div className="font-bold text-white">{item.symbol} <span className="text-xs text-slate-400 font-normal">({item.name})</span></div>
-                                                        <div className="text-xs text-slate-400 mt-0.5">수량: {formatNumber(item.totalQuantity, 'USD')}주</div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="text-sm font-semibold text-green-400">+₩{formatNumber(item.netAnnualDividendKRW, 'KRW')} /년 (세후)</div>
-                                                        <div className="text-xs text-slate-400">배당률: {item.dividendYield?.toFixed(2)}%</div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {addLotModal && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                        <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <h3 className="text-xl font-bold text-white">{addLotModal.symbol}</h3>
-                                    <p className="text-slate-400 text-sm">{addLotModal.name}</p>
-                                </div>
-                                <button onClick={() => setAddLotModal(null)} className="text-slate-400 hover:text-white"><CloseIcon /></button>
-                            </div>
-                            <form onSubmit={handleAddLot} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-1">Account</label>
-                                    <select name="account" defaultValue={selectedAccount === 'ALL' ? (accountNicknames[0] || '기본 계좌') : selectedAccount} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white">
-                                        {accountNicknames.map(acc => <option key={acc} value={acc}>{acc}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-1">Buy Date</label>
-                                    <input type="date" name="buyDate" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white" required />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-1">Quantity</label>
-                                    <input type="number" name="quantity" step="any" min="0.0001" placeholder="10" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white" required />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-1">Average Price (KRW ₩)</label>
-                                    <input type="number" name="priceKRW" step="any" min="1" placeholder="150000" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white" required />
-                                </div>
-                                <div className="pt-4 flex justify-end gap-3">
-                                    <button type="button" onClick={() => setAddLotModal(null)} className="px-4 py-2 text-slate-300 text-sm">Cancel</button>
-                                    <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">Add</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
-
-                {editModalSymbol && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                        <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-xl font-bold text-white">Edit Lots: <span className="text-blue-400">{editModalSymbol}</span></h3>
-                                <button onClick={() => setEditModalSymbol(null)} className="text-slate-400 hover:text-white"><CloseIcon /></button>
-                            </div>
-                            <div className="overflow-y-auto flex-1 space-y-3 pr-2">
-                                {filteredLots.filter(l => l.symbol === editModalSymbol).map(lot => (
-                                    <div key={lot.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-wrap gap-4 items-end">
-                                        <div className="flex-1 min-w-[110px]">
-                                            <label className="block text-xs text-slate-500 mb-1">Account</label>
-                                            <select value={lot.account || accountNicknames[0]} onChange={(e) => handleUpdateLot(lot.id, 'account', e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-white">
-                                                {accountNicknames.map(acc => <option key={acc} value={acc}>{acc}</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="flex-1 min-w-[90px]">
-                                            <label className="block text-xs text-slate-500 mb-1">Qty</label>
-                                            <input type="number" value={lot.quantity} onChange={(e) => handleUpdateLot(lot.id, 'quantity', parseFloat(e.target.value) || 0)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-white" />
-                                        </div>
-                                        <div className="flex-1 min-w-[110px]">
-                                            <label className="block text-xs text-slate-500 mb-1">Price (KRW)</label>
-                                            <input type="number" value={lot.avgPriceKRW} onChange={(e) => handleUpdateLot(lot.id, 'avgPriceKRW', parseFloat(e.target.value) || 0)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-white" />
-                                        </div>
-                                        <button onClick={() => handleDeleteLot(lot.id)} className="p-2 bg-red-950/50 text-red-400 rounded"><TrashIcon /></button>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="pt-4 mt-4 border-t border-slate-800 flex justify-between">
-                                <button onClick={() => handleMergeLots(editModalSymbol)} className="px-4 py-2 bg-slate-800 text-slate-300 text-sm rounded-lg">Merge All</button>
-                                <button onClick={() => setEditModalSymbol(null)} className="px-6 py-2 bg-blue-600 text-white text-sm rounded-lg">Done</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
+      const market = marketOf(symbol);
+      // First non-symbol English/company name is used for the compact display.
+      const nameCandidates = kws.filter(x => x !== symbol.toLowerCase() && x !== symbol.replace(/\.(ks|kq|t)$/i,"").toLowerCase());
+      const displayName = nameCandidates.find(x => /[a-z]/i.test(x)) || nameCandidates[0] || symbol;
+      ranked.push({
+        symbol,
+        name: displayName,
+        market,
+        currency: currencyOf(symbol),
+        score: exact ? 0 : (symbol.toLowerCase().startsWith(q) ? 1 : 2)
+      });
     }
+    return ranked
+      .sort((a,b) => a.score-b.score || a.name.localeCompare(b.name))
+      .slice(0, 20);
+  }, [search, symbols]);
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-  </script>
+  useEffect(() => {
+    if (!lots.length) {
+      setQuotes({});
+      return;
+    }
+    const symbolsToFetch = [...new Set(lots.map(x => x.symbol).filter(Boolean))];
+    let cancelled = false;
+    const load = async () => {
+      setLoadingQuotes(true);
+      setQuoteError("");
+      try {
+        const data = await fetchViaWorker(`/quote?symbols=${encodeURIComponent(symbolsToFetch.join(","))}`);
+        const list = data?.quoteResponse?.result || data?.quotes || [];
+        const next = {};
+        for (const q of (Array.isArray(list) ? list : Object.values(list))) {
+          if (!q?.symbol) continue;
+          const price = Number(q.regularMarketPrice ?? q.price ?? q.regularMarketPreviousClose ?? 0);
+          const rawYield = Number(q.dividendYield ?? q.trailingAnnualDividendYield ?? 0);
+          const yieldPct = rawYield > 1 ? rawYield : rawYield * 100;
+          const annualDividend = Number(q.trailingAnnualDividendRate ?? q.dividendRate ?? 0);
+          next[q.symbol] = {
+            price,
+            changePercent: Number(q.regularMarketChangePercent ?? q.changePercent ?? 0),
+            dividendYield: yieldPct,
+            annualDividend: annualDividend || (price * yieldPct / 100),
+            name: q.longname || q.longName || q.shortname || q.shortName || q.symbol
+          };
+        }
+        if (!cancelled) setQuotes(next);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setQuoteError("Yahoo Finance 데이터를 불러오지 못했습니다.");
+      } finally {
+        if (!cancelled) setLoadingQuotes(false);
+      }
+    };
+    load();
+    const id = setInterval(load, 60 * 1000);
+    return () => { cancelled=true; clearInterval(id); };
+  }, [lots]);
+
+  const visibleLots = useMemo(() => selectedAccount === "ALL"
+    ? lots
+    : lots.filter(l => (l.account || "기본 계좌") === selectedAccount), [lots, selectedAccount]);
+
+  const portfolio = useMemo(() => {
+    const map = new Map();
+    for (const lot of visibleLots) {
+      if (!map.has(lot.symbol)) {
+        map.set(lot.symbol, {
+          symbol:lot.symbol, name:lot.name || lot.symbol, market:marketOf(lot.symbol),
+          currency:lot.currency || currencyOf(lot.symbol), qty:0, investedKRW:0,
+          investedForeign:0, lots:[]
+        });
+      }
+      const p = map.get(lot.symbol);
+      p.qty += Number(lot.quantity) || 0;
+      p.investedKRW += (Number(lot.quantity)||0) * (Number(lot.avgPriceKRW)||0);
+      p.investedForeign += (Number(lot.quantity)||0) * (Number(lot.avgPriceForeign)||0);
+      p.lots.push(lot);
+    }
+    return [...map.values()].map(p => {
+      const q = quotes[p.symbol] || {};
+      const rate = fx[p.currency] || 1;
+      const avgForeign = p.qty ? p.investedForeign / p.qty : 0;
+      const currentForeign = Number(q.price || 0);
+      const currentKRW = currentForeign * rate;
+      const valueKRW = p.qty * currentKRW;
+      const profit = valueKRW - p.investedKRW;
+      const profitPct = p.investedKRW ? profit / p.investedKRW * 100 : 0;
+      const annualDividendForeign = Number(q.annualDividend || 0);
+      const annualDividendKRW = p.qty * annualDividendForeign * rate;
+      return {
+        ...p, name:q.name || p.name, avgForeign, currentForeign, currentKRW,
+        valueKRW, profit, profitPct, changePercent:Number(q.changePercent||0),
+        dividendYield:Number(q.dividendYield||0), annualDividendForeign,
+        annualDividendKRW, netDividendKRW:annualDividendKRW*(1-taxRate/100)
+      };
+    }).sort((a,b)=>b.valueKRW-a.valueKRW);
+  }, [visibleLots, quotes, fx, taxRate]);
+
+  const stats = useMemo(() => {
+    const invested = portfolio.reduce((s,x)=>s+x.investedKRW,0);
+    const value = portfolio.reduce((s,x)=>s+x.valueKRW,0);
+    const profit = value-invested;
+    const annual = portfolio.reduce((s,x)=>s+x.annualDividendKRW,0);
+    const net = portfolio.reduce((s,x)=>s+x.netDividendKRW,0);
+    return {invested,value,profit,profitPct:invested?profit/invested*100:0,annual,net,monthly:net/12};
+  }, [portfolio]);
+
+  const addLot = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const qty = Number(fd.get("quantity"));
+    const priceKRW = Number(fd.get("priceKRW"));
+    const date = fd.get("date");
+    if (!qty || !priceKRW || !date || !showAdd) return;
+    const currency = showAdd.currency;
+    const rate = fx[currency] || 1;
+    const lot = {
+      id:Date.now().toString(), symbol:showAdd.symbol, name:showAdd.name,
+      market:showAdd.market, currency, searchKeywords:showAdd.searchKeywords || [],
+      quantity:qty, avgPriceKRW:priceKRW, avgPriceForeign:priceKRW/rate,
+      date, account:fd.get("account") || accounts[0] || "기본 계좌"
+    };
+    setLots(prev=>[...prev,lot]);
+    setShowAdd(null); setSearch(""); setSearchOpen(false);
+  };
+
+  const updateLot = (id, field, value) => {
+    setLots(prev=>prev.map(l=>{
+      if(l.id!==id) return l;
+      const next={...l,[field]:field==="quantity"||field==="avgPriceKRW"?Number(value):value};
+      if(field==="avgPriceKRW") next.avgPriceForeign=Number(value)/(fx[l.currency]||1);
+      return next;
+    }));
+  };
+
+  const deleteLot = id => setLots(prev=>prev.filter(l=>l.id!==id));
+
+  const addAccount = () => {
+    const name=newAccount.trim();
+    if(!name || accounts.includes(name)) return;
+    setAccounts(prev=>[...prev,name]);
+    setSelectedAccount(name);
+    setNewAccount("");
+  };
+
+  const deleteAccount = acc => {
+    if(accounts.length<=1) return alert("최소 1개의 계좌는 유지해야 합니다.");
+    if(!confirm(`'${acc}' 계좌와 보유 종목을 삭제할까요?`)) return;
+    setAccounts(prev=>prev.filter(x=>x!==acc));
+    setLots(prev=>prev.filter(x=>(x.account||"기본 계좌")!==acc));
+    if(selectedAccount===acc) setSelectedAccount("ALL");
+  };
+
+  const exportData = () => {
+    const blob = new Blob([JSON.stringify({lots,accountNicknames:accounts},null,2)],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob); a.download="portfolio_export.json"; a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const importData = e => {
+    const file=e.target.files?.[0];
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try {
+        const data=JSON.parse(ev.target.result);
+        if(Array.isArray(data)) setLots(data);
+        else if(data?.lots) {
+          setLots(data.lots);
+          if(Array.isArray(data.accountNicknames)) setAccounts(data.accountNicknames);
+        }
+      } catch { alert("JSON 파일을 읽을 수 없습니다."); }
+    };
+    reader.readAsText(file);
+    e.target.value="";
+  };
+
+  const goPage = n => {
+    const el=trackRef.current;
+    if(el) el.scrollTo({left:el.clientWidth*n,behavior:"smooth"});
+    setPage(n);
+  };
+
+  useEffect(()=>{
+    const el=trackRef.current;
+    if(!el) return;
+    const onScroll=()=>{
+      const n=Math.round(el.scrollLeft/el.clientWidth);
+      if(n!==page) setPage(n);
+    };
+    el.addEventListener("scroll",onScroll,{passive:true});
+    return()=>el.removeEventListener("scroll",onScroll);
+  },[page]);
+
+  useEffect(()=>{
+    const el=trackRef.current;
+    if(!el) return;
+    const down=e=>{
+      if(e.pointerType==="touch") return;
+      drag.current={down:true,startX:e.clientX,startScroll:el.scrollLeft,moved:false};
+      el.setPointerCapture?.(e.pointerId);
+    };
+    const move=e=>{
+      if(!drag.current.down) return;
+      const dx=e.clientX-drag.current.startX;
+      if(Math.abs(dx)>5) drag.current.moved=true;
+      el.scrollLeft=drag.current.startScroll-dx;
+    };
+    const up=()=>{drag.current.down=false; if(drag.current.moved){const n=Math.round(el.scrollLeft/el.clientWidth); goPage(Math.max(0,Math.min(2,n)));}};
+    el.addEventListener("pointerdown",down);
+    el.addEventListener("pointermove",move);
+    el.addEventListener("pointerup",up);
+    el.addEventListener("pointercancel",up);
+    return()=>{el.removeEventListener("pointerdown",down);el.removeEventListener("pointermove",move);el.removeEventListener("pointerup",up);el.removeEventListener("pointercancel",up);};
+  },[]);
+
+  const pageTitle = ["Portfolio","Dividend","Market"][page];
+
+  return (
+    <div className="h-screen w-screen bg-slate-950 text-slate-100">
+      <header className="h-14 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between px-3 md:px-6">
+        <div className="flex items-center gap-3">
+          <div className="font-semibold text-white">{page===0?"Portfolio":page===1?"Dividend":"Market"}</div>
+          <div className="flex items-center gap-1">
+            {[0,1,2].map(n=><button key={n} onClick={()=>goPage(n)} aria-label={`페이지 ${n+1}`} className={`w-2 h-2 rounded-full ${page===n?"bg-white":"bg-slate-600"}`}/>)}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={exportData} className="p-2 rounded-lg hover:bg-slate-800" title="내보내기"><DownloadIcon className="w-4 h-4"/></button>
+          <button onClick={()=>importRef.current?.click()} className="p-2 rounded-lg hover:bg-slate-800" title="가져오기"><UploadIcon className="w-4 h-4"/></button>
+          <input ref={importRef} type="file" accept=".json" className="hidden" onChange={importData}/>
+        </div>
+      </header>
+
+      <div ref={trackRef} className="page-track">
+        <section className="page">
+          <div className="max-w-7xl mx-auto p-3 md:p-6 space-y-4">
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="flex-1 relative">
+                <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-3">
+                  <SearchIcon className="w-5 h-5 text-slate-500"/>
+                  <input value={search} onChange={e=>{setSearch(e.target.value);setSearchOpen(true)}} onFocus={()=>setSearchOpen(true)}
+                    placeholder="종목명 또는 티커 검색" className="w-full bg-transparent outline-none px-3 py-3 text-sm"/>
+                  {search && <button onClick={()=>{setSearch("");setSearchOpen(false)}}><CloseIcon className="w-4 h-4 text-slate-500"/></button>}
+                </div>
+                {searchOpen && search.trim() && (
+                  <div className="absolute z-30 left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden max-h-80 overflow-y-auto">
+                    {symbolsBySearch.length ? symbolsBySearch.map(item=>(
+                      <button key={item.symbol} onClick={()=>{setShowAdd(item);setSearchOpen(false)}}
+                        className="w-full text-left px-4 py-3 hover:bg-slate-800 border-b border-slate-800 last:border-0">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-white truncate">{item.name} <span className="text-slate-500">| {item.symbol.replace(/\.(KS|KQ|T)$/i,"")}</span></div>
+                            <div className="text-xs text-slate-500 mt-0.5">{marketLabel(item.symbol)}</div>
+                          </div>
+                          <span className="text-xs text-slate-500">{item.currency}</span>
+                        </div>
+                      </button>
+                    )) : <div className="p-4 text-sm text-slate-500">symbols.json에서 찾을 수 없습니다.</div>}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <select value={selectedAccount} onChange={e=>setSelectedAccount(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 text-sm">
+                  <option value="ALL">전체 계좌</option>
+                  {accounts.map(a=><option key={a}>{a}</option>)}
+                </select>
+                <button onClick={()=>setShowAccounts(true)} className="px-3 rounded-xl bg-slate-900 border border-slate-800 text-sm">계좌</button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
+              <Stat title="평가금액" value={money(stats.value)} />
+              <Stat title="투자원금" value={money(stats.invested)} />
+              <Stat title="평가손익" value={signedMoney(stats.profit)} valueClass={colorForReturn(stats.profit)}/>
+              <Stat title="수익률" value={`${stats.profitPct>=0?"+":""}${stats.profitPct.toFixed(2)}%`} valueClass={colorForReturn(stats.profitPct)}/>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <div className="text-sm text-slate-400">{portfolio.length}개 종목</div>
+              <div className="text-xs text-slate-500">
+                USD/KRW {format(fx.USD,"KRW")} · JPY/KRW {format(fx.JPY,"KRW")}
+                {loadingQuotes && " · 업데이트 중"}
+              </div>
+            </div>
+
+            {quoteError && <div className="text-xs text-amber-400 bg-amber-950/30 border border-amber-900/50 rounded-lg p-3">{quoteError}</div>}
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+              <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_90px] gap-3 px-4 py-3 text-xs text-slate-500 border-b border-slate-800">
+                <div>종목</div><div>보유수량</div><div>현재가</div><div>평가금액</div><div>손익</div><div></div>
+              </div>
+              {portfolio.length===0 ? (
+                <div className="p-10 text-center text-slate-500 text-sm">검색해서 종목을 추가해 주세요.</div>
+              ) : portfolio.map(item=>(
+                <div key={item.symbol} className="px-4 py-4 border-b border-slate-800 last:border-0">
+                  <div className="grid md:grid-cols-[2fr_1fr_1fr_1fr_1fr_90px] gap-2 md:gap-3 items-center">
+                    <div className="min-w-0">
+                      <div className="font-medium text-white truncate">{item.name}</div>
+                      <div className="text-xs text-slate-500">{item.symbol} · {marketLabel(item.symbol)}</div>
+                    </div>
+                    <div className="text-sm">{format(item.qty,item.currency)}</div>
+                    <div className="text-sm">
+                      {item.currentForeign ? money(item.currentForeign,item.currency) : <span className="text-slate-600">-</span>}
+                      <div className="text-xs text-slate-500">{item.currentForeign ? money(item.currentKRW,"KRW") : ""}</div>
+                    </div>
+                    <div className="text-sm">{item.valueKRW ? money(item.valueKRW) : "-"}</div>
+                    <div className={`text-sm ${colorForReturn(item.profit)}`}>
+                      {item.valueKRW ? signedMoney(item.profit) : "-"}
+                      <div className="text-xs">{item.valueKRW ? `${item.profitPct>=0?"+":""}${item.profitPct.toFixed(2)}%` : ""}</div>
+                    </div>
+                    <div className="flex md:justify-end gap-1">
+                      <button onClick={()=>setEditLot(item.lots[0])} className="p-2 rounded-lg hover:bg-slate-800"><EditIcon className="w-4 h-4"/></button>
+                      <button onClick={()=>{if(confirm(`${item.symbol}의 보유 기록을 모두 삭제할까요?`)) setLots(prev=>prev.filter(l=>l.symbol!==item.symbol))}} className="p-2 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-rose-400"><TrashIcon className="w-4 h-4"/></button>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                    <span className="px-2 py-1 rounded bg-slate-950">연 분배금 {money(item.annualDividendKRW,"KRW")}</span>
+                    <span className="px-2 py-1 rounded bg-slate-950">수익률 {item.dividendYield.toFixed(2)}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center text-xs text-slate-600 py-2">← 모바일은 좌우 스와이프 · PC는 클릭 후 드래그 →</div>
+          </div>
+        </section>
+
+        <section className="page">
+          <div className="max-w-7xl mx-auto p-3 md:p-6 space-y-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
+              <Stat title="연간 분배금" value={money(stats.annual)} />
+              <Stat title="세후 연간" value={money(stats.net)} />
+              <Stat title="월평균 세후" value={money(stats.monthly)} />
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                <div className="text-xs text-slate-500 mb-2">세율</div>
+                <div className="flex items-center gap-2"><input type="number" step="0.1" value={taxRate} onChange={e=>setTaxRate(Number(e.target.value))} className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm"/><span className="text-sm text-slate-400">%</span></div>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+              <div className="px-4 py-4 border-b border-slate-800">
+                <div className="text-sm font-medium">보유 종목 분배금</div>
+                <div className="text-xs text-slate-500 mt-1">포트폴리오에 실제 보유한 종목만 Yahoo Finance에서 조회합니다.</div>
+              </div>
+              {portfolio.length===0 ? <div className="p-10 text-center text-slate-500 text-sm">보유 종목이 없습니다.</div> :
+              portfolio.map(item=>(
+                <div key={item.symbol} className="px-4 py-4 border-b border-slate-800 last:border-0 flex flex-col md:grid md:grid-cols-[2fr_1fr_1fr_1fr] gap-2 md:items-center">
+                  <div><div className="font-medium">{item.name}</div><div className="text-xs text-slate-500">{item.symbol} · {format(item.qty,item.currency)}주</div></div>
+                  <div><div className="text-xs text-slate-500">주당 연 분배금</div><div>{item.annualDividendForeign ? money(item.annualDividendForeign,item.currency) : "-"}</div></div>
+                  <div><div className="text-xs text-slate-500">연간 예상</div><div>{money(item.annualDividendKRW)}</div></div>
+                  <div><div className="text-xs text-slate-500">세후 예상</div><div>{money(item.netDividendKRW)}</div></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="page">
+          <div className="max-w-7xl mx-auto p-3 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div><div className="font-semibold">Market</div><div className="text-xs text-slate-500">보유 종목만 표시</div></div>
+              <div className="text-xs text-slate-500">{portfolio.length}개</div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
+              {portfolio.map(item=>{
+                const intensity=Math.min(Math.abs(item.changePercent)/5,1);
+                const bg=item.changePercent>0 ? `rgba(16,185,129,${0.15+intensity*0.65})` :
+                  item.changePercent<0 ? `rgba(244,63,94,${0.15+intensity*0.65})` : "rgba(100,116,139,.18)";
+                return <div key={item.symbol} className="heat-cell rounded-lg border border-slate-800 p-3" style={{background:bg}}>
+                  <div className="text-xs text-slate-300 truncate">{item.name}</div>
+                  <div className="font-semibold mt-1">{item.symbol.replace(/\.(KS|KQ|T)$/i,"")}</div>
+                  <div className={`text-sm mt-1 ${colorForReturn(item.changePercent)}`}>{item.changePercent>=0?"+":""}{item.changePercent.toFixed(2)}%</div>
+                  <div className="text-xs text-slate-400 mt-1">{money(item.valueKRW)}</div>
+                </div>
+              })}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {showAdd && <Modal title={`${showAdd.name} 추가`} onClose={()=>setShowAdd(null)}>
+        <form onSubmit={addLot} className="space-y-4">
+          <div className="text-xs text-slate-500">{showAdd.symbol} · {showAdd.currency}</div>
+          <Field label="수량"><input name="quantity" type="number" step="any" required autoFocus className="field"/></Field>
+          <Field label="매수금액 (원화)"><input name="priceKRW" type="number" step="any" required className="field"/></Field>
+          <Field label="매수일"><input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} required className="field"/></Field>
+          <Field label="계좌"><select name="account" defaultValue={accounts[0]} className="field">{accounts.map(a=><option key={a}>{a}</option>)}</select></Field>
+          <button className="w-full bg-blue-600 hover:bg-blue-500 rounded-xl py-3 font-medium">추가</button>
+        </form>
+      </Modal>}
+
+      {editLot && <Modal title={`${editLot.symbol} 수정`} onClose={()=>setEditLot(null)}>
+        <div className="space-y-4">
+          <Field label="수량"><input type="number" step="any" value={editLot.quantity} onChange={e=>{updateLot(editLot.id,"quantity",e.target.value);setEditLot({...editLot,quantity:e.target.value})}} className="field"/></Field>
+          <Field label="매수금액 (원화)"><input type="number" step="any" value={editLot.avgPriceKRW} onChange={e=>{updateLot(editLot.id,"avgPriceKRW",e.target.value);setEditLot({...editLot,avgPriceKRW:e.target.value})}} className="field"/></Field>
+          <Field label="계좌"><select value={editLot.account||"기본 계좌"} onChange={e=>{updateLot(editLot.id,"account",e.target.value);setEditLot({...editLot,account:e.target.value})}} className="field">{accounts.map(a=><option key={a}>{a}</option>)}</select></Field>
+          <button onClick={()=>setEditLot(null)} className="w-full bg-slate-800 rounded-xl py-3">완료</button>
+        </div>
+      </Modal>}
+
+      {showAccounts && <Modal title="계좌" onClose={()=>setShowAccounts(false)}>
+        <div className="flex gap-2 mb-4"><input value={newAccount} onChange={e=>setNewAccount(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addAccount()} placeholder="새 계좌" className="field"/><button onClick={addAccount} className="px-4 bg-blue-600 rounded-xl"><PlusIcon className="w-5 h-5"/></button></div>
+        <div className="space-y-2">{accounts.map(a=><div key={a} className="flex items-center justify-between bg-slate-950 rounded-xl px-3 py-2"><button onClick={()=>{setSelectedAccount(a);setShowAccounts(false)}} className="text-sm">{a}</button><button onClick={()=>deleteAccount(a)} className="text-slate-600 hover:text-rose-400"><TrashIcon className="w-4 h-4"/></button></div>)}</div>
+      </Modal>}
+    </div>
+  );
+}
+
+function Stat({title,value,valueClass=""}) {
+  return <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+    <div className="text-xs text-slate-500 mb-2">{title}</div>
+    <div className={`text-lg md:text-xl font-semibold ${valueClass||"text-white"}`}>{value}</div>
+  </div>;
+}
+function Field({label,children}) {
+  return <label className="block"><div className="text-xs text-slate-500 mb-1.5">{label}</div>{children}</label>;
+}
+function Modal({title,onClose,children}) {
+  return <div className="fixed inset-0 z-50 bg-black/70 flex items-end md:items-center justify-center p-0 md:p-4">
+    <div className="w-full md:max-w-md bg-slate-900 border border-slate-700 rounded-t-2xl md:rounded-2xl p-5 max-h-[90vh] overflow-y-auto">
+      <div className="flex items-center justify-between mb-5"><div className="font-semibold">{title}</div><button onClick={onClose}><CloseIcon className="w-5 h-5 text-slate-400"/></button></div>
+      {children}
+    </div>
+  </div>;
+}
+</script>
+<style>
+.field{width:100%;background:#020617;border:1px solid #334155;border-radius:.75rem;padding:.7rem .8rem;color:#f8fafc;outline:none}
+.field:focus{border-color:#64748b}
+</style>
 </body>
 </html>
