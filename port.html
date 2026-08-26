@@ -48,12 +48,24 @@ const { useEffect, useMemo, useRef, useState } = React;
 const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
 const SYMBOLS_URL = "https://ninetaild.github.io/data/symbols.json";
 
+// 브랜드 한글/영문 자동 별칭 매핑 (symbols.json 키워드 누락 보완용)
+const BRAND_ALIASES = {
+  "lg": ["lg", "엘지"],
+  "엘지": ["lg", "엘지"],
+  "대우": ["daewoo", "dw", "대우"],
+  "daewoo": ["daewoo", "dw", "대우"],
+  "sk": ["sk", "에스케이"],
+  "gs": ["gs", "지에스"],
+  "삼성": ["samsung", "삼성"],
+  "현대": ["hyundai", "현대"]
+};
+
 const cleanTicker = (symbol = "") => String(symbol).replace(/\.(KS|KQ|T)$/i, "").toUpperCase();
 
 const marketOf = (symbol = "") => {
   const s = String(symbol).toUpperCase();
-  if (s.endsWith(".KS") || s.endsWith(".KQ")) return "KR";
-  if (s.endsWith(".T")) return "JP";
+  if (s.endsWith(".KS") || s.endsWith(".KQ") || /^\d{6}$/.test(s)) return "KR";
+  if (s.endsWith(".T") || /^\d{4}$/.test(s)) return "JP";
   return "US";
 };
 
@@ -65,8 +77,8 @@ const currencyOf = (symbol = "") => {
 const marketLabel = (symbol = "") => {
   const s = String(symbol).toUpperCase();
   if (s.endsWith(".KQ")) return "코스닥";
-  if (s.endsWith(".KS")) return "코스피";
-  if (s.endsWith(".T")) return "일본";
+  if (s.endsWith(".KS") || /^\d{6}$/.test(s)) return "코스피";
+  if (s.endsWith(".T") || /^\d{4}$/.test(s)) return "일본";
   return "미국";
 };
 
@@ -133,7 +145,6 @@ function App() {
   useEffect(() => localStorage.setItem("globalPortfolioLots", JSON.stringify(lots)), [lots]);
   useEffect(() => localStorage.setItem("globalPortfolioAccounts", JSON.stringify(accounts)), [accounts]);
 
-  // 종목 사전 로드
   useEffect(() => {
     fetch(SYMBOLS_URL, { cache: "no-store" })
       .then(r => r.json())
@@ -141,7 +152,6 @@ function App() {
       .catch(e => console.error("symbols load failed", e));
   }, []);
 
-  // 환율 정보 불러오기
   useEffect(() => {
     const loadFx = async () => {
       try {
@@ -168,20 +178,42 @@ function App() {
     return () => clearInterval(id);
   }, []);
 
-  // 시세 & 분배금 로드 (다중 키 매핑 적용)
+  // 한국/미국/일본 시세 통합 로더
   useEffect(() => {
     if (!lots.length) {
       setQuotes({});
       return;
     }
-    const uniqueSymbols = [...new Set(lots.map(x => x.symbol).filter(Boolean))];
+
+    const reqSymbols = new Set();
+    lots.forEach(lot => {
+      if (!lot.symbol) return;
+      const raw = String(lot.symbol).toUpperCase();
+      const clean = cleanTicker(raw);
+
+      reqSymbols.add(raw);
+      reqSymbols.add(clean);
+
+      if (/^\d{6}$/.test(clean)) {
+        reqSymbols.add(`${clean}.KS`);
+        reqSymbols.add(`${clean}.KQ`);
+      } else if (/^\d{4}$/.test(clean)) {
+        reqSymbols.add(`${clean}.T`);
+      } else if (clean.includes(".")) {
+        reqSymbols.add(clean.replace(/\./g, "-"));
+      } else if (clean.includes("-")) {
+        reqSymbols.add(clean.replace(/-/g, "."));
+      }
+    });
+
     let cancelled = false;
 
     const loadQuotes = async () => {
       setLoadingQuotes(true);
       setQuoteError("");
       try {
-        const res = await fetch(`${WORKER_BASE_URL}/quote?symbols=${encodeURIComponent(uniqueSymbols.join(","))}`);
+        const queryStr = [...reqSymbols].join(",");
+        const res = await fetch(`${WORKER_BASE_URL}/quote?symbols=${encodeURIComponent(queryStr)}`);
         
         let list = [];
         if (res.ok) {
@@ -193,17 +225,25 @@ function App() {
           } else if (Array.isArray(data)) {
             list = data;
           } else if (data && typeof data === 'object') {
-            list = Object.values(data).filter(x => x && typeof x === 'object');
+            list = Object.entries(data).map(([k, v]) => ({ symbol: k, ...(v || {}) }));
           }
         }
 
         const nextQuotes = {};
         for (const q of list) {
           if (!q) continue;
-          const rawSym = q.symbol || q.ticker || "";
+          const rawSym = String(q.symbol || q.ticker || "").toUpperCase();
           if (!rawSym) continue;
 
-          const price = Number(q.regularMarketPrice ?? q.price ?? q.regularMarketPreviousClose ?? q.close ?? 0);
+          const price = Number(
+            q.regularMarketPrice ?? 
+            q.price ?? 
+            q.postMarketPrice ?? 
+            q.regularMarketPreviousClose ?? 
+            q.previousClose ?? 
+            q.close ?? 0
+          );
+
           const changePercent = Number(q.regularMarketChangePercent ?? q.changePercent ?? 0);
 
           let yieldPct = Number(q.dividendYield ?? q.trailingAnnualDividendYield ?? q.yield ?? 0);
@@ -221,13 +261,17 @@ function App() {
             name: q.longName || q.shortName || q.displayName || rawSym
           };
 
-          // 티커 형태별 매핑 키 등록 (005930.KS, 005930, 005930.ks 모두 일치 가능)
+          const clean = cleanTicker(rawSym);
           const keys = [
             rawSym,
-            rawSym.toUpperCase(),
             rawSym.toLowerCase(),
-            cleanTicker(rawSym),
-            cleanTicker(rawSym).toLowerCase()
+            clean,
+            clean.toLowerCase(),
+            `${clean}.KS`,
+            `${clean}.KQ`,
+            `${clean}.T`,
+            clean.replace(/\./g, "-"),
+            clean.replace(/-/g, ".")
           ];
 
           keys.forEach(k => { if (k) nextQuotes[k] = itemData; });
@@ -247,23 +291,32 @@ function App() {
     return () => { cancelled = true; clearInterval(id); };
   }, [lots]);
 
-  // 검색 목록 정돈
+  // 키워드 확장 검색 (한글 브랜드 매핑 추가)
   const symbolsBySearch = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
-    
+
+    const searchTokens = BRAND_ALIASES[q] || [q];
+
     return symbols
       .filter(item => {
         const symbol = String(item.symbol || "").toLowerCase();
         const cleaned = cleanTicker(symbol).toLowerCase();
         const kws = Array.isArray(item.searchKeywords) ? item.searchKeywords.map(x => String(x).toLowerCase()) : [];
-        return symbol.includes(q) || cleaned.includes(q) || kws.some(k => k.includes(q));
+        const itemName = String(item.name || "").toLowerCase();
+
+        return searchTokens.some(token => 
+          symbol.includes(token) || 
+          cleaned.includes(token) || 
+          itemName.includes(token) ||
+          kws.some(k => k.includes(token))
+        );
       })
       .map(item => {
         const rawSymbol = item.symbol;
         const cleaned = cleanTicker(rawSymbol);
         const nameCandidates = (item.searchKeywords || []).filter(k => k.toLowerCase() !== rawSymbol.toLowerCase() && k.toLowerCase() !== cleaned.toLowerCase());
-        const displayName = nameCandidates[0] || item.name || cleaned;
+        const displayName = item.name || nameCandidates[0] || cleaned;
         return {
           symbol: rawSymbol,
           cleanedSymbol: cleaned,
@@ -281,7 +334,6 @@ function App() {
       : lots.filter(l => (l.account || "기본 계좌") === selectedAccount);
   }, [lots, selectedAccount]);
 
-  // 포트폴리오 집계 계산
   const portfolio = useMemo(() => {
     const map = new Map();
     for (const lot of visibleLots) {
@@ -307,7 +359,16 @@ function App() {
     }
 
     return [...map.values()].map(p => {
-      const q = quotes[p.symbol] || quotes[p.symbol.toUpperCase()] || quotes[cleanTicker(p.symbol)] || {};
+      const clean = cleanTicker(p.symbol);
+      const q = quotes[p.symbol] ||
+                quotes[p.symbol.toUpperCase()] ||
+                quotes[clean] ||
+                quotes[`${clean}.KS`] ||
+                quotes[`${clean}.KQ`] ||
+                quotes[`${clean}.T`] ||
+                quotes[clean.replace(/\./g, "-")] ||
+                quotes[clean.replace(/-/g, ".")] || {};
+
       const rate = fx[p.currency] || 1;
       const currentForeign = Number(q.price || 0);
       const currentKRW = currentForeign * rate;
@@ -348,7 +409,6 @@ function App() {
     };
   }, [portfolio]);
 
-  // 페이지 스크롤 스위칭
   const scrollToPage = (idx) => {
     setPage(idx);
     if (containerRef.current) {
@@ -369,7 +429,6 @@ function App() {
     }
   };
 
-  // 매수건 추가
   const addLot = (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -399,7 +458,6 @@ function App() {
     setSearchOpen(false);
   };
 
-  // 보유 매수건 수정 (텍스트 입력 작동 보장)
   const handleUpdateLot = (lotId, field, val) => {
     setLots(prev => prev.map(l => {
       if (l.id !== lotId) return l;
@@ -411,7 +469,6 @@ function App() {
       return updated;
     }));
 
-    // 모달 내 실시간 갱신
     if (editingStock) {
       setEditingStock(prev => ({
         ...prev,
@@ -493,9 +550,8 @@ function App() {
 
   return (
     <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* 헤더 */}
-      <header className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 z-20 flex-shrink-0">
-        <div className="flex items-center gap-4">
+      <header className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 z-20 flex-shrink-0 gap-2">
+        <div className="flex items-center gap-3 min-w-max">
           <div className="font-bold text-base md:text-lg text-white">
             {page === 0 ? "포트폴리오" : page === 1 ? "분배금 (배당)" : "마켓 히트맵"}
           </div>
@@ -509,7 +565,25 @@ function App() {
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 mx-auto">
+          <select
+            value={selectedAccount}
+            onChange={e => setSelectedAccount(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs md:text-sm text-white outline-none focus:border-blue-500"
+          >
+            <option value="ALL">전체 계좌</option>
+            {accounts.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <button
+            onClick={() => setShowAccounts(true)}
+            className="px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs md:text-sm font-medium hover:bg-slate-700 whitespace-nowrap"
+          >
+            계좌 관리
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 min-w-max">
           <button onClick={exportData} title="내보내기" className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">
             <DownloadIcon className="w-4 h-4" />
           </button>
@@ -520,67 +594,45 @@ function App() {
         </div>
       </header>
 
-      {/* 스와이프 컨테이너 */}
-      <div 
-        ref={containerRef}
-        onScroll={handleScroll}
-        className="page-container"
-      >
+      <div ref={containerRef} onScroll={handleScroll} className="page-container">
         {/* PAGE 1: 포트폴리오 메인 */}
         <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
           <div className="max-w-6xl mx-auto space-y-4">
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="flex-1 relative">
-                <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 focus-within:border-blue-500">
-                  <SearchIcon className="w-5 h-5 text-slate-500 mr-2" />
-                  <input
-                    value={search}
-                    onChange={e => { setSearch(e.target.value); setSearchOpen(true); }}
-                    onFocus={() => setSearchOpen(true)}
-                    placeholder="종목명 또는 티커 검색 (예: 삼성전자, AAPL, 005930)"
-                    className="w-full bg-transparent outline-none text-sm text-white placeholder-slate-500"
-                  />
-                  {search && (
-                    <button onClick={() => { setSearch(""); setSearchOpen(false); }}>
-                      <CloseIcon className="w-4 h-4 text-slate-500" />
-                    </button>
-                  )}
-                </div>
-                {searchOpen && search.trim() && (
-                  <div className="absolute z-30 left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-72 overflow-y-auto thin-scroll">
-                    {symbolsBySearch.length ? symbolsBySearch.map(item => (
-                      <button
-                        key={item.symbol}
-                        onClick={() => { setShowAdd(item); setSearchOpen(false); }}
-                        className="w-full text-left px-4 py-3 hover:bg-slate-800 border-b border-slate-800/50 flex justify-between items-center"
-                      >
-                        <div>
-                          <div className="text-sm font-medium text-white">{item.name}</div>
-                          <div className="text-xs text-slate-400">{item.cleanedSymbol} · {marketLabel(item.symbol)}</div>
-                        </div>
-                        <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">{item.currency}</span>
-                      </button>
-                    )) : <div className="p-4 text-sm text-slate-500 text-center">검색 결과가 없습니다.</div>}
-                  </div>
+            <div className="relative">
+              <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 focus-within:border-blue-500">
+                <SearchIcon className="w-5 h-5 text-slate-500 mr-2" />
+                <input
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setSearchOpen(true); }}
+                  onFocus={() => setSearchOpen(true)}
+                  placeholder="종목명 또는 티커 검색 (예: 삼성전자, LG전자, AAPL, 7203)"
+                  className="w-full bg-transparent outline-none text-sm text-white placeholder-slate-500"
+                />
+                {search && (
+                  <button onClick={() => { setSearch(""); setSearchOpen(false); }}>
+                    <CloseIcon className="w-4 h-4 text-slate-500" />
+                  </button>
                 )}
               </div>
-
-              <div className="flex gap-2">
-                <select
-                  value={selectedAccount}
-                  onChange={e => setSelectedAccount(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-3 text-sm text-white outline-none"
-                >
-                  <option value="ALL">전체 계좌</option>
-                  {accounts.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
-                <button onClick={() => setShowAccounts(true)} className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm font-medium hover:bg-slate-800">
-                  계좌 관리
-                </button>
-              </div>
+              {searchOpen && search.trim() && (
+                <div className="absolute z-30 left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-72 overflow-y-auto thin-scroll">
+                  {symbolsBySearch.length ? symbolsBySearch.map(item => (
+                    <button
+                      key={item.symbol}
+                      onClick={() => { setShowAdd(item); setSearchOpen(false); }}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-800 border-b border-slate-800/50 flex justify-between items-center"
+                    >
+                      <div>
+                        <div className="text-sm font-medium text-white">{item.name}</div>
+                        <div className="text-xs text-slate-400">{item.cleanedSymbol} · {marketLabel(item.symbol)}</div>
+                      </div>
+                      <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">{item.currency}</span>
+                    </button>
+                  )) : <div className="p-4 text-sm text-slate-500 text-center">검색 결과가 없습니다.</div>}
+                </div>
+              )}
             </div>
 
-            {/* 요약 카드 */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <Stat title="총 평가금액" value={money(stats.value)} />
               <Stat title="총 투자원금" value={money(stats.invested)} />
@@ -595,7 +647,6 @@ function App() {
 
             {quoteError && <div className="text-xs text-amber-400 bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl">{quoteError}</div>}
 
-            {/* 보유 종목 리스트 */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
               <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_80px] gap-3 px-4 py-3 text-xs text-slate-400 font-medium border-b border-slate-800">
                 <div>종목명</div>
@@ -757,7 +808,6 @@ function App() {
         </div>
       </div>
 
-      {/* 모달: 종목 추가 */}
       {showAdd && (
         <Modal title={`${showAdd.name} 추가`} onClose={() => setShowAdd(null)}>
           <form onSubmit={addLot} className="space-y-4">
@@ -775,7 +825,6 @@ function App() {
         </Modal>
       )}
 
-      {/* 모달: 매수건 수정/삭제 */}
       {editingStock && (
         <Modal title={`${editingStock.name} 보유 내역 수정`} onClose={() => setEditingStock(null)}>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto thin-scroll pr-1">
@@ -814,7 +863,6 @@ function App() {
         </Modal>
       )}
 
-      {/* 모달: 계좌 관리 */}
       {showAccounts && (
         <Modal title="계좌 관리" onClose={() => setShowAccounts(false)}>
           <div className="space-y-4">
