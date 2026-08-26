@@ -1,12 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/init/env python3
 """
-Build/extend data/symbols.json from Yahoo Finance with incremental saving.
-
-Behavior:
-- Fetches US/JP/KR markets step by step.
-- Saves progress immediately after each market/quote-type block finishes.
-- If a timeout occurs, data collected up to that point is safely saved.
-- Existing records are never deleted or reordered.
+Build/extend data/symbols.json from Yahoo Finance with incremental saving
+and intermediate Git commits when new data reaches a threshold.
 """
 
 from __future__ import annotations
@@ -14,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -33,6 +29,7 @@ MARKETS = {
 }
 
 QUOTE_TYPES = ("EQUITY", "ETF")
+BATCH_COMMIT_THRESHOLD = 10000  # 새로운 데이터가 1만 개 쌓이면 중간 커밋 실행
 
 logging.basicConfig(
     level=logging.INFO,
@@ -70,6 +67,23 @@ def save_json(path: Path, value: Any) -> None:
         f.write("\n")
 
     tmp.replace(path)
+
+
+def git_commit_and_push(message: str) -> None:
+    """Commit and push changes directly from Python when threshold is reached."""
+    try:
+        subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
+        subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
+        subprocess.run(["git", "add", "data/"], check=True)
+        
+        # 변경 사항이 있는지 확인
+        diff = subprocess.run(["git", "diff", "--cached", "--quiet"])
+        if diff.returncode != 0:
+            subprocess.run(["git", "commit", "-m", message], check=True)
+            subprocess.run(["git", "push"], check=True)
+            log.info(">>> Intermediate Git commit & push completed successfully. Message: %s", message)
+    except Exception as exc:
+        log.warning("Failed to run intermediate git commit/push: %s", exc)
 
 
 def load_existing() -> list[dict[str, Any]]:
@@ -214,67 +228,71 @@ def make_record(
     }
 
 
-def merge_and_save(
-    fetched: list[dict[str, Any]],
-    aliases: dict[str, list[str]],
-) -> int:
-    """Load current file, merge new fetched items, and save immediately."""
-    existing = load_existing()
-    by_symbol: dict[str, dict[str, Any]] = {}
-    order: list[str] = []
-
-    for item in existing:
-        symbol = item["symbol"]
-        if symbol not in by_symbol:
-            by_symbol[symbol] = item
-            order.append(symbol)
-
-    new_count = 0
-
-    for quote in fetched:
-        record = make_record(quote, aliases)
-        if record is None:
-            continue
-
-        symbol = record["symbol"]
-
-        if symbol in by_symbol:
-            old = by_symbol[symbol]
-            old["searchKeywords"] = unique_keywords(
-                [
-                    *old.get("searchKeywords", []),
-                    *record["searchKeywords"],
-                    *aliases.get(symbol, []),
-                ]
-            )
-        else:
-            by_symbol[symbol] = record
-            order.append(symbol)
-            new_count += 1
-
-    result = [by_symbol[symbol] for symbol in order]
-    save_json(SYMBOLS_FILE, result)
-    return new_count
-
-
 def main() -> int:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     aliases = load_aliases()
 
-    log.info("Starting incremental symbol sync...")
+    log.info("Starting incremental symbol sync with batch commit threshold...")
+
+    session_new_count = 0
 
     for market_name, region in MARKETS.items():
         for quote_type in QUOTE_TYPES:
             try:
                 log.info("--- Processing %s [%s] ---", market_name, quote_type)
                 records = fetch_market(region, quote_type)
-                if records:
-                    new_added = merge_and_save(records, aliases)
-                    log.info("Saved progress: %s %s (+%d new, total file size updated)", market_name, quote_type, new_added)
+                if not records:
+                    continue
+
+                existing = load_existing()
+                by_symbol: dict[str, dict[str, Any]] = {}
+                order: list[str] = []
+
+                for item in existing:
+                    symbol = item["symbol"]
+                    if symbol not in by_symbol:
+                        by_symbol[symbol] = item
+                        order.append(symbol)
+
+                block_new_count = 0
+
+                for quote in records:
+                    record = make_record(quote, aliases)
+                    if record is None:
+                        continue
+
+                    symbol = record["symbol"]
+
+                    if symbol in by_symbol:
+                        old = by_symbol[symbol]
+                        old["searchKeywords"] = unique_keywords(
+                            [
+                                *old.get("searchKeywords", []),
+                                *record["searchKeywords"],
+                                *aliases.get(symbol, []),
+                            ]
+                        )
+                    else:
+                        by_symbol[symbol] = record
+                        order.append(symbol)
+                        block_new_count += 1
+                        session_new_count += 1
+
+                # 결과 저장
+                result = [by_symbol[symbol] for symbol in order]
+                save_json(SYMBOLS_FILE, result)
+                log.info("Saved progress: %s %s (+%d new this block, session total new: %d)", market_name, quote_type, block_new_count, session_new_count)
+
+                # 새로운 데이터가 1만 개 이상 쌓였다면 중간 커밋 수행
+                if session_new_count >= BATCH_COMMIT_THRESHOLD:
+                    git_commit_and_push(f"chore: batch update symbols (+{session_new_count} new records)")
+                    session_new_count = 0  # 카운터 리셋
+
             except Exception as exc:
                 log.exception("Failed to fetch %s %s: %s", market_name, quote_type, exc)
-                # 에러가 나도 다음 시장(예: KR, JP 등)으로 계속 진행하도록 함
 
+    # 남은 변경 사항 최종 커밋
+    git_commit_and_push("chore: update Yahoo Finance symbols final batch")
     log.info("All fetch steps finished successfully.")
     return 0
 
