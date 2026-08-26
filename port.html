@@ -158,7 +158,7 @@ function App() {
       .catch(e => console.error("symbols load failed", e));
   }, []);
 
-  // 환율 로딩 (USDKRW=X, JPYKRW=X)
+  // 환율 로딩
   useEffect(() => {
     const loadFx = async () => {
       try {
@@ -185,19 +185,20 @@ function App() {
     return () => clearInterval(id);
   }, []);
 
-  // ① 정확한 symbol만 조회하도록 개선 + 디버깅 로그 추가
+  // 정확한 symbol만 담아서 Quote API 호출
   useEffect(() => {
     if (!lots.length) {
       setQuotes({});
       return;
     }
 
-    const reqSymbols = new Set();
-    lots.forEach(lot => {
-      if (lot.symbol) {
-        reqSymbols.add(String(lot.symbol).toUpperCase());
-      }
-    });
+    const symbolsToFetch = [
+      ...new Set(
+        lots
+          .map(x => String(x.symbol || "").toUpperCase())
+          .filter(Boolean)
+      )
+    ];
 
     let cancelled = false;
 
@@ -205,74 +206,60 @@ function App() {
       setLoadingQuotes(true);
       setQuoteError("");
       try {
-        const queryStr = [...reqSymbols].join(",");
-
-        console.log("Requested symbols:", queryStr);
+        const queryStr = symbolsToFetch.join(",");
+        console.log("Requested quote symbols:", queryStr);
 
         const res = await fetch(`${WORKER_BASE_URL}/quote?symbols=${encodeURIComponent(queryStr)}`);
         
-        let list = [];
-        if (res.ok) {
-          const data = await res.json();
-          console.log("Yahoo Worker response:", data);
+        if (!res.ok) throw new Error("Network response was not ok");
+        const data = await res.json();
+        console.log("Yahoo Quote API response:", data);
 
-          if (Array.isArray(data?.quoteResponse?.result)) {
-            list = data.quoteResponse.result;
-          } else if (Array.isArray(data?.quotes)) {
-            list = data.quotes;
-          } else if (Array.isArray(data)) {
-            list = data;
-          } else if (data && typeof data === 'object') {
-            list = Object.entries(data).map(([k, v]) => ({ symbol: k, ...(v || {}) }));
-          }
-        }
+        // quoteResponse.result 구조를 최우선으로 파싱
+        const list = data?.quoteResponse?.result || data?.quotes || (Array.isArray(data) ? data : []);
 
         const nextQuotes = {};
         for (const q of list) {
-          if (!q) continue;
-          const rawSym = String(q.symbol || q.ticker || "").toUpperCase();
-          if (!rawSym) continue;
+          if (!q?.symbol) continue;
+          const rawSym = String(q.symbol).toUpperCase();
 
-          // 현재가 (없을 경우 null로 저장)
-          const priceVal = q.regularMarketPrice ?? q.price ?? q.postMarketPrice ?? q.regularMarketPreviousClose ?? q.previousClose;
-          const price = Number.isFinite(Number(priceVal)) ? Number(priceVal) : null;
-
-          const changePercent = Number(q.regularMarketChangePercent ?? q.changePercent ?? 0);
-
-          // 연간 주당 분배금 (수익률 역산 우선 제거, 순수 주당 배당금 채택)
-          let annualDiv = Number(
-            q.trailingAnnualDividendRate ?? 
-            q.dividendRate ?? 
-            q.annualDividendRate ?? 
-            q.annualDividend ?? 
+          // 현재가 파싱 (regularMarketPrice 최우선)
+          const price = Number(
+            q.regularMarketPrice ??
+            q.price ??
+            q.regularMarketPreviousClose ??
             0
           );
 
-          const itemData = {
-            price,
-            changePercent,
-            annualDividend: annualDiv,
-            name: q.longName || q.shortName || q.displayName || rawSym
+          // 배당 수익률 파싱 및 보정
+          const rawYield = Number(
+            q.dividendYield ??
+            q.trailingAnnualDividendYield ??
+            0
+          );
+          const yieldPct = rawYield > 1 ? rawYield : rawYield * 100;
+
+          // 주당 연간 분배금 파싱
+          const annualDividend = Number(
+            q.trailingAnnualDividendRate ??
+            q.dividendRate ??
+            q.annualDividendRate ??
+            0
+          );
+
+          nextQuotes[rawSym] = {
+            price: Number.isFinite(price) && price > 0 ? price : null,
+            changePercent: Number(q.regularMarketChangePercent ?? q.changePercent ?? 0),
+            dividendYield: yieldPct,
+            annualDividend,
+            name: q.longName || q.shortName || q.longname || q.shortname || rawSym
           };
-
-          const clean = cleanTicker(rawSym);
-          const keys = [
-            rawSym,
-            rawSym.toLowerCase(),
-            clean,
-            clean.toLowerCase(),
-            `${clean}.KS`,
-            `${clean}.KQ`,
-            `${clean}.T`
-          ];
-
-          keys.forEach(k => { if (k) nextQuotes[k] = itemData; });
         }
 
         if (!cancelled) setQuotes(nextQuotes);
       } catch (e) {
         console.error("Quote Fetching Error:", e);
-        if (!cancelled) setQuoteError("시세 및 배당 정보를 가져오지 못했습니다.");
+        if (!cancelled) setQuoteError("시세 정보를 가져오지 못했습니다.");
       } finally {
         if (!cancelled) setLoadingQuotes(false);
       }
@@ -325,7 +312,7 @@ function App() {
       : lots.filter(l => (l.account || "기본 계좌") === selectedAccount);
   }, [lots, selectedAccount]);
 
-  // ② 현재가 null 처리 및 손익/수익률/분배금 통합 계산 로직
+  // 포트폴리오 집계 및 현재가/분배금 연결 로직
   const portfolio = useMemo(() => {
     const map = new Map();
     for (const lot of visibleLots) {
@@ -351,30 +338,20 @@ function App() {
     }
 
     return [...map.values()].map(p => {
-      const clean = cleanTicker(p.symbol);
-      const q = quotes[p.symbol] ||
-                quotes[p.symbol.toUpperCase()] ||
-                quotes[clean] ||
-                quotes[`${clean}.KS`] ||
-                quotes[`${clean}.KQ`] ||
-                quotes[`${clean}.T`] || {};
-
+      const q = quotes[p.symbol] || quotes[p.symbol.toUpperCase()] || {};
       const fxRate = Number(fx[p.currency] || 0);
 
-      // Yahoo 현재가 (없으면 null로 처리하여 평단가 대체 방지)
+      // 현재가가 없을 경우 null 처리 (평단가로 대체하지 않음)
       const currentPriceForeign = Number.isFinite(q.price) ? q.price : null;
 
-      // 현재가 → 원화
       const currentPriceKRW = currentPriceForeign !== null && fxRate > 0
         ? currentPriceForeign * fxRate
         : null;
 
-      // 평가금액
       const currentValueKRW = currentPriceKRW !== null
         ? p.qty * currentPriceKRW
         : null;
 
-      // 손익 및 수익률
       const profit = currentValueKRW !== null
         ? currentValueKRW - p.investedKRW
         : null;
@@ -383,12 +360,12 @@ function App() {
         ? (profit / p.investedKRW) * 100
         : null;
 
-      // 주당 연간 분배금 및 수익률 역산
+      // 분배금 계산 (주당 연간 배당금 우선 사용)
       const annualDividendPerShare = Number(q.annualDividend || 0);
 
       const dividendYield = (currentPriceForeign !== null && currentPriceForeign > 0 && annualDividendPerShare > 0)
         ? (annualDividendPerShare / currentPriceForeign) * 100
-        : 0;
+        : (q.dividendYield || 0);
 
       const annualDividendKRW = (annualDividendPerShare > 0 && fxRate > 0)
         ? p.qty * annualDividendPerShare * fxRate
@@ -647,7 +624,7 @@ function App() {
                   value={search}
                   onChange={e => { setSearch(e.target.value); setSearchOpen(true); }}
                   onFocus={() => setSearchOpen(true)}
-                  placeholder="종목명 또는 티커 검색 (예: 삼성전자, LG전자, VOO, 7203)"
+                  placeholder="종목명 또는 티커 검색 (예: 삼성전자, LG전자, VOO, 2805)"
                   className="w-full bg-transparent outline-none text-sm text-white placeholder-slate-500"
                 />
                 {search && (
@@ -689,7 +666,6 @@ function App() {
 
             {quoteError && <div className="text-xs text-amber-400 bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl">{quoteError}</div>}
 
-            {/* 메인 테이블: 수량, 평단가, 매수금액, 현재가, 평가금액, 손익, 수익률 명확 표출 */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
               <div className="hidden md:grid grid-cols-[2fr_1fr_1.2fr_1.2fr_1.2fr_1.2fr_70px] gap-3 px-4 py-3 text-xs text-slate-400 font-medium border-b border-slate-800">
                 <div>종목명</div>
