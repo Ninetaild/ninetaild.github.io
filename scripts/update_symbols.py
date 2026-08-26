@@ -29,7 +29,7 @@ MARKETS = {
 }
 
 QUOTE_TYPES = ("EQUITY", "ETF")
-BATCH_COMMIT_THRESHOLD = 10000  # 새로운 데이터가 1만 개 쌓이면 중간 커밋 실행
+BATCH_COMMIT_THRESHOLD = 5000  # 새로운 데이터가 1만 개 쌓이면 중간 커밋 실행
 
 logging.basicConfig(
     level=logging.INFO,
