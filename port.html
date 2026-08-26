@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
   <div id="root"></div>
@@ -58,8 +58,9 @@
         const [marketFilter, setMarketFilter] = useState('ALL'); 
         const [displayCurrency, setDisplayCurrency] = useState('KRW'); 
         
-        const [currentPage, setCurrentPage] = useState(0); 
-        const [isVerticalLayout, setIsVerticalLayout] = useState(false); // 모바일 가로/세로 전환 상태
+        const [currentPage, setCurrentPage] = useState(1); // 1: 히트맵, 2: 분배금
+        const [taxRate, setTaxRate] = useState(15.4); // 분배금 세금 기본값 (0%, 15%, 15.4%)
+        const [isVerticalLayout, setIsVerticalLayout] = useState(false);
 
         const [selectedAccount, setSelectedAccount] = useState('ALL');
         const [accountNicknames, setAccountNicknames] = useState(() => {
@@ -94,21 +95,43 @@
                 .catch(err => console.error("Failed to load symbols.json", err));
         }, []);
 
+        // 야후 파이넨스 API를 통해 실시간 환율(USD, JPY) 정보 가져오기
         useEffect(() => {
-            const fetchFX = async () => {
+            const fetchFXFromYahoo = async () => {
                 try {
-                    const res = await fetch('https://open.er-api.com/v6/latest/KRW');
-                    const data = await res.json();
-                    if (data && data.rates) {
-                        setFxRates({
-                            USD: 1 / data.rates.USD,
-                            JPY: 1 / data.rates.JPY,
-                            KRW: 1
+                    const data = await fetchViaWorker(`/quote?symbols=USDKRW=X,JPYKRW=X`);
+                    const quoteList = data?.quoteResponse?.result || data?.quotes;
+                    if (quoteList) {
+                        let usdRate = 1350;
+                        let jpyRate = 9;
+                        quoteList.forEach(q => {
+                            if (q.symbol === 'USDKRW=X') {
+                                usdRate = q.regularMarketPrice ?? q.price ?? usdRate;
+                            } else if (q.symbol === 'JPYKRW=X') {
+                                // 야후 JPYKRW는 보통 100엔 기준이거나 1엔 기준일 수 있으므로 체크 (일반적으로 1엔 기준 가격 제공 혹은 변환 필요)
+                                const rawJpy = q.regularMarketPrice ?? q.price ?? jpyRate;
+                                // 만약 100엔 단위라면 보정 (예: 900원대면 / 100)
+                                jpyRate = rawJpy > 100 ? rawJpy / 100 : rawJpy;
+                            }
                         });
+                        setFxRates({ USD: usdRate, JPY: jpyRate, KRW: 1 });
                     }
-                } catch (error) { console.error("FX fetch failed"); }
+                } catch (error) { 
+                    console.error("Yahoo FX fetch failed, falling back to ER-API", error);
+                    try {
+                        const res = await fetch('https://open.er-api.com/v6/latest/KRW');
+                        const data = await res.json();
+                        if (data && data.rates) {
+                            setFxRates({
+                                USD: 1 / data.rates.USD,
+                                JPY: 1 / data.rates.JPY,
+                                KRW: 1
+                            });
+                        }
+                    } catch (e) { console.error("Fallback FX failed"); }
+                }
             };
-            fetchFX();
+            fetchFXFromYahoo();
         }, []);
 
         useEffect(() => {
@@ -188,6 +211,7 @@
             return () => { clearTimeout(timeoutId); abortController.abort(); };
         }, [searchQuery, marketFilter, localSymbols]);
 
+        // 야후 파이넨스 API를 통한 주가 및 1년 분배금 정보 수집
         useEffect(() => {
             const uniqueSymbols = [...new Set(lots.map(l => l.symbol))];
             if (uniqueSymbols.length === 0) return;
@@ -220,7 +244,7 @@
                         });
                         setQuotes(prev => ({ ...prev, ...newQuotes }));
                     }
-                } catch (error) { console.error("Quote fetch failed", error); }
+                } catch (error) { console.error("Quote & Dividend fetch failed", error); }
             };
 
             fetchQuotes();
@@ -239,6 +263,7 @@
                 if (!map.has(lot.symbol)) {
                     map.set(lot.symbol, {
                         symbol: lot.symbol, name: lot.name, market: lot.market, currency: lot.currency,
+                        searchKeywords: lot.searchKeywords || [],
                         totalQuantity: 0, totalInvestedKRW: 0, totalInvestedForeign: 0,
                     });
                 }
@@ -265,23 +290,26 @@
                 const returnPercent = (returnKRW / item.totalInvestedKRW) * 100;
                 
                 const annualDividendKRW = item.totalQuantity * annualDividendPerShare * fxRates[item.currency];
+                const netAnnualDividendKRW = annualDividendKRW * (1 - taxRate / 100);
 
                 return {
                     ...item, name: resolvedName, avgPriceKRW, avgPriceForeign,
                     currentPriceForeign, currentPriceKRW, currentValueKRW,
                     returnKRW, returnPercent, dailyChangePercent: currentChangePercent,
-                    dividendYield, annualDividendKRW
+                    dividendYield, annualDividendKRW, netAnnualDividendKRW
                 };
             }).sort((a, b) => b.currentValueKRW - a.currentValueKRW);
-        }, [filteredLots, quotes, fxRates]);
+        }, [filteredLots, quotes, fxRates, taxRate]);
 
         const dividendStats = useMemo(() => {
             const totalAnnualKRW = consolidatedPortfolio.reduce((sum, item) => sum + item.annualDividendKRW, 0);
+            const totalNetAnnualKRW = consolidatedPortfolio.reduce((sum, item) => sum + item.netAnnualDividendKRW, 0);
             const totalValuation = consolidatedPortfolio.reduce((sum, item) => sum + item.currentValueKRW, 0);
             const avgYield = totalValuation > 0 ? (totalAnnualKRW / totalValuation) * 100 : 0;
             return {
                 annual: totalAnnualKRW,
-                monthly: totalAnnualKRW / 12,
+                netAnnual: totalNetAnnualKRW,
+                monthly: totalNetAnnualKRW / 12,
                 avgYield
             };
         }, [consolidatedPortfolio]);
@@ -303,6 +331,7 @@
                 name: addLotModal.name,
                 market: addLotModal.market,
                 currency: addLotModal.currency,
+                searchKeywords: addLotModal.searchKeywords || [],
                 quantity: qty,
                 avgPriceKRW: priceKRW,
                 avgPriceForeign: priceKRW / rate,
@@ -344,6 +373,7 @@
             const mergedLot = {
                 id: Date.now().toString(),
                 symbol, name: symbolLots[0].name, market: symbolLots[0].market, currency: symbolLots[0].currency,
+                searchKeywords: symbolLots[0].searchKeywords || [],
                 quantity: totalQty, avgPriceKRW: mergedAvgPriceKRW, avgPriceForeign: mergedAvgPriceKRW / fxRates[symbolLots[0].currency],
                 date: new Date().toISOString().split('T')[0], account: symbolLots[0].account || '기본 계좌'
             };
@@ -458,22 +488,48 @@
         return (
             <div className="flex flex-col h-screen bg-slate-950 text-slate-200 font-sans overflow-hidden">
                 
-                {/* 메인 콘텐츠 영역: 공통 계좌/종목 편집 영역(좌측) + 페이지별 콘텐츠(우측) */}
+                {/* 상단 탭 전환 네비게이션 바 */}
+                <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-lg font-bold text-white flex items-center gap-2">
+                            <span>📈</span> Portfolio Tracker
+                        </h1>
+                        <div className="flex bg-slate-950 border border-slate-800 rounded-lg p-1">
+                            <button 
+                                onClick={() => setCurrentPage(1)} 
+                                className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${currentPage === 1 ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                🗺️ 1페이지 (히트맵)
+                            </button>
+                            <button 
+                                onClick={() => setCurrentPage(2)} 
+                                className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${currentPage === 2 ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                💰 2페이지 (분배금)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => setIsVerticalLayout(prev => !prev)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${isVerticalLayout ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                            title="가로/세로 레이아웃 전환"
+                        >
+                            <LayoutToggleIcon />
+                            <span className="hidden sm:inline">{isVerticalLayout ? '세로모드' : '가로모드'}</span>
+                        </button>
+                        <button onClick={handleExport} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Download JSON"><DownloadIcon /></button>
+                        <button onClick={() => fileInputRef.current.click()} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Upload JSON"><UploadIcon /></button>
+                        <input type="file" ref={fileInputRef} onChange={handleImport} accept=".json" className="hidden" />
+                    </div>
+                </div>
+
+                {/* 메인 콘텐츠 영역: 좌측 포트폴리오 고정 | 우측 페이지별 뷰 (1 또는 2) */}
                 <div className={`flex flex-1 overflow-hidden relative ${isVerticalLayout ? 'flex-col' : 'flex-row'}`}>
                     
-                    {/* [공통 영역] 좌측: 계좌 관리 및 보유 종목 편집 리스트 */}
-                    <div className={`${isVerticalLayout ? 'w-full h-[50%]' : 'w-[50%]'} flex flex-col border-r border-slate-800 overflow-hidden shrink-0`}>
-                        <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
-                            <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                                <span>📈</span> Global Portfolio
-                            </h1>
-                            <div className="flex items-center gap-2">
-                                <button onClick={handleExport} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Download JSON"><DownloadIcon /></button>
-                                <button onClick={() => fileInputRef.current.click()} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Upload JSON"><UploadIcon /></button>
-                                <input type="file" ref={fileInputRef} onChange={handleImport} accept=".json" className="hidden" />
-                            </div>
-                        </div>
-
+                    {/* [좌측] 포트폴리오 관리 및 보유 종목 편집 리스트 (고정) */}
+                    <div className={`${isVerticalLayout ? 'w-full h-[50%]' : 'w-[50%]' } flex flex-col border-r border-slate-800 overflow-hidden shrink-0 bg-slate-950`}>
                         <div className="px-4 py-2.5 bg-slate-900/60 border-b border-slate-800 flex items-center justify-between shrink-0">
                             <div className="flex items-center gap-2 overflow-x-auto flex-1 mr-2">
                                 <button onClick={() => setSelectedAccount('ALL')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === 'ALL' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>전체 계좌</button>
@@ -533,15 +589,29 @@
                                         {isSearching ? (
                                             <div className="p-4 text-center text-slate-400 text-sm">Searching...</div>
                                         ) : searchResults.length > 0 ? (
-                                            searchResults.map(result => (
-                                                <div key={result.symbol} className="p-3 hover:bg-slate-700 cursor-pointer flex justify-between items-center border-b border-slate-700/50" onClick={() => setAddLotModal(result)}>
-                                                    <div className="flex flex-col pr-2">
-                                                        <span className="font-bold text-white text-sm">{result.name}</span>
-                                                        <span className="text-xs text-slate-400 mt-0.5">{result.searchKeywords?.[1] || result.symbol}</span>
+                                            searchResults.map(result => {
+                                                const primaryText = result.searchKeywords?.[0] || result.name;
+                                                const secondaryText = result.searchKeywords?.[1] || result.name || result.symbol;
+                                                const isAsian = result.market === 'KR' || result.market === 'JP';
+                                                return (
+                                                    <div key={result.symbol} className="p-3 hover:bg-slate-700 cursor-pointer flex justify-between items-center border-b border-slate-700/50" onClick={() => setAddLotModal(result)}>
+                                                        <div className="flex flex-col pr-2">
+                                                            {isAsian ? (
+                                                                <>
+                                                                    <span className="font-bold text-white text-base">{primaryText}</span>
+                                                                    <span className="text-xs text-slate-400 mt-0.5">{secondaryText}</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="font-bold text-white text-sm">{result.name}</span>
+                                                                    <span className="text-xs text-slate-400 mt-0.5">{result.symbol}</span>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-xs font-mono px-2 py-1 bg-slate-900 rounded text-blue-400 border border-slate-700 shrink-0">{result.symbol}</span>
                                                     </div>
-                                                    <span className="text-xs font-mono px-2 py-1 bg-slate-900 rounded text-blue-400 border border-slate-700 shrink-0">{result.symbol}</span>
-                                                </div>
-                                            ))
+                                                );
+                                            })
                                         ) : (<div className="p-4 text-center text-slate-400 text-sm">No results found</div>)}
                                     </div>
                                 )}
@@ -593,47 +663,58 @@
                         </div>
                     </div>
 
-                    {/* 우측: 선택된 페이지 콘텐츠 (0: 대시보드/포트폴리오 상세, 1: 배당금 대시보드, 2: 히트맵) */}
+                    {/* [우측] 페이지별 콘텐츠 (1페이지: 히트맵 / 2페이지: 분배금) */}
                     <div className={`${isVerticalLayout ? 'w-full h-[50%]' : 'w-[50%]'} flex flex-col bg-slate-950 overflow-hidden`}>
-                        {currentPage === 0 && (
-                            <div className="flex-1 p-6 flex flex-col justify-center overflow-y-auto">
-                                <h2 className="text-2xl font-bold text-white mb-6">📊 포트폴리오 요약</h2>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-                                        <div className="text-slate-400 text-xs mb-1">총 평가금액</div>
-                                        <div className="text-xl font-bold text-white">₩{formatNumber(consolidatedPortfolio.reduce((acc, cur) => acc + cur.currentValueKRW, 0), 'KRW')}</div>
-                                    </div>
-                                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-                                        <div className="text-slate-400 text-xs mb-1">총 투자원금</div>
-                                        <div className="text-xl font-bold text-white">₩{formatNumber(consolidatedPortfolio.reduce((acc, cur) => acc + cur.totalInvestedKRW, 0), 'KRW')}</div>
-                                    </div>
-                                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-                                        <div className="text-slate-400 text-xs mb-1">총 평가손익</div>
-                                        <div className={`text-xl font-bold ${consolidatedPortfolio.reduce((acc, cur) => acc + cur.returnKRW, 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                            ₩{formatNumber(consolidatedPortfolio.reduce((acc, cur) => acc + cur.returnKRW, 0), 'KRW')}
+                        {currentPage === 1 && (
+                            <div className="flex-1 p-6 bg-slate-950 flex flex-col overflow-hidden">
+                                <h2 className="text-2xl font-bold text-white mb-4">🗺️ Market Heatmap</h2>
+                                <div className="flex-1 w-full bg-slate-900 rounded-xl overflow-hidden relative shadow-inner border border-slate-800">
+                                    {treemapNodes.length > 0 ? treemapNodes.map(node => (
+                                        <div 
+                                            key={node.symbol}
+                                            className="absolute border border-slate-950 p-2 flex flex-col justify-center items-center overflow-hidden transition-all duration-300 hover:z-10"
+                                            style={{ left: `${node.x}%`, top: `${node.y}%`, width: `${node.w}%`, height: `${node.h}%`, backgroundColor: getHeatmapColor(node.dailyChangePercent) }}
+                                        >
+                                            <span className="font-bold text-white text-xs drop-shadow">{node.symbol}</span>
+                                            <span className="text-white/90 text-[10px] drop-shadow">{node.dailyChangePercent >= 0 ? '+' : ''}{node.dailyChangePercent?.toFixed(2)}%</span>
                                         </div>
-                                    </div>
-                                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-                                        <div className="text-slate-400 text-xs mb-1">예상 연간 배당금</div>
-                                        <div className="text-xl font-bold text-blue-400">₩{formatNumber(dividendStats.annual, 'KRW')}</div>
-                                    </div>
+                                    )) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm">No Data</div>
+                                    )}
                                 </div>
                             </div>
                         )}
 
-                        {currentPage === 1 && (
+                        {currentPage === 2 && (
                             <div className="flex-1 p-6 overflow-y-auto bg-slate-950 flex flex-col">
-                                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                                    <span>💰</span> Dividend Dashboard ({selectedAccount})
-                                </h2>
+                                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                                        <span>💰</span> Dividend Dashboard ({selectedAccount})
+                                    </h2>
+                                    
+                                    {/* 세금 설정 토글 박스 */}
+                                    <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-xl">
+                                        <span className="text-xs text-slate-400 px-2 font-medium">세율:</span>
+                                        {[0, 15, 15.4].map(rate => (
+                                            <button
+                                                key={rate}
+                                                onClick={() => setTaxRate(rate)}
+                                                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${taxRate === rate ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                                            >
+                                                {rate}%
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                                     <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg">
-                                        <div className="text-slate-400 text-xs mb-1">최근 12개월 배당 합계</div>
-                                        <div className="text-xl font-bold text-green-400">₩{formatNumber(dividendStats.annual, 'KRW')}</div>
+                                        <div className="text-slate-400 text-xs mb-1">세후 연간 배당 합계</div>
+                                        <div className="text-xl font-bold text-green-400">₩{formatNumber(dividendStats.netAnnual, 'KRW')}</div>
+                                        <div className="text-[10px] text-slate-500 mt-1">세전: ₩{formatNumber(dividendStats.annual, 'KRW')}</div>
                                     </div>
                                     <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg">
-                                        <div className="text-slate-400 text-xs mb-1">월 평균 배당금</div>
+                                        <div className="text-slate-400 text-xs mb-1">세후 월 평균 배당금</div>
                                         <div className="text-xl font-bold text-blue-400">₩{formatNumber(dividendStats.monthly, 'KRW')}</div>
                                     </div>
                                     <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg">
@@ -655,7 +736,7 @@
                                                         <div className="text-xs text-slate-400 mt-0.5">수량: {formatNumber(item.totalQuantity, 'USD')}주</div>
                                                     </div>
                                                     <div className="text-right">
-                                                        <div className="text-sm font-semibold text-green-400">+₩{formatNumber(item.annualDividendKRW, 'KRW')} /년</div>
+                                                        <div className="text-sm font-semibold text-green-400">+₩{formatNumber(item.netAnnualDividendKRW, 'KRW')} /년 (세후)</div>
                                                         <div className="text-xs text-slate-400">배당률: {item.dividendYield?.toFixed(2)}%</div>
                                                     </div>
                                                 </div>
@@ -665,63 +746,7 @@
                                 </div>
                             </div>
                         )}
-
-                        {currentPage === 2 && (
-                            <div className="flex-1 p-6 bg-slate-950 flex flex-col overflow-hidden">
-                                <h2 className="text-2xl font-bold text-white mb-4">🗺️ Market Heatmap</h2>
-                                <div className="flex-1 w-full bg-slate-900 rounded-xl overflow-hidden relative shadow-inner border border-slate-800">
-                                    {treemapNodes.length > 0 ? treemapNodes.map(node => (
-                                        <div 
-                                            key={node.symbol}
-                                            className="absolute border border-slate-950 p-2 flex flex-col justify-center items-center overflow-hidden transition-all duration-300 hover:z-10"
-                                            style={{ left: `${node.x}%`, top: `${node.y}%`, width: `${node.w}%`, height: `${node.h}%`, backgroundColor: getHeatmapColor(node.dailyChangePercent) }}
-                                        >
-                                            <span className="font-bold text-white text-xs drop-shadow">{node.symbol}</span>
-                                            <span className="text-white/90 text-[10px] drop-shadow">{node.dailyChangePercent >= 0 ? '+' : ''}{node.dailyChangePercent?.toFixed(2)}%</span>
-                                        </div>
-                                    )) : (
-                                        <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm">No Data</div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
                     </div>
-                </div>
-
-                {/* 하단 네비게이션 및 모바일 가로/세로 전환 버튼 (< o o o > 우측 배치) */}
-                <div className="py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-center gap-4 shrink-0 relative">
-                    <button 
-                        onClick={() => setCurrentPage(prev => (prev > 0 ? prev - 1 : 2))} 
-                        className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-sm transition-colors"
-                    >
-                        &lt;
-                    </button>
-                    <div className="flex items-center gap-3">
-                        {[0, 1, 2].map(idx => (
-                            <button
-                                key={idx}
-                                onClick={() => setCurrentPage(idx)}
-                                className={`w-3 h-3 rounded-full transition-all ${currentPage === idx ? 'bg-blue-500 scale-125' : 'bg-slate-700 hover:bg-slate-600'}`}
-                                title={`Page ${idx + 1}`}
-                            />
-                        ))}
-                    </div>
-                    <button 
-                        onClick={() => setCurrentPage(prev => (prev < 2 ? prev + 1 : 0))} 
-                        className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-sm transition-colors"
-                    >
-                        &gt;
-                    </button>
-
-                    {/* 모바일 화면 전환 토글 버튼 (< o o o > 우측에 위치) */}
-                    <button 
-                        onClick={() => setIsVerticalLayout(prev => !prev)}
-                        className={`absolute right-4 p-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${isVerticalLayout ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
-                        title="가로/세로 레이아웃 전환"
-                    >
-                        <LayoutToggleIcon />
-                        <span className="hidden sm:inline">{isVerticalLayout ? '세로모드' : '가로모드'}</span>
-                    </button>
                 </div>
 
                 {addLotModal && (
