@@ -10,10 +10,9 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; }
-    body { background: #020617; color: #f8fafc; }
+    body { background: #020617; color: #f8fafc; user-select: none; }
     * { box-sizing: border-box; }
     
-    /* 스와이프 스냅 스크롤 컨테이너 */
     .page-container {
       display: flex;
       width: 100%;
@@ -49,10 +48,10 @@ const { useEffect, useMemo, useRef, useState } = React;
 const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
 const SYMBOLS_URL = "https://ninetaild.github.io/data/symbols.json";
 
-const cleanTicker = (symbol = "") => symbol.replace(/\.(KS|KQ|T)$/i, "").toUpperCase();
+const cleanTicker = (symbol = "") => String(symbol).replace(/\.(KS|KQ|T)$/i, "").toUpperCase();
 
 const marketOf = (symbol = "") => {
-  const s = symbol.toUpperCase();
+  const s = String(symbol).toUpperCase();
   if (s.endsWith(".KS") || s.endsWith(".KQ")) return "KR";
   if (s.endsWith(".T")) return "JP";
   return "US";
@@ -64,7 +63,7 @@ const currencyOf = (symbol = "") => {
 };
 
 const marketLabel = (symbol = "") => {
-  const s = symbol.toUpperCase();
+  const s = String(symbol).toUpperCase();
   if (s.endsWith(".KQ")) return "코스닥";
   if (s.endsWith(".KS")) return "코스피";
   if (s.endsWith(".T")) return "일본";
@@ -134,12 +133,12 @@ function App() {
   useEffect(() => localStorage.setItem("globalPortfolioLots", JSON.stringify(lots)), [lots]);
   useEffect(() => localStorage.setItem("globalPortfolioAccounts", JSON.stringify(accounts)), [accounts]);
 
-  // 종목 메타데이터 사전 로드
+  // 종목 사전 로드
   useEffect(() => {
     fetch(SYMBOLS_URL, { cache: "no-store" })
       .then(r => r.json())
       .then(data => Array.isArray(data) && setSymbols(data))
-      .catch(e => console.error("symbols.json load failed", e));
+      .catch(e => console.error("symbols load failed", e));
   }, []);
 
   // 환율 정보 불러오기
@@ -169,7 +168,7 @@ function App() {
     return () => clearInterval(id);
   }, []);
 
-  // 야후 시세 및 배당 데이터 불러오기 (에러 방지 처리 완비)
+  // 시세 & 분배금 로드 (다중 키 매핑 적용)
   useEffect(() => {
     if (!lots.length) {
       setQuotes({});
@@ -200,32 +199,44 @@ function App() {
 
         const nextQuotes = {};
         for (const q of list) {
-          if (!q || !q.symbol) continue;
-          const symbolKey = q.symbol;
+          if (!q) continue;
+          const rawSym = q.symbol || q.ticker || "";
+          if (!rawSym) continue;
 
-          const price = Number(q.regularMarketPrice ?? q.price ?? q.regularMarketPreviousClose ?? 0);
+          const price = Number(q.regularMarketPrice ?? q.price ?? q.regularMarketPreviousClose ?? q.close ?? 0);
           const changePercent = Number(q.regularMarketChangePercent ?? q.changePercent ?? 0);
 
           let yieldPct = Number(q.dividendYield ?? q.trailingAnnualDividendYield ?? q.yield ?? 0);
           if (yieldPct > 0 && yieldPct <= 1) yieldPct *= 100;
 
-          let annualDiv = Number(q.trailingAnnualDividendRate ?? q.dividendRate ?? q.annualDividend ?? 0);
+          let annualDiv = Number(q.trailingAnnualDividendRate ?? q.dividendRate ?? q.annualDividendRate ?? q.annualDividend ?? 0);
           if (!annualDiv && yieldPct > 0 && price > 0) annualDiv = (price * yieldPct) / 100;
           if (!yieldPct && annualDiv > 0 && price > 0) yieldPct = (annualDiv / price) * 100;
 
-          nextQuotes[symbolKey] = {
+          const itemData = {
             price,
             changePercent,
             dividendYield: yieldPct,
             annualDividend: annualDiv,
-            name: q.longName || q.shortName || q.displayName || symbolKey
+            name: q.longName || q.shortName || q.displayName || rawSym
           };
+
+          // 티커 형태별 매핑 키 등록 (005930.KS, 005930, 005930.ks 모두 일치 가능)
+          const keys = [
+            rawSym,
+            rawSym.toUpperCase(),
+            rawSym.toLowerCase(),
+            cleanTicker(rawSym),
+            cleanTicker(rawSym).toLowerCase()
+          ];
+
+          keys.forEach(k => { if (k) nextQuotes[k] = itemData; });
         }
 
         if (!cancelled) setQuotes(nextQuotes);
       } catch (e) {
         console.error("Quote Fetching Error:", e);
-        if (!cancelled) setQuoteError("시세 및 배당 데이터를 불러오지 못했습니다.");
+        if (!cancelled) setQuoteError("시세 및 배당 정보를 가져오지 못했습니다.");
       } finally {
         if (!cancelled) setLoadingQuotes(false);
       }
@@ -236,7 +247,7 @@ function App() {
     return () => { cancelled = true; clearInterval(id); };
   }, [lots]);
 
-  // 검색 목록 개선 (정돈된 티커 및 종목명 표기)
+  // 검색 목록 정돈
   const symbolsBySearch = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
@@ -270,7 +281,7 @@ function App() {
       : lots.filter(l => (l.account || "기본 계좌") === selectedAccount);
   }, [lots, selectedAccount]);
 
-  // 포트폴리오 집계
+  // 포트폴리오 집계 계산
   const portfolio = useMemo(() => {
     const map = new Map();
     for (const lot of visibleLots) {
@@ -288,14 +299,15 @@ function App() {
       }
       const p = map.get(lot.symbol);
       const q = Number(lot.quantity) || 0;
+      const priceKRW = Number(lot.avgPriceKRW) || 0;
       p.qty += q;
-      p.investedKRW += q * (Number(lot.avgPriceKRW) || 0);
-      p.investedForeign += q * (Number(lot.avgPriceForeign) || 0);
+      p.investedKRW += q * priceKRW;
+      p.investedForeign += q * (Number(lot.avgPriceForeign) || (priceKRW / (fx[p.currency] || 1)));
       p.lots.push(lot);
     }
 
     return [...map.values()].map(p => {
-      const q = quotes[p.symbol] || {};
+      const q = quotes[p.symbol] || quotes[p.symbol.toUpperCase()] || quotes[cleanTicker(p.symbol)] || {};
       const rate = fx[p.currency] || 1;
       const currentForeign = Number(q.price || 0);
       const currentKRW = currentForeign * rate;
@@ -336,7 +348,7 @@ function App() {
     };
   }, [portfolio]);
 
-  // 페이지 스위칭 핸들러
+  // 페이지 스크롤 스위칭
   const scrollToPage = (idx) => {
     setPage(idx);
     if (containerRef.current) {
@@ -387,20 +399,43 @@ function App() {
     setSearchOpen(false);
   };
 
+  // 보유 매수건 수정 (텍스트 입력 작동 보장)
   const handleUpdateLot = (lotId, field, val) => {
     setLots(prev => prev.map(l => {
       if (l.id !== lotId) return l;
-      const numVal = Number(val) || 0;
-      const updated = { ...l, [field]: field === "quantity" || field === "avgPriceKRW" ? numVal : val };
+      const updated = { ...l, [field]: val };
       if (field === "avgPriceKRW") {
+        const numVal = Number(val) || 0;
         updated.avgPriceForeign = numVal / (fx[l.currency] || 1);
       }
       return updated;
     }));
+
+    // 모달 내 실시간 갱신
+    if (editingStock) {
+      setEditingStock(prev => ({
+        ...prev,
+        lots: prev.lots.map(l => {
+          if (l.id !== lotId) return l;
+          const updated = { ...l, [field]: val };
+          if (field === "avgPriceKRW") {
+            const numVal = Number(val) || 0;
+            updated.avgPriceForeign = numVal / (fx[l.currency] || 1);
+          }
+          return updated;
+        })
+      }));
+    }
   };
 
   const handleDeleteLot = (lotId) => {
     setLots(prev => prev.filter(l => l.id !== lotId));
+    if (editingStock) {
+      setEditingStock(prev => {
+        const nextLots = prev.lots.filter(l => l.id !== lotId);
+        return nextLots.length ? { ...prev, lots: nextLots } : null;
+      });
+    }
   };
 
   const handleDeleteSymbolAll = (symbol) => {
@@ -447,7 +482,7 @@ function App() {
           setLots(data.lots);
           if (Array.isArray(data.accounts)) setAccounts(data.accounts);
         }
-        alert("데이터를 성공적으로 불러왔습니다.");
+        alert("성공적으로 불러왔습니다.");
       } catch {
         alert("올바르지 않은 JSON 파일입니다.");
       }
@@ -458,7 +493,7 @@ function App() {
 
   return (
     <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* 헤더 네비게이션 */}
+      {/* 헤더 */}
       <header className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 z-20 flex-shrink-0">
         <div className="flex items-center gap-4">
           <div className="font-bold text-base md:text-lg text-white">
@@ -485,13 +520,13 @@ function App() {
         </div>
       </header>
 
-      {/* 스와이프 페이지 영역 */}
+      {/* 스와이프 컨테이너 */}
       <div 
         ref={containerRef}
         onScroll={handleScroll}
         className="page-container"
       >
-        {/* PAGE 1: 포트폴리오 */}
+        {/* PAGE 1: 포트폴리오 메인 */}
         <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
           <div className="max-w-6xl mx-auto space-y-4">
             <div className="flex flex-col md:flex-row gap-3">
@@ -545,6 +580,7 @@ function App() {
               </div>
             </div>
 
+            {/* 요약 카드 */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <Stat title="총 평가금액" value={money(stats.value)} />
               <Stat title="총 투자원금" value={money(stats.invested)} />
@@ -554,12 +590,12 @@ function App() {
 
             <div className="flex justify-between items-center text-xs text-slate-400 px-1">
               <div>보유 종목 {portfolio.length}개</div>
-              <div>USD/KRW {format(fx.USD, "KRW")} · JPY/KRW {format(fx.JPY, "KRW")} {loadingQuotes && " (갱신 중...)"}</div>
+              <div>USD/KRW {format(fx.USD, "KRW")} · JPY/KRW {format(fx.JPY, "KRW")} {loadingQuotes && " (시세 갱신 중...)"}</div>
             </div>
 
             {quoteError && <div className="text-xs text-amber-400 bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl">{quoteError}</div>}
 
-            {/* 보유 종목 테이블 */}
+            {/* 보유 종목 리스트 */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
               <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_80px] gap-3 px-4 py-3 text-xs text-slate-400 font-medium border-b border-slate-800">
                 <div>종목명</div>
@@ -571,7 +607,7 @@ function App() {
               </div>
 
               {portfolio.length === 0 ? (
-                <div className="p-12 text-center text-slate-500 text-sm">등록된 종목이 없습니다. 검색을 통해 종목을 추가하세요.</div>
+                <div className="p-12 text-center text-slate-500 text-sm">등록된 종목이 없습니다. 상단 검색창에서 종목을 검색 후 추가하세요.</div>
               ) : portfolio.map(item => (
                 <div key={item.symbol} className="px-4 py-3.5 border-b border-slate-800/60 last:border-0 hover:bg-slate-800/30 transition-colors">
                   <div className="grid md:grid-cols-[2fr_1fr_1fr_1fr_1fr_80px] gap-2 md:gap-3 items-center">
@@ -580,14 +616,14 @@ function App() {
                       <div className="text-xs text-slate-400">{cleanTicker(item.symbol)} · {marketLabel(item.symbol)}</div>
                     </div>
                     <div className="text-sm">{format(item.qty, item.currency)} 주</div>
-                    <div className="text-sm">
+                    <div className="text-sm font-medium">
                       {item.currentForeign ? money(item.currentForeign, item.currency) : "-"}
-                      <div className="text-xs text-slate-400">{item.currentForeign ? money(item.currentKRW, "KRW") : ""}</div>
+                      <div className="text-xs text-slate-400 font-normal">{item.currentForeign ? money(item.currentKRW, "KRW") : ""}</div>
                     </div>
-                    <div className="text-sm font-medium">{item.valueKRW ? money(item.valueKRW) : "-"}</div>
-                    <div className={`text-sm font-medium ${colorForReturn(item.profit)}`}>
-                      {item.valueKRW ? signedMoney(item.profit) : "-"}
-                      <div className="text-xs">{item.valueKRW ? `${item.profitPct >= 0 ? "+" : ""}${item.profitPct.toFixed(2)}%` : ""}</div>
+                    <div className="text-sm font-medium">{item.currentForeign ? money(item.valueKRW) : "-"}</div>
+                    <div className={`text-sm font-medium ${item.currentForeign ? colorForReturn(item.profit) : "text-slate-400"}`}>
+                      {item.currentForeign ? signedMoney(item.profit) : "-"}
+                      <div className="text-xs">{item.currentForeign ? `${item.profitPct >= 0 ? "+" : ""}${item.profitPct.toFixed(2)}%` : ""}</div>
                     </div>
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => setEditingStock(item)} title="수정" className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white">
@@ -604,7 +640,7 @@ function App() {
           </div>
         </div>
 
-        {/* PAGE 2: 분배금 (배당금) */}
+        {/* PAGE 2: 분배금 */}
         <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
           <div className="max-w-6xl mx-auto space-y-4">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -664,7 +700,7 @@ function App() {
         <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
           <div className="max-w-6xl mx-auto space-y-4">
             <div className="flex justify-between items-center">
-              <div className="font-semibold text-lg text-white">포트폴리오 트리맵 히트맵</div>
+              <div className="font-semibold text-lg text-white">포트폴리오 히트맵 트리맵</div>
               <div className="text-xs text-slate-400">자산 비중 및 당일 등락률 기준</div>
             </div>
 
@@ -673,10 +709,10 @@ function App() {
                 등록된 종목이 없습니다.
               </div>
             ) : (
-              <div className="flex flex-wrap gap-2 min-h-[500px] w-full">
+              <div className="flex flex-wrap gap-2 min-h-[520px] w-full">
                 {portfolio.map(item => {
-                  const totalVal = stats.value || 1;
-                  const weight = item.valueKRW / totalVal;
+                  const totalVal = stats.value > 0 ? stats.value : 1;
+                  const weight = item.valueKRW > 0 ? (item.valueKRW / totalVal) : (1 / portfolio.length);
                   const weightPct = Math.max(weight * 100, 6);
                   const change = item.changePercent;
                   
@@ -694,23 +730,23 @@ function App() {
                       style={{
                         flexGrow: weightPct,
                         flexBasis: `${weightPct}%`,
-                        minWidth: '120px',
-                        minHeight: '100px',
+                        minWidth: '125px',
+                        minHeight: '110px',
                         backgroundColor: bg
                       }}
                     >
                       <div className="flex justify-between items-start gap-1">
                         <span className="font-bold text-white text-sm truncate">{item.name}</span>
-                        <span className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded text-slate-300 font-mono">
+                        <span className="text-[10px] bg-black/50 px-1.5 py-0.5 rounded text-slate-300 font-mono">
                           {(weight * 100).toFixed(1)}%
                         </span>
                       </div>
                       <div>
                         <div className="text-xs text-slate-300 font-mono">{cleanTicker(item.symbol)}</div>
-                        <div className="text-base font-black font-mono mt-1">
+                        <div className={`text-base font-black font-mono mt-0.5 ${colorForReturn(change)}`}>
                           {change >= 0 ? "+" : ""}{change.toFixed(2)}%
                         </div>
-                        <div className="text-xs text-slate-200 font-medium">{money(item.valueKRW)}</div>
+                        <div className="text-xs text-slate-100 font-medium">{item.valueKRW ? money(item.valueKRW) : "-"}</div>
                       </div>
                     </div>
                   );
@@ -727,7 +763,7 @@ function App() {
           <form onSubmit={addLot} className="space-y-4">
             <div className="text-xs text-slate-400">{showAdd.cleanedSymbol} · {showAdd.currency}</div>
             <Field label="매수 수량"><input name="quantity" type="number" step="any" required autoFocus className="field" /></Field>
-            <Field label="매수 단가 (KRW)"><input name="priceKRW" type="number" step="any" required className="field" /></Field>
+            <Field label="매수 단가 (원화)"><input name="priceKRW" type="number" step="any" required className="field" /></Field>
             <Field label="매수일"><input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required className="field" /></Field>
             <Field label="계좌 선택">
               <select name="account" defaultValue={accounts[0]} className="field">
@@ -741,7 +777,7 @@ function App() {
 
       {/* 모달: 매수건 수정/삭제 */}
       {editingStock && (
-        <Modal title={`${editingStock.name} 매수 내역 관리`} onClose={() => setEditingStock(null)}>
+        <Modal title={`${editingStock.name} 보유 내역 수정`} onClose={() => setEditingStock(null)}>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto thin-scroll pr-1">
             {editingStock.lots.map((lot, idx) => (
               <div key={lot.id} className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
@@ -771,7 +807,7 @@ function App() {
                 </div>
               </div>
             ))}
-            <button onClick={() => setEditingStock(null)} className="w-full bg-slate-800 hover:bg-slate-700 text-white rounded-xl py-2.5 font-medium">
+            <button onClick={() => setEditingStock(null)} className="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-2.5 font-medium transition-colors">
               완료
             </button>
           </div>
