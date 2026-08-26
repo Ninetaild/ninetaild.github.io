@@ -52,6 +52,8 @@
         const [searchQuery, setSearchQuery] = useState('');
         const [searchResults, setSearchResults] = useState([]);
         const [isSearching, setIsSearching] = useState(false);
+        const [localSymbols, setLocalSymbols] = useState([]); // symbols.json 데이터 저장용
+
         const [marketFilter, setMarketFilter] = useState('ALL'); 
         const [displayCurrency, setDisplayCurrency] = useState('KRW'); 
         
@@ -81,6 +83,18 @@
             localStorage.setItem('globalPortfolioAccounts', JSON.stringify(accountNicknames));
         }, [accountNicknames]);
 
+        // symbols.json 불러오기
+        useEffect(() => {
+            fetch('https://ninetaild.github.io/data/symbols.json')
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        setLocalSymbols(data);
+                    }
+                })
+                .catch(err => console.error("Failed to load symbols.json", err));
+        }, []);
+
         useEffect(() => {
             const fetchFX = async () => {
                 try {
@@ -98,12 +112,14 @@
             fetchFX();
         }, []);
 
+        // symbols.json 및 Worker 검색 통합 로직
         useEffect(() => {
             if (searchQuery.trim().length < 1) {
                 setSearchResults([]);
                 return;
             }
-            const cacheKey = `${searchQuery.trim().toLowerCase()}_${marketFilter}`;
+            const queryLower = searchQuery.trim().toLowerCase();
+            const cacheKey = `${queryLower}_${marketFilter}`;
             if (searchCache.current[cacheKey]) {
                 setSearchResults(searchCache.current[cacheKey]);
                 setIsSearching(false);
@@ -114,31 +130,59 @@
             const timeoutId = setTimeout(async () => {
                 setIsSearching(true);
                 try {
-                    const data = await fetchViaWorker(`/search?q=${encodeURIComponent(searchQuery)}`, { signal: abortController.signal });
-                    let rawResults = [];
-                    if (data && data.quotes) {
-                        rawResults = data.quotes.filter(q => {
-                            const type = (q.quoteType || '').toUpperCase();
-                            return type === 'EQUITY' || type === 'ETF' || type === 'MUTUALFUND' || type === 'STOCKS';
+                    let results = [];
+
+                    // 1. 먼저 localSymbols(symbols.json)에서 검색 키워드 매칭 시도
+                    if (localSymbols.length > 0) {
+                        const matched = localSymbols.filter(item => {
+                            // marketFilter 검증
+                            if (marketFilter !== 'ALL' && item.market !== marketFilter) return false;
+                            
+                            // symbol, name 또는 searchKeywords 배열 안의 키워드 검사
+                            const matchesSymbol = item.symbol?.toLowerCase().includes(queryLower);
+                            const matchesName = item.name?.toLowerCase().includes(queryLower);
+                            const matchesKeywords = item.searchKeywords && item.searchKeywords.some(kw => kw.toLowerCase().includes(queryLower));
+                            
+                            return matchesSymbol || matchesName || matchesKeywords;
                         });
-                        if (rawResults.length === 0) rawResults = data.quotes.slice(0, 5);
+
+                        results = matched.map(item => ({
+                            symbol: item.symbol,
+                            name: item.name,
+                            market: item.market || 'US',
+                            currency: item.currency || (item.market === 'KR' ? 'KRW' : item.market === 'JP' ? 'JPY' : 'USD'),
+                            shortname: item.name
+                        }));
                     }
 
-                    const uniqueResults = [];
-                    const seen = new Set();
-                    for (const item of rawResults) {
-                        if (!seen.has(item.symbol)) {
-                            seen.add(item.symbol);
-                            uniqueResults.push(item);
+                    // 2. 만약 symbols.json 결과가 부족하거나 없다면 기존 Worker(야후 파이낸스) 검색 병행
+                    if (results.length === 0) {
+                        const data = await fetchViaWorker(`/search?q=${encodeURIComponent(searchQuery)}`, { signal: abortController.signal });
+                        let rawResults = [];
+                        if (data && data.quotes) {
+                            rawResults = data.quotes.filter(q => {
+                                const type = (q.quoteType || '').toUpperCase();
+                                return type === 'EQUITY' || type === 'ETF' || type === 'MUTUALFUND' || type === 'STOCKS';
+                            });
+                            if (rawResults.length === 0) rawResults = data.quotes.slice(0, 5);
                         }
-                    }
 
-                    let results = uniqueResults.map(q => {
-                        let market = 'US', currency = 'USD';
-                        if (q.symbol.endsWith('.KS') || q.symbol.endsWith('.KQ')) { market = 'KR'; currency = 'KRW'; }
-                        else if (q.symbol.endsWith('.T')) { market = 'JP'; currency = 'JPY'; }
-                        return { ...q, name: q.longname || q.shortname || q.symbol, market, currency };
-                    }).filter(q => marketFilter === 'ALL' || q.market === marketFilter);
+                        const uniqueResults = [];
+                        const seen = new Set();
+                        for (const item of rawResults) {
+                            if (!seen.has(item.symbol)) {
+                                seen.add(item.symbol);
+                                uniqueResults.push(item);
+                            }
+                        }
+
+                        results = uniqueResults.map(q => {
+                            let market = 'US', currency = 'USD';
+                            if (q.symbol.endsWith('.KS') || q.symbol.endsWith('.KQ')) { market = 'KR'; currency = 'KRW'; }
+                            else if (q.symbol.endsWith('.T')) { market = 'JP'; currency = 'JPY'; }
+                            return { ...q, name: q.longname || q.shortname || q.symbol, market, currency };
+                        }).filter(q => marketFilter === 'ALL' || q.market === marketFilter);
+                    }
 
                     searchCache.current[cacheKey] = results;
                     setSearchResults(results);
@@ -150,9 +194,9 @@
             }, 300);
 
             return () => { clearTimeout(timeoutId); abortController.abort(); };
-        }, [searchQuery, marketFilter]);
+        }, [searchQuery, marketFilter, localSymbols]);
 
-        // 현재가 및 배당금 수신 로직 견고화 (VOO 등 주요 ETF 포함)
+        // 현재가 및 배당금 수신 로직
         useEffect(() => {
             const uniqueSymbols = [...new Set(lots.map(l => l.symbol))];
             if (uniqueSymbols.length === 0) return;
@@ -476,7 +520,6 @@
                                     </div>
                                 )}
 
-                                {/* 검색 영역 z-index 최상위 확보 */}
                                 <div className="p-4 border-b border-slate-800 relative z-[99] shrink-0">
                                     <div className="flex gap-2 mb-3">
                                         {['ALL', 'US', 'KR', 'JP'].map(market => (
@@ -489,7 +532,7 @@
                                         <SearchIcon className="absolute left-3 top-3 text-slate-400" />
                                         <input
                                             type="text"
-                                            placeholder="Search stock by name or ticker..."
+                                            placeholder="종목명, 한글 키워드 또는 티커 검색..."
                                             className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
