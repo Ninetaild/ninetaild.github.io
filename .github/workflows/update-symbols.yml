@@ -3,7 +3,7 @@ name: Update Yahoo Finance symbols
 on:
   schedule:
     - cron: "0 0 * * 1"
-  workflow_dispatch: # 👉 이 구문이 있어야 Actions 탭에 'Run workflow' 수동 실행 버튼이 생성됩니다.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -26,7 +26,6 @@ jobs:
         run: python -m pip install -r requirements.txt
 
       - name: Update symbols
-        timeout-minutes: 10
         continue-on-error: true
         run: python scripts/update_symbols.py
 
@@ -35,7 +34,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add data/symbols.json
+          # data/ 폴더 안의 symbols.json, aliases.json 등 변경된 모든 파일을 함께 추적
+          git add data/
 
           if git diff --cached --quiet; then
             echo "No symbol changes."
