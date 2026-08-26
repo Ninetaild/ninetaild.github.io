@@ -22,6 +22,7 @@
     const MinusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
     const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
     const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
+    const LayoutToggleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="3" x2="12" y2="21"></line></svg>;
 
     const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
 
@@ -52,12 +53,13 @@
         const [searchQuery, setSearchQuery] = useState('');
         const [searchResults, setSearchResults] = useState([]);
         const [isSearching, setIsSearching] = useState(false);
-        const [localSymbols, setLocalSymbols] = useState([]); // symbols.json 데이터 저장용
+        const [localSymbols, setLocalSymbols] = useState([]); 
 
         const [marketFilter, setMarketFilter] = useState('ALL'); 
         const [displayCurrency, setDisplayCurrency] = useState('KRW'); 
         
         const [currentPage, setCurrentPage] = useState(0); 
+        const [isVerticalLayout, setIsVerticalLayout] = useState(false); // 모바일 가로/세로 전환 상태
 
         const [selectedAccount, setSelectedAccount] = useState('ALL');
         const [accountNicknames, setAccountNicknames] = useState(() => {
@@ -83,14 +85,11 @@
             localStorage.setItem('globalPortfolioAccounts', JSON.stringify(accountNicknames));
         }, [accountNicknames]);
 
-        // symbols.json 불러오기
         useEffect(() => {
             fetch('https://ninetaild.github.io/data/symbols.json')
                 .then(res => res.json())
                 .then(data => {
-                    if (Array.isArray(data)) {
-                        setLocalSymbols(data);
-                    }
+                    if (Array.isArray(data)) setLocalSymbols(data);
                 })
                 .catch(err => console.error("Failed to load symbols.json", err));
         }, []);
@@ -112,7 +111,6 @@
             fetchFX();
         }, []);
 
-        // symbols.json 및 Worker 검색 통합 로직
         useEffect(() => {
             if (searchQuery.trim().length < 1) {
                 setSearchResults([]);
@@ -131,18 +129,12 @@
                 setIsSearching(true);
                 try {
                     let results = [];
-
-                    // 1. 먼저 localSymbols(symbols.json)에서 검색 키워드 매칭 시도
                     if (localSymbols.length > 0) {
                         const matched = localSymbols.filter(item => {
-                            // marketFilter 검증
                             if (marketFilter !== 'ALL' && item.market !== marketFilter) return false;
-                            
-                            // symbol, name 또는 searchKeywords 배열 안의 키워드 검사
                             const matchesSymbol = item.symbol?.toLowerCase().includes(queryLower);
                             const matchesName = item.name?.toLowerCase().includes(queryLower);
                             const matchesKeywords = item.searchKeywords && item.searchKeywords.some(kw => kw.toLowerCase().includes(queryLower));
-                            
                             return matchesSymbol || matchesName || matchesKeywords;
                         });
 
@@ -151,11 +143,10 @@
                             name: item.name,
                             market: item.market || 'US',
                             currency: item.currency || (item.market === 'KR' ? 'KRW' : item.market === 'JP' ? 'JPY' : 'USD'),
-                            shortname: item.name
+                            searchKeywords: item.searchKeywords || []
                         }));
                     }
 
-                    // 2. 만약 symbols.json 결과가 부족하거나 없다면 기존 Worker(야후 파이낸스) 검색 병행
                     if (results.length === 0) {
                         const data = await fetchViaWorker(`/search?q=${encodeURIComponent(searchQuery)}`, { signal: abortController.signal });
                         let rawResults = [];
@@ -180,7 +171,8 @@
                             let market = 'US', currency = 'USD';
                             if (q.symbol.endsWith('.KS') || q.symbol.endsWith('.KQ')) { market = 'KR'; currency = 'KRW'; }
                             else if (q.symbol.endsWith('.T')) { market = 'JP'; currency = 'JPY'; }
-                            return { ...q, name: q.longname || q.shortname || q.symbol, market, currency };
+                            const primaryName = q.longname || q.shortname || q.symbol;
+                            return { ...q, name: primaryName, market, currency, searchKeywords: [primaryName.toLowerCase()] };
                         }).filter(q => marketFilter === 'ALL' || q.market === marketFilter);
                     }
 
@@ -196,7 +188,6 @@
             return () => { clearTimeout(timeoutId); abortController.abort(); };
         }, [searchQuery, marketFilter, localSymbols]);
 
-        // 현재가 및 배당금 수신 로직
         useEffect(() => {
             const uniqueSymbols = [...new Set(lots.map(l => l.symbol))];
             if (uniqueSymbols.length === 0) return;
@@ -309,7 +300,7 @@
             const newLot = {
                 id: Date.now().toString(),
                 symbol: addLotModal.symbol,
-                name: addLotModal.shortname || addLotModal.name,
+                name: addLotModal.name,
                 market: addLotModal.market,
                 currency: addLotModal.currency,
                 quantity: qty,
@@ -467,142 +458,145 @@
         return (
             <div className="flex flex-col h-screen bg-slate-950 text-slate-200 font-sans overflow-hidden">
                 
-                <div className="flex flex-1 overflow-hidden relative">
+                {/* 메인 콘텐츠 영역: 공통 계좌/종목 편집 영역(좌측) + 페이지별 콘텐츠(우측) */}
+                <div className={`flex flex-1 overflow-hidden relative ${isVerticalLayout ? 'flex-col' : 'flex-row'}`}>
                     
-                    {currentPage === 0 && (
-                        <div className="flex flex-1 overflow-hidden">
-                            <div className="w-[50%] flex flex-col border-r border-slate-800 overflow-hidden">
-                                <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
-                                    <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                                        <span>📈</span> Global Portfolio
-                                    </h1>
-                                    <div className="flex items-center gap-2">
-                                        <button onClick={handleExport} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Download JSON"><DownloadIcon /></button>
-                                        <button onClick={() => fileInputRef.current.click()} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Upload JSON"><UploadIcon /></button>
-                                        <input type="file" ref={fileInputRef} onChange={handleImport} accept=".json" className="hidden" />
-                                    </div>
-                                </div>
+                    {/* [공통 영역] 좌측: 계좌 관리 및 보유 종목 편집 리스트 */}
+                    <div className={`${isVerticalLayout ? 'w-full h-[50%]' : 'w-[50%]'} flex flex-col border-r border-slate-800 overflow-hidden shrink-0`}>
+                        <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
+                            <h1 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span>📈</span> Global Portfolio
+                            </h1>
+                            <div className="flex items-center gap-2">
+                                <button onClick={handleExport} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Download JSON"><DownloadIcon /></button>
+                                <button onClick={() => fileInputRef.current.click()} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors" title="Upload JSON"><UploadIcon /></button>
+                                <input type="file" ref={fileInputRef} onChange={handleImport} accept=".json" className="hidden" />
+                            </div>
+                        </div>
 
-                                <div className="px-4 py-2.5 bg-slate-900/60 border-b border-slate-800 flex items-center justify-between shrink-0">
-                                    <div className="flex items-center gap-2 overflow-x-auto flex-1 mr-2">
-                                        <button onClick={() => setSelectedAccount('ALL')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === 'ALL' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>전체 계좌</button>
-                                        {accountNicknames.map(acc => (
-                                            <div key={acc} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === acc ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
-                                                <button onClick={() => setSelectedAccount(acc)} className="focus:outline-none">{acc}</button>
-                                                <button 
-                                                    onClick={(e) => handleDeleteAccount(acc, e)}
-                                                    className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-red-500 hover:text-white text-slate-400 transition-colors ml-1"
-                                                    title="계좌 삭제 (-)"
-                                                >
-                                                    <MinusIcon />
-                                                </button>
-                                            </div>
-                                        ))}
+                        <div className="px-4 py-2.5 bg-slate-900/60 border-b border-slate-800 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-2 overflow-x-auto flex-1 mr-2">
+                                <button onClick={() => setSelectedAccount('ALL')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === 'ALL' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>전체 계좌</button>
+                                {accountNicknames.map(acc => (
+                                    <div key={acc} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${selectedAccount === acc ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+                                        <button onClick={() => setSelectedAccount(acc)} className="focus:outline-none">{acc}</button>
+                                        <button 
+                                            onClick={(e) => handleDeleteAccount(acc, e)}
+                                            className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-red-500 hover:text-white text-slate-400 transition-colors ml-1"
+                                            title="계좌 삭제 (-)"
+                                        >
+                                            <MinusIcon />
+                                        </button>
                                     </div>
-                                    <button 
-                                        onClick={() => setShowAccountManager(!showAccountManager)} 
-                                        className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1"
-                                    >
-                                        <PlusIcon /> 계좌 추가
+                                ))}
+                            </div>
+                            <button 
+                                onClick={() => setShowAccountManager(!showAccountManager)} 
+                                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1"
+                            >
+                                <PlusIcon /> 계좌 추가
+                            </button>
+                        </div>
+
+                        {showAccountManager && (
+                            <div className="px-4 py-3 bg-slate-900 border-b border-slate-800 flex gap-2 shrink-0 animate-fadeIn">
+                                <input 
+                                    type="text" 
+                                    placeholder="새 계좌 이름 입력"
+                                    value={newAccountInput}
+                                    onChange={(e) => setNewAccountInput(e.target.value)}
+                                    className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                                />
+                                <button onClick={handleAddAccount} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium">추가</button>
+                            </div>
+                        )}
+
+                        <div className="p-4 border-b border-slate-800 relative z-[99] shrink-0">
+                            <div className="flex gap-2 mb-3">
+                                {['ALL', 'US', 'KR', 'JP'].map(market => (
+                                    <button key={market} onClick={() => setMarketFilter(market)} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${marketFilter === market ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                                        {MARKET_TOGGLE_LABELS[market]}
                                     </button>
-                                </div>
-
-                                {showAccountManager && (
-                                    <div className="px-4 py-3 bg-slate-900 border-b border-slate-800 flex gap-2 shrink-0 animate-fadeIn">
-                                        <input 
-                                            type="text" 
-                                            placeholder="새 계좌 이름 입력"
-                                            value={newAccountInput}
-                                            onChange={(e) => setNewAccountInput(e.target.value)}
-                                            className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
-                                        />
-                                        <button onClick={handleAddAccount} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium">추가</button>
+                                ))}
+                            </div>
+                            <div className="relative">
+                                <SearchIcon className="absolute left-3 top-3 text-slate-400" />
+                                <input
+                                    type="text"
+                                    placeholder="종목명, 키워드 또는 티커 검색..."
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                                {searchQuery && (
+                                    <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl overflow-hidden max-h-72 overflow-y-auto z-[999]">
+                                        {isSearching ? (
+                                            <div className="p-4 text-center text-slate-400 text-sm">Searching...</div>
+                                        ) : searchResults.length > 0 ? (
+                                            searchResults.map(result => (
+                                                <div key={result.symbol} className="p-3 hover:bg-slate-700 cursor-pointer flex justify-between items-center border-b border-slate-700/50" onClick={() => setAddLotModal(result)}>
+                                                    <div className="flex flex-col pr-2">
+                                                        <span className="font-bold text-white text-sm">{result.name}</span>
+                                                        <span className="text-xs text-slate-400 mt-0.5">{result.searchKeywords?.[1] || result.symbol}</span>
+                                                    </div>
+                                                    <span className="text-xs font-mono px-2 py-1 bg-slate-900 rounded text-blue-400 border border-slate-700 shrink-0">{result.symbol}</span>
+                                                </div>
+                                            ))
+                                        ) : (<div className="p-4 text-center text-slate-400 text-sm">No results found</div>)}
                                     </div>
                                 )}
+                            </div>
+                        </div>
 
-                                <div className="p-4 border-b border-slate-800 relative z-[99] shrink-0">
-                                    <div className="flex gap-2 mb-3">
-                                        {['ALL', 'US', 'KR', 'JP'].map(market => (
-                                            <button key={market} onClick={() => setMarketFilter(market)} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${marketFilter === market ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                                                {MARKET_TOGGLE_LABELS[market]}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="relative">
-                                        <SearchIcon className="absolute left-3 top-3 text-slate-400" />
-                                        <input
-                                            type="text"
-                                            placeholder="종목명, 한글 키워드 또는 티커 검색..."
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500"
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                        />
-                                        {searchQuery && (
-                                            <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl overflow-hidden max-h-72 overflow-y-auto z-[999]">
-                                                {isSearching ? (
-                                                    <div className="p-4 text-center text-slate-400 text-sm">Searching...</div>
-                                                ) : searchResults.length > 0 ? (
-                                                    searchResults.map(result => (
-                                                        <div key={result.symbol} className="p-3 hover:bg-slate-700 cursor-pointer flex justify-between items-center border-b border-slate-700/50" onClick={() => setAddLotModal(result)}>
-                                                            <div>
-                                                                <div className="font-bold text-white text-sm">{result.symbol}</div>
-                                                                <div className="text-xs text-slate-400 truncate w-48">{result.name}</div>
-                                                            </div>
-                                                            <span className="text-xs px-2 py-1 bg-slate-900 rounded text-slate-300 border border-slate-700">{getSubMarketLabel(result)}</span>
-                                                        </div>
-                                                    ))
-                                                ) : (<div className="p-4 text-center text-slate-400 text-sm">No results found</div>)}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="flex-1 overflow-y-auto p-4 relative z-0">
-                                    <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-950 py-2 z-10">
-                                        <h2 className="text-sm font-semibold text-slate-400">Holdings ({selectedAccount})</h2>
-                                        <div className="flex bg-slate-800 rounded-lg p-1">
-                                            <button onClick={() => setDisplayCurrency('KRW')} className={`px-2.5 py-0.5 text-xs rounded font-medium ${displayCurrency === 'KRW' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>KRW</button>
-                                            <button onClick={() => setDisplayCurrency('FOREIGN')} className={`px-2.5 py-0.5 text-xs rounded font-medium ${displayCurrency === 'FOREIGN' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>Foreign</button>
-                                        </div>
-                                    </div>
-
-                                    {consolidatedPortfolio.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center h-36 text-slate-500 text-sm">
-                                            <p>No stocks in portfolio yet.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {consolidatedPortfolio.map(item => (
-                                                <div key={item.symbol} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between hover:border-slate-700 transition-colors">
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-white text-sm">{item.symbol}</span>
-                                                            <span className="text-[10px] text-slate-400 px-1 py-0.5 bg-slate-800 rounded">{getSubMarketLabel(item)}</span>
-                                                        </div>
-                                                        <div className="flex gap-3 mt-1 text-xs text-slate-400">
-                                                            <div>Qty: {formatNumber(item.totalQuantity, 'USD')}</div>
-                                                            <div>Avg: {displayCurrency === 'KRW' ? `₩${formatNumber(item.avgPriceKRW, 'KRW')}` : `${getCurrencySymbol(item.currency)}${formatNumber(item.avgPriceForeign, item.currency)}`}</div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="font-semibold text-sm">
-                                                            {displayCurrency === 'KRW' ? `₩${formatNumber(item.currentValueKRW, 'KRW')}` : `${getCurrencySymbol(item.currency)}${formatNumber(item.totalQuantity * item.currentPriceForeign, item.currency)}`}
-                                                        </div>
-                                                        <div className={`text-xs font-medium ${item.returnPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                                            {item.returnPercent > 0 ? '+' : ''}{item.returnPercent.toFixed(2)}%
-                                                        </div>
-                                                        <button onClick={() => setEditModalSymbol(item.symbol)} className="mt-1 text-[10px] text-slate-400 hover:text-white bg-slate-800 px-2 py-0.5 rounded flex items-center gap-1 ml-auto">
-                                                            <EditIcon /> Edit
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                        <div className="flex-1 overflow-y-auto p-4 relative z-0">
+                            <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-950 py-2 z-10">
+                                <h2 className="text-sm font-semibold text-slate-400">Holdings ({selectedAccount})</h2>
+                                <div className="flex bg-slate-800 rounded-lg p-1">
+                                    <button onClick={() => setDisplayCurrency('KRW')} className={`px-2.5 py-0.5 text-xs rounded font-medium ${displayCurrency === 'KRW' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>KRW</button>
+                                    <button onClick={() => setDisplayCurrency('FOREIGN')} className={`px-2.5 py-0.5 text-xs rounded font-medium ${displayCurrency === 'FOREIGN' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>Foreign</button>
                                 </div>
                             </div>
 
-                            <div className="w-[50%] bg-slate-950 p-6 flex flex-col justify-center">
+                            {consolidatedPortfolio.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-36 text-slate-500 text-sm">
+                                    <p>No stocks in portfolio yet.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {consolidatedPortfolio.map(item => (
+                                        <div key={item.symbol} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between hover:border-slate-700 transition-colors">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-white text-sm">{item.symbol}</span>
+                                                    <span className="text-[10px] text-slate-400 px-1 py-0.5 bg-slate-800 rounded">{getSubMarketLabel(item)}</span>
+                                                </div>
+                                                <div className="flex gap-3 mt-1 text-xs text-slate-400">
+                                                    <div>Qty: {formatNumber(item.totalQuantity, 'USD')}</div>
+                                                    <div>Avg: {displayCurrency === 'KRW' ? `₩${formatNumber(item.avgPriceKRW, 'KRW')}` : `${getCurrencySymbol(item.currency)}${formatNumber(item.avgPriceForeign, item.currency)}`}</div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="font-semibold text-sm">
+                                                    {displayCurrency === 'KRW' ? `₩${formatNumber(item.currentValueKRW, 'KRW')}` : `${getCurrencySymbol(item.currency)}${formatNumber(item.totalQuantity * item.currentPriceForeign, item.currency)}`}
+                                                </div>
+                                                <div className={`text-xs font-medium ${item.returnPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                    {item.returnPercent > 0 ? '+' : ''}{item.returnPercent.toFixed(2)}%
+                                                </div>
+                                                <button onClick={() => setEditModalSymbol(item.symbol)} className="mt-1 text-[10px] text-slate-400 hover:text-white bg-slate-800 px-2 py-0.5 rounded flex items-center gap-1 ml-auto">
+                                                    <EditIcon /> Edit
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 우측: 선택된 페이지 콘텐츠 (0: 대시보드/포트폴리오 상세, 1: 배당금 대시보드, 2: 히트맵) */}
+                    <div className={`${isVerticalLayout ? 'w-full h-[50%]' : 'w-[50%]'} flex flex-col bg-slate-950 overflow-hidden`}>
+                        {currentPage === 0 && (
+                            <div className="flex-1 p-6 flex flex-col justify-center overflow-y-auto">
                                 <h2 className="text-2xl font-bold text-white mb-6">📊 포트폴리오 요약</h2>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl">
@@ -625,76 +619,77 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {currentPage === 1 && (
-                        <div className="flex-1 p-6 overflow-y-auto bg-slate-950 flex flex-col">
-                            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                                <span>💰</span> Dividend Dashboard ({selectedAccount})
-                            </h2>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                                <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl shadow-lg">
-                                    <div className="text-slate-400 text-xs mb-1">최근 12개월 예상 배당금 합계</div>
-                                    <div className="text-2xl font-bold text-green-400">₩{formatNumber(dividendStats.annual, 'KRW')}</div>
+                        {currentPage === 1 && (
+                            <div className="flex-1 p-6 overflow-y-auto bg-slate-950 flex flex-col">
+                                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                                    <span>💰</span> Dividend Dashboard ({selectedAccount})
+                                </h2>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg">
+                                        <div className="text-slate-400 text-xs mb-1">최근 12개월 배당 합계</div>
+                                        <div className="text-xl font-bold text-green-400">₩{formatNumber(dividendStats.annual, 'KRW')}</div>
+                                    </div>
+                                    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg">
+                                        <div className="text-slate-400 text-xs mb-1">월 평균 배당금</div>
+                                        <div className="text-xl font-bold text-blue-400">₩{formatNumber(dividendStats.monthly, 'KRW')}</div>
+                                    </div>
+                                    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg">
+                                        <div className="text-slate-400 text-xs mb-1">평균 배당수익률</div>
+                                        <div className="text-xl font-bold text-yellow-400">{dividendStats.avgYield.toFixed(2)}%</div>
+                                    </div>
                                 </div>
-                                <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl shadow-lg">
-                                    <div className="text-slate-400 text-xs mb-1">월 평균 예상 배당금</div>
-                                    <div className="text-2xl font-bold text-blue-400">₩{formatNumber(dividendStats.monthly, 'KRW')}</div>
-                                </div>
-                                <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl shadow-lg">
-                                    <div className="text-slate-400 text-xs mb-1">평균 배당수익률</div>
-                                    <div className="text-2xl font-bold text-yellow-400">{dividendStats.avgYield.toFixed(2)}%</div>
+
+                                <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex-1 flex flex-col">
+                                    <div className="p-4 border-b border-slate-800 font-semibold text-sm">보유 종목별 배당 상세</div>
+                                    <div className="divide-y divide-slate-800 overflow-y-auto flex-1">
+                                        {consolidatedPortfolio.length === 0 ? (
+                                            <div className="p-6 text-center text-slate-500 text-sm">종목이 없습니다.</div>
+                                        ) : (
+                                            consolidatedPortfolio.map(item => (
+                                                <div key={item.symbol} className="p-4 flex items-center justify-between hover:bg-slate-800/50">
+                                                    <div>
+                                                        <div className="font-bold text-white">{item.symbol} <span className="text-xs text-slate-400 font-normal">({item.name})</span></div>
+                                                        <div className="text-xs text-slate-400 mt-0.5">수량: {formatNumber(item.totalQuantity, 'USD')}주</div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-semibold text-green-400">+₩{formatNumber(item.annualDividendKRW, 'KRW')} /년</div>
+                                                        <div className="text-xs text-slate-400">배당률: {item.dividendYield?.toFixed(2)}%</div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                                 </div>
                             </div>
+                        )}
 
-                            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex-1">
-                                <div className="p-4 border-b border-slate-800 font-semibold text-sm">보유 종목별 배당 상세</div>
-                                <div className="divide-y divide-slate-800 overflow-y-auto max-h-[50vh]">
-                                    {consolidatedPortfolio.length === 0 ? (
-                                        <div className="p-6 text-center text-slate-500 text-sm">종목이 없습니다.</div>
-                                    ) : (
-                                        consolidatedPortfolio.map(item => (
-                                            <div key={item.symbol} className="p-4 flex items-center justify-between hover:bg-slate-800/50">
-                                                <div>
-                                                    <div className="font-bold text-white">{item.symbol} <span className="text-xs text-slate-400 font-normal">({item.name})</span></div>
-                                                    <div className="text-xs text-slate-400 mt-0.5">보유수량: {formatNumber(item.totalQuantity, 'USD')}주</div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="text-sm font-semibold text-green-400">+₩{formatNumber(item.annualDividendKRW, 'KRW')} /년</div>
-                                                    <div className="text-xs text-slate-400">배당률: {item.dividendYield?.toFixed(2)}%</div>
-                                                </div>
-                                            </div>
-                                        ))
+                        {currentPage === 2 && (
+                            <div className="flex-1 p-6 bg-slate-950 flex flex-col overflow-hidden">
+                                <h2 className="text-2xl font-bold text-white mb-4">🗺️ Market Heatmap</h2>
+                                <div className="flex-1 w-full bg-slate-900 rounded-xl overflow-hidden relative shadow-inner border border-slate-800">
+                                    {treemapNodes.length > 0 ? treemapNodes.map(node => (
+                                        <div 
+                                            key={node.symbol}
+                                            className="absolute border border-slate-950 p-2 flex flex-col justify-center items-center overflow-hidden transition-all duration-300 hover:z-10"
+                                            style={{ left: `${node.x}%`, top: `${node.y}%`, width: `${node.w}%`, height: `${node.h}%`, backgroundColor: getHeatmapColor(node.dailyChangePercent) }}
+                                        >
+                                            <span className="font-bold text-white text-xs drop-shadow">{node.symbol}</span>
+                                            <span className="text-white/90 text-[10px] drop-shadow">{node.dailyChangePercent >= 0 ? '+' : ''}{node.dailyChangePercent?.toFixed(2)}%</span>
+                                        </div>
+                                    )) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm">No Data</div>
                                     )}
                                 </div>
                             </div>
-                        </div>
-                    )}
-
-                    {currentPage === 2 && (
-                        <div className="flex-1 p-6 bg-slate-950 flex flex-col overflow-hidden">
-                            <h2 className="text-2xl font-bold text-white mb-4">🗺️ Market Heatmap</h2>
-                            <div className="flex-1 w-full bg-slate-900 rounded-xl overflow-hidden relative shadow-inner border border-slate-800">
-                                {treemapNodes.length > 0 ? treemapNodes.map(node => (
-                                    <div 
-                                        key={node.symbol}
-                                        className="absolute border border-slate-950 p-2 flex flex-col justify-center items-center overflow-hidden transition-all duration-300 hover:z-10"
-                                        style={{ left: `${node.x}%`, top: `${node.y}%`, width: `${node.w}%`, height: `${node.h}%`, backgroundColor: getHeatmapColor(node.dailyChangePercent) }}
-                                    >
-                                        <span className="font-bold text-white text-xs drop-shadow">{node.symbol}</span>
-                                        <span className="text-white/90 text-[10px] drop-shadow">{node.dailyChangePercent >= 0 ? '+' : ''}{node.dailyChangePercent?.toFixed(2)}%</span>
-                                    </div>
-                                )) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm">No Data</div>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
 
-                <div className="py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-center gap-4 shrink-0">
+                {/* 하단 네비게이션 및 모바일 가로/세로 전환 버튼 (< o o o > 우측 배치) */}
+                <div className="py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-center gap-4 shrink-0 relative">
                     <button 
                         onClick={() => setCurrentPage(prev => (prev > 0 ? prev - 1 : 2))} 
                         className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-sm transition-colors"
@@ -716,6 +711,16 @@
                         className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-sm transition-colors"
                     >
                         &gt;
+                    </button>
+
+                    {/* 모바일 화면 전환 토글 버튼 (< o o o > 우측에 위치) */}
+                    <button 
+                        onClick={() => setIsVerticalLayout(prev => !prev)}
+                        className={`absolute right-4 p-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${isVerticalLayout ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                        title="가로/세로 레이아웃 전환"
+                    >
+                        <LayoutToggleIcon />
+                        <span className="hidden sm:inline">{isVerticalLayout ? '세로모드' : '가로모드'}</span>
                     </button>
                 </div>
 
