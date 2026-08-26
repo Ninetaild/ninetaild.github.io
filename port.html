@@ -3,110 +3,86 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Portfolio</title>
+  <title>Portfolio Manager</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    html, body, #root { margin:0; width:100%; height:100%; }
-    body { background:#020617; overflow:hidden; }
-    * { box-sizing:border-box; }
-    .page-track {
-      display:flex;
-      width:100%;
-      height:100%;
-      overflow-x:auto;
-      overflow-y:hidden;
-      scroll-snap-type:x mandatory;
-      scroll-behavior:smooth;
-      -webkit-overflow-scrolling:touch;
-      scrollbar-width:none;
-      cursor:grab;
-    }
-    .page-track:active { cursor:grabbing; }
-    .page-track::-webkit-scrollbar { display:none; }
-    .page {
-      flex:0 0 100%;
-      width:100%;
-      height:100%;
-      scroll-snap-align:start;
-      overflow-y:auto;
-      overflow-x:hidden;
-      overscroll-behavior-x:contain;
-    }
-    @media (min-width:768px) {
-      .page-track { scroll-snap-stop:always; }
-    }
-    .thin-scroll::-webkit-scrollbar { width:6px; height:6px; }
-    .thin-scroll::-webkit-scrollbar-thumb { background:#334155; border-radius:999px; }
-    .heat-cell { min-width:0; min-height:90px; }
-    input, select, button { -webkit-tap-highlight-color:transparent; }
+    html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+    body { background: #020617; user-select: none; }
+    * { box-sizing: border-box; }
+    .slider-container { display: flex; width: 300%; height: 100%; transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
+    .page-pane { width: 33.333333%; height: 100%; overflow-y: auto; overflow-x: hidden; }
+    .thin-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .thin-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
+    input, select, button { -webkit-tap-highlight-color: transparent; }
   </style>
 </head>
 <body>
 <div id="root"></div>
 
 <script type="text/babel">
-const {useEffect, useMemo, useRef, useState} = React;
+const { useEffect, useMemo, useRef, useState } = React;
 
 const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
 const SYMBOLS_URL = "https://ninetaild.github.io/data/symbols.json";
 
-const SearchIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>;
-const PlusIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>;
-const TrashIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 15h8l1-15M10 11v6M14 11v6"/></svg>;
-const EditIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>;
-const DownloadIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>;
-const UploadIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></svg>;
-const CloseIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 6 12 12M18 6 6 18"/></svg>;
-
-const fetchViaWorker = async (path, options={}) => {
-  const res = await fetch(`${WORKER_BASE_URL}${path}`, options);
-  if (!res.ok) throw new Error(`Yahoo proxy error: ${res.status}`);
-  return await res.json();
+// Google Finance 티커 포맷 변환 함수
+const toGoogleSymbol = (symbol = "") => {
+  const s = symbol.toUpperCase();
+  if (s.endsWith(".KS")) return `KRX:${s.replace(".KS", "")}`;
+  if (s.endsWith(".KQ")) return `KOSDAQ:${s.replace(".KQ", "")}`;
+  if (s.endsWith(".T")) return `TYO:${s.replace(".T", "")}`;
+  return s;
 };
 
-const marketOf = (symbol="") => {
+const marketOf = (symbol = "") => {
   const s = symbol.toUpperCase();
-  if (s.endsWith(".KS") || s.endsWith(".KQ")) return "KR";
-  if (s.endsWith(".T")) return "JP";
+  if (s.endsWith(".KS") || s.endsWith(".KQ") || s.startsWith("KRX:") || s.startsWith("KOSDAQ:")) return "KR";
+  if (s.endsWith(".T") || s.startsWith("TYO:")) return "JP";
   return "US";
 };
 
-const currencyOf = (symbol="") => {
+const currencyOf = (symbol = "") => {
   const m = marketOf(symbol);
   return m === "KR" ? "KRW" : m === "JP" ? "JPY" : "USD";
 };
 
-const marketLabel = (symbol="") => {
-  const m = marketOf(symbol);
-  if (m === "KR") return symbol.toUpperCase().endsWith(".KQ") ? "코스닥" : "코스피";
-  if (m === "JP") return "일본";
+const marketLabel = (symbol = "") => {
+  const s = symbol.toUpperCase();
+  if (s.endsWith(".KQ") || s.startsWith("KOSDAQ:")) return "코스닥";
+  if (s.endsWith(".KS") || s.startsWith("KRX:")) return "코스피";
+  if (s.endsWith(".T") || s.startsWith("TYO:")) return "일본";
   return "미국";
 };
 
-const format = (value, currency="KRW") => {
+const format = (value, currency = "KRW") => {
   const n = Number(value);
   if (!Number.isFinite(n)) return "-";
   const digits = currency === "USD" ? 2 : 0;
-  return new Intl.NumberFormat("ko-KR", {
-    maximumFractionDigits: digits,
-    minimumFractionDigits: digits
-  }).format(n);
+  return new Intl.NumberFormat("ko-KR", { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(n);
 };
 
-const money = (value, currency="KRW") => {
+const money = (value, currency = "KRW") => {
   const symbol = currency === "USD" ? "$" : currency === "JPY" ? "¥" : "₩";
   return symbol + format(value, currency);
 };
 
-const signedMoney = (value, currency="KRW") => {
+const signedMoney = (value, currency = "KRW") => {
   const n = Number(value) || 0;
   return `${n >= 0 ? "+" : "-"}${money(Math.abs(n), currency)}`;
 };
 
 const colorForReturn = (value) => value > 0 ? "text-emerald-400" : value < 0 ? "text-rose-400" : "text-slate-400";
+
+const SearchIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>;
+const PlusIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>;
+const TrashIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2m-9 0 1 15h8l1-15M10 11v6M14 11v6"/></svg>;
+const EditIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>;
+const DownloadIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>;
+const UploadIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></svg>;
+const CloseIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 6 12 12M18 6 6 18"/></svg>;
 
 function App() {
   const [lots, setLots] = useState(() => {
@@ -121,38 +97,44 @@ function App() {
       return saved ? JSON.parse(saved) : ["기본 계좌"];
     } catch { return ["기본 계좌"]; }
   });
+
   const [selectedAccount, setSelectedAccount] = useState("ALL");
   const [symbols, setSymbols] = useState([]);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [quotes, setQuotes] = useState({});
-  const [fx, setFx] = useState({USD:1350, JPY:9, KRW:1});
+  const [fx, setFx] = useState({ USD: 1350, JPY: 9, KRW: 1 });
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [quoteError, setQuoteError] = useState("");
   const [taxRate, setTaxRate] = useState(15.4);
+
   const [showAccounts, setShowAccounts] = useState(false);
   const [showAdd, setShowAdd] = useState(null);
-  const [editLot, setEditLot] = useState(null);
+  const [editingStock, setEditingStock] = useState(null);
   const [newAccount, setNewAccount] = useState("");
   const [page, setPage] = useState(0);
-  const trackRef = useRef(null);
-  const drag = useRef({down:false,startX:0,startScroll:0,moved:false});
+
+  const touchStartPos = useRef({ x: 0, y: 0 });
+  const isSwiping = useRef(false);
   const importRef = useRef(null);
 
   useEffect(() => localStorage.setItem("globalPortfolioLots", JSON.stringify(lots)), [lots]);
   useEffect(() => localStorage.setItem("globalPortfolioAccounts", JSON.stringify(accounts)), [accounts]);
 
   useEffect(() => {
-    fetch(SYMBOLS_URL, {cache:"no-store"})
+    fetch(SYMBOLS_URL, { cache: "no-store" })
       .then(r => r.json())
       .then(data => Array.isArray(data) && setSymbols(data))
-      .catch(e => console.error("symbols.json:", e));
+      .catch(e => console.error("symbols.json load failed", e));
   }, []);
 
+  // 환율 정보 불러오기
   useEffect(() => {
     const loadFx = async () => {
       try {
-        const data = await fetchViaWorker("/quote?symbols=USDKRW=X,JPYKRW=X");
+        const res = await fetch(`${WORKER_BASE_URL}/quote?symbols=USDKRW=X,JPYKRW=X`);
+        if (!res.ok) return;
+        const data = await res.json();
         const list = data?.quoteResponse?.result || data?.quotes || [];
         let usd = fx.USD, jpy = fx.JPY;
         for (const q of Array.isArray(list) ? list : Object.values(list)) {
@@ -162,9 +144,9 @@ function App() {
             jpy = raw > 100 ? raw / 100 : raw;
           }
         }
-        setFx({USD:usd, JPY:jpy, KRW:1});
+        setFx({ USD: usd, JPY: jpy, KRW: 1 });
       } catch (e) {
-        console.warn("FX failed", e);
+        console.warn("FX Fetch Error:", e);
       }
     };
     loadFx();
@@ -172,123 +154,165 @@ function App() {
     return () => clearInterval(id);
   }, []);
 
-  const symbolsBySearch = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return [];
-    const ranked = [];
-    for (const item of symbols) {
-      const symbol = String(item.symbol || "").toUpperCase();
-      const kws = Array.isArray(item.searchKeywords) ? item.searchKeywords.map(x => String(x).toLowerCase()) : [];
-      const exact = kws.some(x => x === q) || symbol.toLowerCase() === q;
-      const hit = symbol.toLowerCase().includes(q) || kws.some(x => x.includes(q));
-      if (!hit) continue;
-
-      const market = marketOf(symbol);
-      const nameCandidates = kws.filter(x => x !== symbol.toLowerCase() && x !== symbol.replace(/\.(ks|kq|t)$/i,"").toLowerCase());
-      const displayName = nameCandidates.find(x => /[a-z]/i.test(x)) || nameCandidates[0] || symbol;
-      ranked.push({
-        symbol,
-        name: displayName,
-        market,
-        currency: currencyOf(symbol),
-        score: exact ? 0 : (symbol.toLowerCase().startsWith(q) ? 1 : 2)
-      });
-    }
-    return ranked
-      .sort((a,b) => a.score-b.score || a.name.localeCompare(b.name))
-      .slice(0, 20);
-  }, [search, symbols]);
-
+  // Google Finance / Worker 시세 데이터 로드
   useEffect(() => {
     if (!lots.length) {
       setQuotes({});
       return;
     }
-    const symbolsToFetch = [...new Set(lots.map(x => x.symbol).filter(Boolean))];
+    const uniqueSymbols = [...new Set(lots.map(x => x.symbol).filter(Boolean))];
     let cancelled = false;
-    const load = async () => {
+
+    const loadQuotes = async () => {
       setLoadingQuotes(true);
       setQuoteError("");
       try {
-        const data = await fetchViaWorker(`/quote?symbols=${encodeURIComponent(symbolsToFetch.join(","))}`);
-        const list = data?.quoteResponse?.result || data?.quotes || [];
-        const next = {};
-        for (const q of (Array.isArray(list) ? list : Object.values(list))) {
-          if (!q?.symbol) continue;
-          const price = Number(q.regularMarketPrice ?? q.price ?? q.regularMarketPreviousClose ?? 0);
-          const rawYield = Number(q.dividendYield ?? q.trailingAnnualDividendYield ?? 0);
-          const yieldPct = rawYield > 1 ? rawYield : rawYield * 100;
-          const annualDividend = Number(q.trailingAnnualDividendRate ?? q.dividendRate ?? 0);
-          next[q.symbol] = {
-            price,
-            changePercent: Number(q.regularMarketChangePercent ?? q.changePercent ?? 0),
-            dividendYield: yieldPct,
-            annualDividend: annualDividend || (price * yieldPct / 100),
-            name: q.longname || q.longName || q.shortname || q.shortName || q.symbol
-          };
+        const fetchSymbols = uniqueSymbols.map(s => toGoogleSymbol(s)).join(",");
+        const res = await fetch(`${WORKER_BASE_URL}/quote?symbols=${encodeURIComponent(fetchSymbols)}`);
+        
+        let list = [];
+        if (res.ok) {
+          const data = await res.json();
+          list = data?.quoteResponse?.result || data?.quotes || (Array.isArray(data) ? data : Object.values(data));
         }
-        if (!cancelled) setQuotes(next);
+
+        const nextQuotes = {};
+        for (const q of list) {
+          if (!q) continue;
+          const key = q.symbol || q.ticker;
+          if (!key) continue;
+
+          const price = Number(q.price ?? q.regularMarketPrice ?? q.lastPrice ?? 0);
+          const changePercent = Number(q.changePercent ?? q.regularMarketChangePercent ?? 0);
+
+          let yieldPct = Number(q.dividendYield ?? q.yield ?? q.trailingAnnualDividendYield ?? 0);
+          if (yieldPct > 0 && yieldPct <= 1) yieldPct *= 100;
+
+          let annualDiv = Number(q.annualDividend ?? q.dividendRate ?? q.trailingAnnualDividendRate ?? 0);
+          if (!annualDiv && yieldPct > 0 && price > 0) annualDiv = (price * yieldPct) / 100;
+          if (!yieldPct && annualDiv > 0 && price > 0) yieldPct = (annualDiv / price) * 100;
+
+          const itemData = {
+            price,
+            changePercent,
+            dividendYield: yieldPct,
+            annualDividend: annualDiv,
+            name: q.longName || q.shortName || q.name || key
+          };
+
+          nextQuotes[key] = itemData;
+          // 매핑 매칭을 위해 원래 티커 형태로도 복사
+          for (const orig of uniqueSymbols) {
+            if (toGoogleSymbol(orig) === key || orig === key) {
+              nextQuotes[orig] = itemData;
+            }
+          }
+        }
+
+        if (!cancelled) setQuotes(nextQuotes);
       } catch (e) {
-        console.error(e);
-        if (!cancelled) setQuoteError("Yahoo Finance 데이터를 불러오지 못했습니다.");
+        console.error("Quote Fetching Error:", e);
+        if (!cancelled) setQuoteError("시세 데이터를 불러오는데 실패했습니다.");
       } finally {
         if (!cancelled) setLoadingQuotes(false);
       }
     };
-    load();
-    const id = setInterval(load, 60 * 1000);
-    return () => { cancelled=true; clearInterval(id); };
+
+    loadQuotes();
+    const id = setInterval(loadQuotes, 60 * 1000);
+    return () => { cancelled = true; clearInterval(id); };
   }, [lots]);
 
-  const visibleLots = useMemo(() => selectedAccount === "ALL"
-    ? lots
-    : lots.filter(l => (l.account || "기본 계좌") === selectedAccount), [lots, selectedAccount]);
+  const symbolsBySearch = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+    return symbols
+      .filter(item => {
+        const symbol = String(item.symbol || "").toLowerCase();
+        const kws = Array.isArray(item.searchKeywords) ? item.searchKeywords.map(x => String(x).toLowerCase()) : [];
+        return symbol.includes(q) || kws.some(k => k.includes(q));
+      })
+      .map(item => ({
+        ...item,
+        market: marketOf(item.symbol),
+        currency: currencyOf(item.symbol)
+      }))
+      .slice(0, 15);
+  }, [search, symbols]);
 
+  const visibleLots = useMemo(() => {
+    return selectedAccount === "ALL"
+      ? lots
+      : lots.filter(l => (l.account || "기본 계좌") === selectedAccount);
+  }, [lots, selectedAccount]);
+
+  // 포트폴리오 집계
   const portfolio = useMemo(() => {
     const map = new Map();
     for (const lot of visibleLots) {
       if (!map.has(lot.symbol)) {
         map.set(lot.symbol, {
-          symbol:lot.symbol, name:lot.name || lot.symbol, market:marketOf(lot.symbol),
-          currency:lot.currency || currencyOf(lot.symbol), qty:0, investedKRW:0,
-          investedForeign:0, lots:[]
+          symbol: lot.symbol,
+          name: lot.name || lot.symbol,
+          market: marketOf(lot.symbol),
+          currency: lot.currency || currencyOf(lot.symbol),
+          qty: 0,
+          investedKRW: 0,
+          investedForeign: 0,
+          lots: []
         });
       }
       const p = map.get(lot.symbol);
-      p.qty += Number(lot.quantity) || 0;
-      p.investedKRW += (Number(lot.quantity)||0) * (Number(lot.avgPriceKRW)||0);
-      p.investedForeign += (Number(lot.quantity)||0) * (Number(lot.avgPriceForeign)||0);
+      const q = Number(lot.quantity) || 0;
+      p.qty += q;
+      p.investedKRW += q * (Number(lot.avgPriceKRW) || 0);
+      p.investedForeign += q * (Number(lot.avgPriceForeign) || 0);
       p.lots.push(lot);
     }
+
     return [...map.values()].map(p => {
-      const q = quotes[p.symbol] || {};
+      const q = quotes[p.symbol] || quotes[toGoogleSymbol(p.symbol)] || {};
       const rate = fx[p.currency] || 1;
-      const avgForeign = p.qty ? p.investedForeign / p.qty : 0;
       const currentForeign = Number(q.price || 0);
       const currentKRW = currentForeign * rate;
       const valueKRW = p.qty * currentKRW;
       const profit = valueKRW - p.investedKRW;
-      const profitPct = p.investedKRW ? profit / p.investedKRW * 100 : 0;
+      const profitPct = p.investedKRW ? (profit / p.investedKRW) * 100 : 0;
+
       const annualDividendForeign = Number(q.annualDividend || 0);
       const annualDividendKRW = p.qty * annualDividendForeign * rate;
+
       return {
-        ...p, name:q.name || p.name, avgForeign, currentForeign, currentKRW,
-        valueKRW, profit, profitPct, changePercent:Number(q.changePercent||0),
-        dividendYield:Number(q.dividendYield||0), annualDividendForeign,
-        annualDividendKRW, netDividendKRW:annualDividendKRW*(1-taxRate/100)
+        ...p,
+        name: q.name || p.name,
+        currentForeign,
+        currentKRW,
+        valueKRW,
+        profit,
+        profitPct,
+        changePercent: Number(q.changePercent || 0),
+        dividendYield: Number(q.dividendYield || 0),
+        annualDividendForeign,
+        annualDividendKRW,
+        netDividendKRW: annualDividendKRW * (1 - taxRate / 100)
       };
-    }).sort((a,b)=>b.valueKRW-a.valueKRW);
+    }).sort((a, b) => b.valueKRW - a.valueKRW);
   }, [visibleLots, quotes, fx, taxRate]);
 
   const stats = useMemo(() => {
-    const invested = portfolio.reduce((s,x)=>s+x.investedKRW,0);
-    const value = portfolio.reduce((s,x)=>s+x.valueKRW,0);
-    const profit = value-invested;
-    const annual = portfolio.reduce((s,x)=>s+x.annualDividendKRW,0);
-    const net = portfolio.reduce((s,x)=>s+x.netDividendKRW,0);
-    return {invested,value,profit,profitPct:invested?profit/invested*100:0,annual,net,monthly:net/12};
+    const invested = portfolio.reduce((s, x) => s + x.investedKRW, 0);
+    const value = portfolio.reduce((s, x) => s + x.valueKRW, 0);
+    const profit = value - invested;
+    const annual = portfolio.reduce((s, x) => s + x.annualDividendKRW, 0);
+    const net = portfolio.reduce((s, x) => s + x.netDividendKRW, 0);
+    return {
+      invested, value, profit,
+      profitPct: invested ? (profit / invested) * 100 : 0,
+      annual, net, monthly: net / 12
+    };
   }, [portfolio]);
 
+  // 보유 종목 추가
   const addLot = (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -296,324 +320,526 @@ function App() {
     const priceKRW = Number(fd.get("priceKRW"));
     const date = fd.get("date");
     if (!qty || !priceKRW || !date || !showAdd) return;
+
     const currency = showAdd.currency;
     const rate = fx[currency] || 1;
     const lot = {
-      id:Date.now().toString(), symbol:showAdd.symbol, name:showAdd.name,
-      market:showAdd.market, currency, searchKeywords:showAdd.searchKeywords || [],
-      quantity:qty, avgPriceKRW:priceKRW, avgPriceForeign:priceKRW/rate,
-      date, account:fd.get("account") || accounts[0] || "기본 계좌"
+      id: Date.now().toString(),
+      symbol: showAdd.symbol,
+      name: showAdd.name || showAdd.symbol,
+      market: showAdd.market,
+      currency,
+      quantity: qty,
+      avgPriceKRW: priceKRW,
+      avgPriceForeign: priceKRW / rate,
+      date,
+      account: fd.get("account") || accounts[0] || "기본 계좌"
     };
-    setLots(prev=>[...prev,lot]);
-    setShowAdd(null); setSearch(""); setSearchOpen(false);
+
+    setLots(prev => [...prev, lot]);
+    setShowAdd(null);
+    setSearch("");
+    setSearchOpen(false);
   };
 
-  const updateLot = (id, field, value) => {
-    setLots(prev=>prev.map(l=>{
-      if(l.id!==id) return l;
-      const next={...l,[field]:field==="quantity"||field==="avgPriceKRW"?Number(value):value};
-      if(field==="avgPriceKRW") next.avgPriceForeign=Number(value)/(fx[l.currency]||1);
-      return next;
+  // 보유 종목 개별 Lot 수정/삭제
+  const handleUpdateLot = (lotId, field, val) => {
+    setLots(prev => prev.map(l => {
+      if (l.id !== lotId) return l;
+      const numVal = Number(val) || 0;
+      const updated = { ...l, [field]: field === "quantity" || field === "avgPriceKRW" ? numVal : val };
+      if (field === "avgPriceKRW") {
+        updated.avgPriceForeign = numVal / (fx[l.currency] || 1);
+      }
+      return updated;
     }));
   };
 
-  const deleteLot = id => setLots(prev=>prev.filter(l=>l.id!==id));
+  const handleDeleteLot = (lotId) => {
+    setLots(prev => prev.filter(l => l.id !== lotId));
+  };
+
+  const handleDeleteSymbolAll = (symbol) => {
+    if (confirm(`${symbol} 종목의 모든 매수 내역을 삭제하시겠습니까?`)) {
+      setLots(prev => prev.filter(l => l.symbol !== symbol));
+      if (editingStock?.symbol === symbol) setEditingStock(null);
+    }
+  };
 
   const addAccount = () => {
-    const name=newAccount.trim();
-    if(!name || accounts.includes(name)) return;
-    setAccounts(prev=>[...prev,name]);
+    const name = newAccount.trim();
+    if (!name || accounts.includes(name)) return;
+    setAccounts(prev => [...prev, name]);
     setSelectedAccount(name);
     setNewAccount("");
   };
 
-  const deleteAccount = acc => {
-    if(accounts.length<=1) return alert("최소 1개의 계좌는 유지해야 합니다.");
-    if(!confirm(`'${acc}' 계좌와 보유 종목을 삭제할까요?`)) return;
-    setAccounts(prev=>prev.filter(x=>x!==acc));
-    setLots(prev=>prev.filter(x=>(x.account||"기본 계좌")!==acc));
-    if(selectedAccount===acc) setSelectedAccount("ALL");
+  const deleteAccount = (acc) => {
+    if (accounts.length <= 1) return alert("최소 1개의 계좌는 필요합니다.");
+    if (!confirm(`'${acc}' 계좌와 해당 계좌의 보유 종목을 삭제하시겠습니까?`)) return;
+    setAccounts(prev => prev.filter(x => x !== acc));
+    setLots(prev => prev.filter(x => (x.account || "기본 계좌") !== acc));
+    if (selectedAccount === acc) setSelectedAccount("ALL");
   };
 
   const exportData = () => {
-    const blob = new Blob([JSON.stringify({lots,accountNicknames:accounts},null,2)],{type:"application/json"});
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob); a.download="portfolio_export.json"; a.click();
+    const blob = new Blob([JSON.stringify({ lots, accounts }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "portfolio_backup.json";
+    a.click();
     URL.revokeObjectURL(a.href);
   };
 
-  const importData = e => {
-    const file=e.target.files?.[0];
-    if(!file) return;
-    const reader=new FileReader();
-    reader.onload=ev=>{
+  const importData = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
       try {
-        const data=JSON.parse(ev.target.result);
-        if(Array.isArray(data)) setLots(data);
-        else if(data?.lots) {
+        const data = JSON.parse(ev.target.result);
+        if (Array.isArray(data)) setLots(data);
+        else if (data?.lots) {
           setLots(data.lots);
-          if(Array.isArray(data.accountNicknames)) setAccounts(data.accountNicknames);
+          if (Array.isArray(data.accounts)) setAccounts(data.accounts);
         }
-      } catch { alert("JSON 파일을 읽을 수 없습니다."); }
+        alert("성공적으로 불러왔습니다.");
+      } catch {
+        alert("올바르지 않은 JSON 파일입니다.");
+      }
     };
     reader.readAsText(file);
-    e.target.value="";
+    e.target.value = "";
   };
 
-  const goPage = n => {
-    const el=trackRef.current;
-    if(el) el.scrollTo({left:el.clientWidth*n,behavior:"smooth"});
-    setPage(n);
+  // 터치 및 드래그 스와이프 제스처 처리
+  const handleTouchStart = (e) => {
+    const touch = e.touches ? e.touches[0] : e;
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    isSwiping.current = true;
   };
 
-  useEffect(()=>{
-    const el=trackRef.current;
-    if(!el) return;
-    const onScroll=()=>{
-      const n=Math.round(el.scrollLeft/el.clientWidth);
-      if(n!==page) setPage(n);
-    };
-    el.addEventListener("scroll",onScroll,{passive:true});
-    return()=>el.removeEventListener("scroll",onScroll);
-  },[page]);
+  const handleTouchEnd = (e) => {
+    if (!isSwiping.current) return;
+    isSwiping.current = false;
+    const touch = e.changedTouches ? e.changedTouches[0] : e;
+    const dx = touch.clientX - touchStartPos.current.x;
+    const dy = touch.clientY - touchStartPos.current.y;
 
-  useEffect(()=>{
-    const el=trackRef.current;
-    if(!el) return;
-    const down=e=>{
-      if(e.pointerType==="touch") return;
-      drag.current={down:true,startX:e.clientX,startScroll:el.scrollLeft,moved:false};
-      el.setPointerCapture?.(e.pointerId);
-    };
-    const move=e=>{
-      if(!drag.current.down) return;
-      const dx=e.clientX-drag.current.startX;
-      if(Math.abs(dx)>5) drag.current.moved=true;
-      el.scrollLeft=drag.current.startScroll-dx;
-    };
-    const up=()=>{drag.current.down=false; if(drag.current.moved){const n=Math.round(el.scrollLeft/el.clientWidth); goPage(Math.max(0,Math.min(2,n)));}};
-    el.addEventListener("pointerdown",down);
-    el.addEventListener("pointermove",move);
-    el.addEventListener("pointerup",up);
-    el.addEventListener("pointercancel",up);
-    return()=>{el.removeEventListener("pointerdown",down);el.removeEventListener("pointermove",move);el.removeEventListener("pointerup",up);el.removeEventListener("pointercancel",up);};
-  },[]);
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+      if (dx < 0 && page < 2) setPage(p => p + 1);
+      if (dx > 0 && page > 0) setPage(p => p - 1);
+    }
+  };
 
   return (
-    <div className="h-screen w-screen bg-slate-950 text-slate-100">
-      <header className="h-14 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between px-3 md:px-6">
-        <div className="flex items-center gap-3">
-          <div className="font-semibold text-white">{page===0?"Portfolio":page===1?"Dividend":"Market"}</div>
-          <div className="flex items-center gap-1">
-            {[0,1,2].map(n=><button key={n} onClick={()=>goPage(n)} aria-label={`페이지 ${n+1}`} className={`w-2 h-2 rounded-full ${page===n?"bg-white":"bg-slate-600"}`}/>)}
+    <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col">
+      {/* 상단 헤더 */}
+      <header className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 z-20 flex-shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="font-bold text-lg text-white">
+            {page === 0 ? "Portfolio" : page === 1 ? "Dividend" : "Market Heatmap"}
+          </div>
+          <div className="flex gap-1.5">
+            {[0, 1, 2].map(n => (
+              <button
+                key={n}
+                onClick={() => setPage(n)}
+                className={`w-2.5 h-2.5 rounded-full transition-all ${page === n ? "bg-blue-500 w-5" : "bg-slate-700"}`}
+              />
+            ))}
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={exportData} className="p-2 rounded-lg hover:bg-slate-800" title="내보내기"><DownloadIcon className="w-4 h-4"/></button>
-          <button onClick={()=>importRef.current?.click()} className="p-2 rounded-lg hover:bg-slate-800" title="가져오기"><UploadIcon className="w-4 h-4"/></button>
-          <input ref={importRef} type="file" accept=".json" className="hidden" onChange={importData}/>
+        <div className="flex items-center gap-2">
+          <button onClick={exportData} title="내보내기" className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">
+            <DownloadIcon className="w-4 h-4" />
+          </button>
+          <button onClick={() => importRef.current?.click()} title="가져오기" className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">
+            <UploadIcon className="w-4 h-4" />
+          </button>
+          <input ref={importRef} type="file" accept=".json" className="hidden" onChange={importData} />
         </div>
       </header>
 
-      <div ref={trackRef} className="page-track">
-        <section className="page">
-          <div className="max-w-7xl mx-auto p-3 md:p-6 space-y-4">
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="flex-1 relative">
-                <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-3">
-                  <SearchIcon className="w-5 h-5 text-slate-500"/>
-                  <input value={search} onChange={e=>{setSearch(e.target.value);setSearchOpen(true)}} onFocus={()=>setSearchOpen(true)}
-                    placeholder="종목명 또는 티커 검색" className="w-full bg-transparent outline-none px-3 py-3 text-sm"/>
-                  {search && <button onClick={()=>{setSearch("");setSearchOpen(false)}}><CloseIcon className="w-4 h-4 text-slate-500"/></button>}
-                </div>
-                {searchOpen && search.trim() && (
-                  <div className="absolute z-30 left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden max-h-80 overflow-y-auto">
-                    {symbolsBySearch.length ? symbolsBySearch.map(item=>(
-                      <button key={item.symbol} onClick={()=>{setShowAdd(item);setSearchOpen(false)}}
-                        className="w-full text-left px-4 py-3 hover:bg-slate-800 border-b border-slate-800 last:border-0">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-white truncate">{item.name} <span className="text-slate-500">| {item.symbol.replace(/\.(KS|KQ|T)$/i,"")}</span></div>
-                            <div className="text-xs text-slate-500 mt-0.5">{marketLabel(item.symbol)}</div>
-                          </div>
-                          <span className="text-xs text-slate-500">{item.currency}</span>
-                        </div>
+      {/* 스와이프 가능한 슬라이더 컨테이너 */}
+      <div 
+        className="flex-1 relative overflow-hidden"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div 
+          className="slider-container"
+          style={{ transform: `translateX(-${page * (100 / 3)}%)` }}
+        >
+          {/* Page 1: Portfolio */}
+          <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
+            <div className="max-w-6xl mx-auto space-y-4">
+              <div className="flex flex-col md:flex-row gap-3">
+                <div className="flex-1 relative">
+                  <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 focus-within:border-blue-500">
+                    <SearchIcon className="w-5 h-5 text-slate-500 mr-2" />
+                    <input
+                      value={search}
+                      onChange={e => { setSearch(e.target.value); setSearchOpen(true); }}
+                      onFocus={() => setSearchOpen(true)}
+                      placeholder="종목명 또는 티커 검색 (예: 삼성전자, AAPL, 005930)"
+                      className="w-full bg-transparent outline-none text-sm text-white placeholder-slate-500"
+                    />
+                    {search && (
+                      <button onClick={() => { setSearch(""); setSearchOpen(false); }}>
+                        <CloseIcon className="w-4 h-4 text-slate-500" />
                       </button>
-                    )) : <div className="p-4 text-sm text-slate-500">symbols.json에서 찾을 수 없습니다.</div>}
+                    )}
                   </div>
+                  {searchOpen && search.trim() && (
+                    <div className="absolute z-30 left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-72 overflow-y-auto thin-scroll">
+                      {symbolsBySearch.length ? symbolsBySearch.map(item => (
+                        <button
+                          key={item.symbol}
+                          onClick={() => { setShowAdd(item); setSearchOpen(false); }}
+                          className="w-full text-left px-4 py-3 hover:bg-slate-800 border-b border-slate-800/50 flex justify-between items-center"
+                        >
+                          <div>
+                            <div className="text-sm font-medium text-white">{item.name}</div>
+                            <div className="text-xs text-slate-400">{item.symbol} · {marketLabel(item.symbol)}</div>
+                          </div>
+                          <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">{item.currency}</span>
+                        </button>
+                      )) : <div className="p-4 text-sm text-slate-500 text-center">검색 결과가 없습니다.</div>}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <select
+                    value={selectedAccount}
+                    onChange={e => setSelectedAccount(e.target.value)}
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-3 text-sm text-white outline-none"
+                  >
+                    <option value="ALL">전체 계좌</option>
+                    {accounts.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                  <button onClick={() => setShowAccounts(true)} className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm font-medium hover:bg-slate-800">
+                    계좌 관리
+                  </button>
+                </div>
+              </div>
+
+              {/* 요약 카드 */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <Stat title="총 평가금액" value={money(stats.value)} />
+                <Stat title="총 투자원금" value={money(stats.invested)} />
+                <Stat title="평가손익" value={signedMoney(stats.profit)} valueClass={colorForReturn(stats.profit)} />
+                <Stat title="수익률" value={`${stats.profitPct >= 0 ? "+" : ""}${stats.profitPct.toFixed(2)}%`} valueClass={colorForReturn(stats.profitPct)} />
+              </div>
+
+              <div className="flex justify-between items-center text-xs text-slate-400 px-1">
+                <div>보유 종목 {portfolio.length}개</div>
+                <div>USD/KRW {format(fx.USD, "KRW")} · JPY/KRW {format(fx.JPY, "KRW")} {loadingQuotes && " (갱신 중...)"}</div>
+              </div>
+
+              {quoteError && <div className="text-xs text-amber-400 bg-amber-950/40 border border-amber-800/50 p-3 rounded-xl">{quoteError}</div>}
+
+              {/* 종목 리스트 테이블 */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_80px] gap-3 px-4 py-3 text-xs text-slate-400 font-medium border-b border-slate-800">
+                  <div>종목명</div>
+                  <div>보유수량</div>
+                  <div>현재가</div>
+                  <div>평가금액</div>
+                  <div>손익</div>
+                  <div className="text-right">관리</div>
+                </div>
+
+                {portfolio.length === 0 ? (
+                  <div className="p-12 text-center text-slate-500 text-sm">등록된 종목이 없습니다. 상단 검색에서 종목을 추가하세요.</div>
+                ) : portfolio.map(item => (
+                  <div key={item.symbol} className="px-4 py-3.5 border-b border-slate-800/60 last:border-0 hover:bg-slate-800/30 transition-colors">
+                    <div className="grid md:grid-cols-[2fr_1fr_1fr_1fr_1fr_80px] gap-2 md:gap-3 items-center">
+                      <div>
+                        <div className="font-semibold text-white text-sm truncate">{item.name}</div>
+                        <div className="text-xs text-slate-400">{item.symbol} · {marketLabel(item.symbol)}</div>
+                      </div>
+                      <div className="text-sm">{format(item.qty, item.currency)} 주</div>
+                      <div className="text-sm">
+                        {item.currentForeign ? money(item.currentForeign, item.currency) : "-"}
+                        <div className="text-xs text-slate-400">{item.currentForeign ? money(item.currentKRW, "KRW") : ""}</div>
+                      </div>
+                      <div className="text-sm font-medium">{item.valueKRW ? money(item.valueKRW) : "-"}</div>
+                      <div className={`text-sm font-medium ${colorForReturn(item.profit)}`}>
+                        {item.valueKRW ? signedMoney(item.profit) : "-"}
+                        <div className="text-xs">{item.valueKRW ? `${item.profitPct >= 0 ? "+" : ""}${item.profitPct.toFixed(2)}%` : ""}</div>
+                      </div>
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => setEditingStock(item)} title="수정" className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white">
+                          <EditIcon className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteSymbolAll(item.symbol)} title="삭제" className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-rose-400">
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Page 2: Dividend */}
+          <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
+            <div className="max-w-6xl mx-auto space-y-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <Stat title="연간 예상 분배금" value={money(stats.annual)} />
+                <Stat title="세후 연간 분배금" value={money(stats.net)} />
+                <Stat title="월평균 세후 분배금" value={money(stats.monthly)} />
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                  <div className="text-xs text-slate-400">배당소득세율 적용</div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={taxRate}
+                      onChange={e => setTaxRate(Number(e.target.value))}
+                      className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white"
+                    />
+                    <span className="text-sm text-slate-300">%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-800">
+                  <div className="font-semibold text-white">종목별 예상 배당 정보</div>
+                </div>
+                {portfolio.length === 0 ? (
+                  <div className="p-12 text-center text-slate-500 text-sm">보유 중인 종목이 없습니다.</div>
+                ) : (
+                  portfolio.map(item => (
+                    <div key={item.symbol} className="px-4 py-4 border-b border-slate-800/60 last:border-0 grid grid-cols-2 md:grid-cols-4 gap-3 items-center">
+                      <div>
+                        <div className="font-medium text-white">{item.name}</div>
+                        <div className="text-xs text-slate-400">{item.symbol} · {format(item.qty, item.currency)} 주</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400">주당 연간 배당금 / 수익률</div>
+                        <div className="text-sm font-medium">{item.annualDividendForeign ? money(item.annualDividendForeign, item.currency) : "-"} ({item.dividendYield.toFixed(2)}%)</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400">연간 배당금 (세전)</div>
+                        <div className="text-sm font-medium">{money(item.annualDividendKRW)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400">연간 배당금 (세후)</div>
+                        <div className="text-sm font-medium text-emerald-400">{money(item.netDividendKRW)}</div>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
-
-              <div className="flex gap-2">
-                <select value={selectedAccount} onChange={e=>setSelectedAccount(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 text-sm">
-                  <option value="ALL">전체 계좌</option>
-                  {accounts.map(a=><option key={a}>{a}</option>)}
-                </select>
-                <button onClick={()=>setShowAccounts(true)} className="px-3 rounded-xl bg-slate-900 border border-slate-800 text-sm">계좌</button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
-              <Stat title="평가금액" value={money(stats.value)} />
-              <Stat title="투자원금" value={money(stats.invested)} />
-              <Stat title="평가손익" value={signedMoney(stats.profit)} valueClass={colorForReturn(stats.profit)}/>
-              <Stat title="수익률" value={`${stats.profitPct>=0?"+":""}${stats.profitPct.toFixed(2)}%`} valueClass={colorForReturn(stats.profitPct)}/>
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <div className="text-sm text-slate-400">{portfolio.length}개 종목</div>
-              <div className="text-xs text-slate-500">
-                USD/KRW {format(fx.USD,"KRW")} · JPY/KRW {format(fx.JPY,"KRW")}
-                {loadingQuotes && " · 업데이트 중"}
-              </div>
-            </div>
-
-            {quoteError && <div className="text-xs text-amber-400 bg-amber-950/30 border border-amber-900/50 rounded-lg p-3">{quoteError}</div>}
-
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-              <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_90px] gap-3 px-4 py-3 text-xs text-slate-500 border-b border-slate-800">
-                <div>종목</div><div>보유수량</div><div>현재가</div><div>평가금액</div><div>손익</div><div></div>
-              </div>
-              {portfolio.length===0 ? (
-                <div className="p-10 text-center text-slate-500 text-sm">검색해서 종목을 추가해 주세요.</div>
-              ) : portfolio.map(item=>(
-                <div key={item.symbol} className="px-4 py-4 border-b border-slate-800 last:border-0">
-                  <div className="grid md:grid-cols-[2fr_1fr_1fr_1fr_1fr_90px] gap-2 md:gap-3 items-center">
-                    <div className="min-w-0">
-                      <div className="font-medium text-white truncate">{item.name}</div>
-                      <div className="text-xs text-slate-500">{item.symbol} · {marketLabel(item.symbol)}</div>
-                    </div>
-                    <div className="text-sm">{format(item.qty,item.currency)}</div>
-                    <div className="text-sm">
-                      {item.currentForeign ? money(item.currentForeign,item.currency) : <span className="text-slate-600">-</span>}
-                      <div className="text-xs text-slate-500">{item.currentForeign ? money(item.currentKRW,"KRW") : ""}</div>
-                    </div>
-                    <div className="text-sm">{item.valueKRW ? money(item.valueKRW) : "-"}</div>
-                    <div className={`text-sm ${colorForReturn(item.profit)}`}>
-                      {item.valueKRW ? signedMoney(item.profit) : "-"}
-                      <div className="text-xs">{item.valueKRW ? `${item.profitPct>=0?"+":""}${item.profitPct.toFixed(2)}%` : ""}</div>
-                    </div>
-                    <div className="flex md:justify-end gap-1">
-                      <button onClick={()=>setEditLot(item.lots[0])} className="p-2 rounded-lg hover:bg-slate-800"><EditIcon className="w-4 h-4"/></button>
-                      <button onClick={()=>{if(confirm(`${item.symbol}의 보유 기록을 모두 삭제할까요?`)) setLots(prev=>prev.filter(l=>l.symbol!==item.symbol))}} className="p-2 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-rose-400"><TrashIcon className="w-4 h-4"/></button>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                    <span className="px-2 py-1 rounded bg-slate-950">연 분배금 {money(item.annualDividendKRW,"KRW")}</span>
-                    <span className="px-2 py-1 rounded bg-slate-950">수익률 {item.dividendYield.toFixed(2)}%</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="text-center text-xs text-slate-600 py-2">← 모바일은 좌우 스와이프 · PC는 클릭 후 드래그 →</div>
-          </div>
-        </section>
-
-        <section className="page">
-          <div className="max-w-7xl mx-auto p-3 md:p-6 space-y-4">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
-              <Stat title="연간 분배금" value={money(stats.annual)} />
-              <Stat title="세후 연간" value={money(stats.net)} />
-              <Stat title="월평균 세후" value={money(stats.monthly)} />
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                <div className="text-xs text-slate-500 mb-2">세율</div>
-                <div className="flex items-center gap-2"><input type="number" step="0.1" value={taxRate} onChange={e=>setTaxRate(Number(e.target.value))} className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-sm"/><span className="text-sm text-slate-400">%</span></div>
-              </div>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-              <div className="px-4 py-4 border-b border-slate-800">
-                <div className="text-sm font-medium">보유 종목 분배금</div>
-                <div className="text-xs text-slate-500 mt-1">포트폴리오에 실제 보유한 종목만 Yahoo Finance에서 조회합니다.</div>
-              </div>
-              {portfolio.length===0 ? <div className="p-10 text-center text-slate-500 text-sm">보유 종목이 없습니다.</div> :
-              portfolio.map(item=>(
-                <div key={item.symbol} className="px-4 py-4 border-b border-slate-800 last:border-0 flex flex-col md:grid md:grid-cols-[2fr_1fr_1fr_1fr] gap-2 md:items-center">
-                  <div><div className="font-medium">{item.name}</div><div className="text-xs text-slate-500">{item.symbol} · {format(item.qty,item.currency)}주</div></div>
-                  <div><div className="text-xs text-slate-500">주당 연 분배금</div><div>{item.annualDividendForeign ? money(item.annualDividendForeign,item.currency) : "-"}</div></div>
-                  <div><div className="text-xs text-slate-500">연간 예상</div><div>{money(item.annualDividendKRW)}</div></div>
-                  <div><div className="text-xs text-slate-500">세후 예상</div><div>{money(item.netDividendKRW)}</div></div>
-                </div>
-              ))}
             </div>
           </div>
-        </section>
 
-        <section className="page">
-          <div className="max-w-7xl mx-auto p-3 md:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div><div className="font-semibold">Market</div><div className="text-xs text-slate-500">보유 종목만 표시</div></div>
-              <div className="text-xs text-slate-500">{portfolio.length}개</div>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
-              {portfolio.map(item=>{
-                const intensity=Math.min(Math.abs(item.changePercent)/5,1);
-                const bg=item.changePercent>0 ? `rgba(16,185,129,${0.15+intensity*0.65})` :
-                  item.changePercent<0 ? `rgba(244,63,94,${0.15+intensity*0.65})` : "rgba(100,116,139,.18)";
-                return <div key={item.symbol} className="heat-cell rounded-lg border border-slate-800 p-3" style={{background:bg}}>
-                  <div className="text-xs text-slate-300 truncate">{item.name}</div>
-                  <div className="font-semibold mt-1">{item.symbol.replace(/\.(KS|KQ|T)$/i,"")}</div>
-                  <div className={`text-sm mt-1 ${colorForReturn(item.changePercent)}`}>{item.changePercent>=0?"+":""}{item.changePercent.toFixed(2)}%</div>
-                  <div className="text-xs text-slate-400 mt-1">{money(item.valueKRW)}</div>
+          {/* Page 3: Market Heatmap */}
+          <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
+            <div className="max-w-6xl mx-auto space-y-4">
+              <div className="flex justify-between items-center">
+                <div className="font-semibold text-lg text-white">포트폴리오 히트맵</div>
+                <div className="text-xs text-slate-400">비중 및 당일 등락률 기준</div>
+              </div>
+
+              {portfolio.length === 0 ? (
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-slate-500 text-sm">
+                  등록된 종목이 없습니다.
                 </div>
-              })}
+              ) : (
+                <div className="flex flex-wrap gap-2 min-h-[500px]">
+                  {portfolio.map(item => {
+                    const totalVal = stats.value || 1;
+                    const weightPct = Math.max((item.valueKRW / totalVal) * 100, 8); // 최소 크기 보장
+                    const change = item.changePercent;
+                    
+                    // 등락률에 따른 반응형 컬러 세기 계산
+                    const intensity = Math.min(Math.abs(change) / 4, 1);
+                    const bg = change > 0
+                      ? `rgba(16, 185, 129, ${0.2 + intensity * 0.7})`
+                      : change < 0
+                      ? `rgba(244, 63, 94, ${0.2 + intensity * 0.7})`
+                      : "rgba(51, 65, 85, 0.4)";
+
+                    return (
+                      <div
+                        key={item.symbol}
+                        className="rounded-xl border border-slate-700/60 p-3.5 flex flex-col justify-between transition-all hover:scale-[1.01]"
+                        style={{
+                          flexGrow: weightPct,
+                          flexBasis: `${weightPct}%`,
+                          minWidth: '130px',
+                          minHeight: '110px',
+                          backgroundColor: bg
+                        }}
+                      >
+                        <div className="flex justify-between items-start gap-1">
+                          <span className="font-bold text-white text-sm truncate">{item.name}</span>
+                          <span className="text-[10px] bg-slate-950/60 px-1.5 py-0.5 rounded text-slate-300">
+                            {((item.valueKRW / totalVal) * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                        <div>
+                          <div className={`text-base font-extrabold ${colorForReturn(change)}`}>
+                            {change >= 0 ? "+" : ""}{change.toFixed(2)}%
+                          </div>
+                          <div className="text-xs text-slate-200 mt-0.5 font-medium">{money(item.valueKRW)}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
-        </section>
+        </div>
       </div>
 
-      {showAdd && <Modal title={`${showAdd.name} 추가`} onClose={()=>setShowAdd(null)}>
-        <form onSubmit={addLot} className="space-y-4">
-          <div className="text-xs text-slate-500">{showAdd.symbol} · {showAdd.currency}</div>
-          <Field label="수량"><input name="quantity" type="number" step="any" required autoFocus className="field"/></Field>
-          <Field label="매수금액 (원화)"><input name="priceKRW" type="number" step="any" required className="field"/></Field>
-          <Field label="매수일"><input name="date" type="date" defaultValue={new Date().toISOString().slice(0,10)} required className="field"/></Field>
-          <Field label="계좌"><select name="account" defaultValue={accounts[0]} className="field">{accounts.map(a=><option key={a}>{a}</option>)}</select></Field>
-          <button className="w-full bg-blue-600 hover:bg-blue-500 rounded-xl py-3 font-medium">추가</button>
-        </form>
-      </Modal>}
+      {/* 모달: 종목 추가 */}
+      {showAdd && (
+        <Modal title={`${showAdd.name} 추가`} onClose={() => setShowAdd(null)}>
+          <form onSubmit={addLot} className="space-y-4">
+            <div className="text-xs text-slate-400">{showAdd.symbol} · {showAdd.currency}</div>
+            <Field label="매수 수량"><input name="quantity" type="number" step="any" required autoFocus className="field" /></Field>
+            <Field label="매수 단가 (KRW)"><input name="priceKRW" type="number" step="any" required className="field" /></Field>
+            <Field label="매수일"><input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required className="field" /></Field>
+            <Field label="계좌 선택">
+              <select name="account" defaultValue={accounts[0]} className="field">
+                {accounts.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </Field>
+            <button className="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-3 font-medium transition-colors">추가하기</button>
+          </form>
+        </Modal>
+      )}
 
-      {editLot && <Modal title={`${editLot.symbol} 수정`} onClose={()=>setEditLot(null)}>
-        <div className="space-y-4">
-          <Field label="수량"><input type="number" step="any" value={editLot.quantity} onChange={e=>{updateLot(editLot.id,"quantity",e.target.value);setEditLot({...editLot,quantity:e.target.value})}} className="field"/></Field>
-          <Field label="매수금액 (원화)"><input type="number" step="any" value={editLot.avgPriceKRW} onChange={e=>{updateLot(editLot.id,"avgPriceKRW",e.target.value);setEditLot({...editLot,avgPriceKRW:e.target.value})}} className="field"/></Field>
-          <Field label="계좌"><select value={editLot.account||"기본 계좌"} onChange={e=>{updateLot(editLot.id,"account",e.target.value);setEditLot({...editLot,account:e.target.value})}} className="field">{accounts.map(a=><option key={a}>{a}</option>)}</select></Field>
-          <button onClick={()=>setEditLot(null)} className="w-full bg-slate-800 rounded-xl py-3">완료</button>
-        </div>
-      </Modal>}
+      {/* 모달: 종목 수정 */}
+      {editingStock && (
+        <Modal title={`${editingStock.name} 매수 내역 관리`} onClose={() => setEditingStock(null)}>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto thin-scroll pr-1">
+            {editingStock.lots.map((lot, idx) => (
+              <div key={lot.id} className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
+                <div className="flex justify-between items-center text-xs text-slate-400">
+                  <span>매수건 #{idx + 1} ({lot.date})</span>
+                  <button onClick={() => handleDeleteLot(lot.id)} className="text-rose-400 hover:underline">삭제</button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="수량">
+                    <input
+                      type="number"
+                      step="any"
+                      value={lot.quantity}
+                      onChange={e => handleUpdateLot(lot.id, "quantity", e.target.value)}
+                      className="field text-sm"
+                    />
+                  </Field>
+                  <Field label="매수 단가 (원화)">
+                    <input
+                      type="number"
+                      step="any"
+                      value={lot.avgPriceKRW}
+                      onChange={e => handleUpdateLot(lot.id, "avgPriceKRW", e.target.value)}
+                      className="field text-sm"
+                    />
+                  </Field>
+                </div>
+              </div>
+            ))}
+            <button onClick={() => setEditingStock(null)} className="w-full bg-slate-800 hover:bg-slate-700 text-white rounded-xl py-2.5 font-medium">
+              완료
+            </button>
+          </div>
+        </Modal>
+      )}
 
-      {showAccounts && <Modal title="계좌" onClose={()=>setShowAccounts(false)}>
-        <div className="flex gap-2 mb-4"><input value={newAccount} onChange={e=>setNewAccount(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addAccount()} placeholder="새 계좌" className="field"/><button onClick={addAccount} className="px-4 bg-blue-600 rounded-xl"><PlusIcon className="w-5 h-5"/></button></div>
-        <div className="space-y-2">{accounts.map(a=><div key={a} className="flex items-center justify-between bg-slate-950 rounded-xl px-3 py-2"><button onClick={()=>{setSelectedAccount(a);setShowAccounts(false)}} className="text-sm">{a}</button><button onClick={()=>deleteAccount(a)} className="text-slate-600 hover:text-rose-400"><TrashIcon className="w-4 h-4"/></button></div>)}</div>
-      </Modal>}
+      {/* 모달: 계좌 관리 */}
+      {showAccounts && (
+        <Modal title="계좌 관리" onClose={() => setShowAccounts(false)}>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <input
+                value={newAccount}
+                onChange={e => setNewAccount(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && addAccount()}
+                placeholder="새 계좌 이름"
+                className="field flex-1"
+              />
+              <button onClick={addAccount} className="px-4 bg-blue-600 rounded-xl text-white font-medium hover:bg-blue-500">
+                <PlusIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto thin-scroll">
+              {accounts.map(a => (
+                <div key={a} className="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5">
+                  <span className="text-sm font-medium text-white">{a}</span>
+                  <button onClick={() => deleteAccount(a)} className="text-slate-500 hover:text-rose-400 p-1">
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
 
-function Stat({title,value,valueClass=""}) {
-  return <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-    <div className="text-xs text-slate-500 mb-2">{title}</div>
-    <div className={`text-lg md:text-xl font-semibold ${valueClass||"text-white"}`}>{value}</div>
-  </div>;
-}
-function Field({label,children}) {
-  return <label className="block"><div className="text-xs text-slate-500 mb-1.5">{label}</div>{children}</label>;
-}
-function Modal({title,onClose,children}) {
-  return <div className="fixed inset-0 z-50 bg-black/70 flex items-end md:items-center justify-center p-0 md:p-4">
-    <div className="w-full md:max-w-md bg-slate-900 border border-slate-700 rounded-t-2xl md:rounded-2xl p-5 max-h-[90vh] overflow-y-auto">
-      <div className="flex items-center justify-between mb-5"><div className="font-semibold">{title}</div><button onClick={onClose}><CloseIcon className="w-5 h-5 text-slate-400"/></button></div>
-      {children}
+function Stat({ title, value, valueClass = "" }) {
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+      <div className="text-xs text-slate-400 mb-1">{title}</div>
+      <div className={`text-lg md:text-xl font-bold ${valueClass || "text-white"}`}>{value}</div>
     </div>
-  </div>;
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block">
+      <div className="text-xs text-slate-400 mb-1">{label}</div>
+      {children}
+    </label>
+  );
+}
+
+function Modal({ title, onClose, children }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 flex items-end md:items-center justify-center p-0 md:p-4">
+      <div className="w-full md:max-w-md bg-slate-900 border border-slate-800 rounded-t-2xl md:rounded-2xl p-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-bold text-lg text-white">{title}</div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-800 text-slate-400">
+            <CloseIcon className="w-5 h-5" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
+
 <style>
-.field{width:100%;background:#020617;border:1px solid #334155;border-radius:.75rem;padding:.7rem .8rem;color:#f8fafc;outline:none}
-.field:focus{border-color:#64748b}
+.field {
+  width: 100%;
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  color: #f8fafc;
+  outline: none;
+}
+.field:focus {
+  border-color: #3b82f6;
+}
 </style>
 </body>
 </html>
