@@ -1,7 +1,7 @@
-#!/usr/init/env python3
+#!/usr/bin/env python3
 """
-Build/extend data/symbols.json from Yahoo Finance with incremental saving
-and intermediate Git commits when new data reaches a threshold.
+Build/extend data/symbols.json from Yahoo Finance with incremental saving,
+intermediate Git commits, and protection against Yahoo API pagination loops.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ MARKETS = {
 }
 
 QUOTE_TYPES = ("EQUITY", "ETF")
-BATCH_COMMIT_THRESHOLD = 5000  # 새로운 데이터가 1만 개 쌓이면 중간 커밋 실행
+BATCH_COMMIT_THRESHOLD = 5000  # 새로운 데이터가 5천 개 쌓이면 중간 커밋 실행
 
 logging.basicConfig(
     level=logging.INFO,
@@ -76,7 +76,6 @@ def git_commit_and_push(message: str) -> None:
         subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
         subprocess.run(["git", "add", "data/"], check=True)
         
-        # 변경 사항이 있는지 확인
         diff = subprocess.run(["git", "diff", "--cached", "--quiet"])
         if diff.returncode != 0:
             subprocess.run(["git", "commit", "-m", message], check=True)
@@ -163,8 +162,14 @@ def fetch_market(region: str, quote_type: str) -> list[dict[str, Any]]:
     query = build_query(quote_type, region)
     offset = 0
     records: list[dict[str, Any]] = []
+    seen_symbols_in_fetch = set()
 
     while True:
+        # 야후 API 버그로 offset이 비정상적으로 커지면(예: 3만 이상) 무한 루프 방지 탈출
+        if offset > 30000:
+            log.warning("Reached safety offset limit for %s %s. Stopping pagination.", region, quote_type)
+            break
+
         log.info(
             "Fetching region=%s quoteType=%s offset=%d",
             region,
@@ -184,10 +189,20 @@ def fetch_market(region: str, quote_type: str) -> list[dict[str, Any]]:
         if not quotes:
             break
 
-        records.extend(q for q in quotes if isinstance(q, dict))
-        log.info("  received %d records", len(quotes))
+        # 이미 수집했던 데이터가 다시 반환되면(야후 API 루핑 버그) 반복 탈출
+        new_in_batch = 0
+        for q in quotes:
+            if isinstance(q, dict):
+                sym = q.get("symbol")
+                if sym and sym not in seen_symbols_in_fetch:
+                    seen_symbols_in_fetch.add(sym)
+                    records.append(q)
+                    new_in_batch += 1
 
-        if len(quotes) < PAGE_SIZE:
+        log.info("  received %d records (%d new unique)", len(quotes), new_in_batch)
+
+        # 이번 페이지에서 새로 가져온 고유 데이터가 하나도 없거나 페이지 크기보다 적으면 끝난 것임
+        if new_in_batch == 0 or len(quotes) < PAGE_SIZE:
             break
 
         offset += PAGE_SIZE
@@ -283,10 +298,10 @@ def main() -> int:
                 save_json(SYMBOLS_FILE, result)
                 log.info("Saved progress: %s %s (+%d new this block, session total new: %d)", market_name, quote_type, block_new_count, session_new_count)
 
-                # 새로운 데이터가 1만 개 이상 쌓였다면 중간 커밋 수행
+                # 새로운 데이터가 임계치(5000개) 이상 쌓였다면 중간 커밋 수행
                 if session_new_count >= BATCH_COMMIT_THRESHOLD:
                     git_commit_and_push(f"chore: batch update symbols (+{session_new_count} new records)")
-                    session_new_count = 0  # 카운터 리셋
+                    session_new_count = 0
 
             except Exception as exc:
                 log.exception("Failed to fetch %s %s: %s", market_name, quote_type, exc)
