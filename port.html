@@ -48,7 +48,6 @@ const { useEffect, useMemo, useRef, useState } = React;
 const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
 const SYMBOLS_URL = "https://ninetaild.github.io/data/symbols.json";
 
-// 한글 브랜드 키워드 자동 매핑
 const BRAND_ALIASES = {
   "lg": ["lg", "엘지"],
   "엘지": ["lg", "엘지"],
@@ -165,14 +164,16 @@ function App() {
         const res = await fetch(`${WORKER_BASE_URL}/quote?symbols=USDKRW=X,JPYKRW=X`);
         if (!res.ok) return;
         const data = await res.json();
-        const list = Array.isArray(data?.quoteResponse?.result) ? data.quoteResponse.result :
-                     Array.isArray(data?.quotes) ? data.quotes : [];
+        const quoteMap = data?.quotes || {};
         let usd = fx.USD, jpy = fx.JPY;
-        for (const q of list) {
-          if (q?.symbol === "USDKRW=X") usd = Number(q.regularMarketPrice ?? q.price ?? usd);
-          if (q?.symbol === "JPYKRW=X") {
-            const raw = Number(q.regularMarketPrice ?? q.price ?? jpy);
-            jpy = raw > 100 ? raw / 100 : raw;
+        
+        for (const [sym, q] of Object.entries(quoteMap)) {
+          if (!q) continue;
+          const upperSym = sym.toUpperCase();
+          const priceVal = Number(q.price);
+          if (upperSym === "USDKRW=X" && Number.isFinite(priceVal)) usd = priceVal;
+          if (upperSym === "JPYKRW=X" && Number.isFinite(priceVal)) {
+            jpy = priceVal > 100 ? priceVal / 100 : priceVal;
           }
         }
         setFx({ USD: usd, JPY: jpy, KRW: 1 });
@@ -185,7 +186,7 @@ function App() {
     return () => clearInterval(id);
   }, []);
 
-  // 정확한 symbol만 담아서 Quote API 호출
+  // 실제 Quote API 호출 및 파싱 로직 (data.quotes 객체 대응)
   useEffect(() => {
     if (!lots.length) {
       setQuotes({});
@@ -215,47 +216,25 @@ function App() {
         const data = await res.json();
         console.log("Yahoo Quote API response:", data);
 
-        // quoteResponse.result 구조를 최우선으로 파싱
-        const list = data?.quoteResponse?.result || data?.quotes || (Array.isArray(data) ? data : []);
-
         const nextQuotes = {};
-        for (const q of list) {
-          if (!q?.symbol) continue;
-          const rawSym = String(q.symbol).toUpperCase();
+        const quoteMap = data?.quotes || {};
 
-          // 현재가 파싱 (regularMarketPrice 최우선)
-          const price = Number(
-            q.regularMarketPrice ??
-            q.price ??
-            q.regularMarketPreviousClose ??
-            0
-          );
+        for (const [symbol, q] of Object.entries(quoteMap)) {
+          if (!q) continue;
 
-          // 배당 수익률 파싱 및 보정
-          const rawYield = Number(
-            q.dividendYield ??
-            q.trailingAnnualDividendYield ??
-            0
-          );
-          const yieldPct = rawYield > 1 ? rawYield : rawYield * 100;
+          const price = Number(q.price);
+          const changePercent = Number(q.changePercent);
 
-          // 주당 연간 분배금 파싱
-          const annualDividend = Number(
-            q.trailingAnnualDividendRate ??
-            q.dividendRate ??
-            q.annualDividendRate ??
-            0
-          );
-
-          nextQuotes[rawSym] = {
-            price: Number.isFinite(price) && price > 0 ? price : null,
-            changePercent: Number(q.regularMarketChangePercent ?? q.changePercent ?? 0),
-            dividendYield: yieldPct,
-            annualDividend,
-            name: q.longName || q.shortName || q.longname || q.shortname || rawSym
+          nextQuotes[symbol.toUpperCase()] = {
+            price: Number.isFinite(price) ? price : null,
+            changePercent: Number.isFinite(changePercent) ? changePercent : 0,
+            annualDividend: Number(q.annualDividend ?? 0),
+            dividendYield: Number(q.dividendYield ?? 0),
+            name: q.longName || q.shortName || q.longname || q.shortname || symbol
           };
         }
 
+        console.log("Parsed quotes:", nextQuotes);
         if (!cancelled) setQuotes(nextQuotes);
       } catch (e) {
         console.error("Quote Fetching Error:", e);
@@ -312,7 +291,7 @@ function App() {
       : lots.filter(l => (l.account || "기본 계좌") === selectedAccount);
   }, [lots, selectedAccount]);
 
-  // 포트폴리오 집계 및 현재가/분배금 연결 로직
+  // 포트폴리오 집계 및 현재가 연결
   const portfolio = useMemo(() => {
     const map = new Map();
     for (const lot of visibleLots) {
@@ -338,11 +317,11 @@ function App() {
     }
 
     return [...map.values()].map(p => {
-      const q = quotes[p.symbol] || quotes[p.symbol.toUpperCase()] || {};
+      const quote = quotes[p.symbol] || quotes[p.symbol.toUpperCase()] || {};
       const fxRate = Number(fx[p.currency] || 0);
 
-      // 현재가가 없을 경우 null 처리 (평단가로 대체하지 않음)
-      const currentPriceForeign = Number.isFinite(q.price) ? q.price : null;
+      // 현재가가 유효하지 않으면 null 처리
+      const currentPriceForeign = Number.isFinite(quote?.price) ? quote.price : null;
 
       const currentPriceKRW = currentPriceForeign !== null && fxRate > 0
         ? currentPriceForeign * fxRate
@@ -360,12 +339,10 @@ function App() {
         ? (profit / p.investedKRW) * 100
         : null;
 
-      // 분배금 계산 (주당 연간 배당금 우선 사용)
-      const annualDividendPerShare = Number(q.annualDividend || 0);
-
+      const annualDividendPerShare = Number(quote?.annualDividend || 0);
       const dividendYield = (currentPriceForeign !== null && currentPriceForeign > 0 && annualDividendPerShare > 0)
         ? (annualDividendPerShare / currentPriceForeign) * 100
-        : (q.dividendYield || 0);
+        : Number(quote?.dividendYield || 0);
 
       const annualDividendKRW = (annualDividendPerShare > 0 && fxRate > 0)
         ? p.qty * annualDividendPerShare * fxRate
@@ -378,7 +355,7 @@ function App() {
 
       return {
         ...p,
-        name: q.name || p.name,
+        name: quote?.name || p.name,
         avgPriceKRW,
         avgPriceForeign,
         currentPriceForeign,
@@ -386,7 +363,7 @@ function App() {
         valueKRW: currentValueKRW,
         profit,
         profitPct,
-        changePercent: Number(q.changePercent || 0),
+        changePercent: Number(quote?.changePercent || 0),
         dividendYield,
         annualDividendForeign: annualDividendPerShare,
         annualDividendKRW,
