@@ -23,8 +23,12 @@
       scroll-behavior: smooth;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
+      cursor: grab;
+      touch-action: pan-x;
     }
+    .page-container:active { cursor: grabbing; }
     .page-container::-webkit-scrollbar { display: none; }
+    
     .page-pane {
       flex: 0 0 100%;
       width: 100%;
@@ -106,7 +110,6 @@ const colorForReturn = (value) => {
   return value > 0 ? "text-emerald-400" : value < 0 ? "text-rose-400" : "text-slate-400";
 };
 
-// 배당 분석 유틸리티 함수들
 const getAnnualDividendSum = (dividends = [], year) => {
   return dividends
     .filter(d => new Date(d.date).getFullYear() === year)
@@ -131,6 +134,69 @@ const analyzeFrequency = (dividends = []) => {
   if (avgGap <= 120) return "분기";
   if (avgGap <= 240) return "반기";
   return "연 1회";
+};
+
+// 2차원 Treemap 알고리즘 (이진 공간 분할)
+const calculateTreemap = (items, x = 0, y = 0, w = 100, h = 100) => {
+  if (!items || items.length === 0) return [];
+  if (items.length === 1) {
+    return [{ ...items[0], x, y, w, h }];
+  }
+
+  const total = items.reduce((sum, item) => sum + (item.val || 0), 0);
+  if (total <= 0) {
+    return items.map((item, i) => ({
+      ...item,
+      x: x + (i * w) / items.length,
+      y,
+      w: w / items.length,
+      h
+    }));
+  }
+
+  let half = total / 2;
+  let current = 0;
+  let splitIdx = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    current += items[i].val || 0;
+    if (current >= half || i === items.length - 1) {
+      splitIdx = i;
+      break;
+    }
+  }
+
+  const g1 = items.slice(0, splitIdx + 1);
+  const g2 = items.slice(splitIdx + 1);
+
+  if (g2.length === 0) {
+    return g1.map((item, i) => ({
+      ...item,
+      x: x + (i * w) / g1.length,
+      y,
+      w: w / g1.length,
+      h
+    }));
+  }
+
+  const sum1 = g1.reduce((sum, item) => sum + (item.val || 0), 0);
+  const sum2 = g2.reduce((sum, item) => sum + (item.val || 0), 0);
+
+  if (w >= h) {
+    const w1 = (sum1 / total) * w;
+    const w2 = w - w1;
+    return [
+      ...calculateTreemap(g1, x, y, w1, h),
+      ...calculateTreemap(g2, x + w1, y, w2, h)
+    ];
+  } else {
+    const h1 = (sum1 / total) * h;
+    const h2 = h - h1;
+    return [
+      ...calculateTreemap(g1, x, y, w1, h1),
+      ...calculateTreemap(g2, x, y + h1, w, h2)
+    ];
+  }
 };
 
 const SearchIcon = ({className=""}) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>;
@@ -161,11 +227,12 @@ function App() {
   const [symbols, setSymbols] = useState([]);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [marketData, setMarketData] = useState(null); // 최초 1회 로딩된 marketData 캐시
+  const [marketData, setMarketData] = useState(null);
   const [fx, setFx] = useState({ USD: 1350, JPY: 9, KRW: 1 });
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [quoteError, setQuoteError] = useState("");
   const [taxRate, setTaxRate] = useState(15.4);
+  const [displayCurrency, setDisplayCurrency] = useState("KRW");
 
   const [showAccounts, setShowAccounts] = useState(false);
   const [showAdd, setShowAdd] = useState(null);
@@ -173,11 +240,14 @@ function App() {
   const [newAccount, setNewAccount] = useState("");
   const [page, setPage] = useState(0);
 
-  // 배당 페이지 월별 아코디언 확장 상태 ([symbol_month]: boolean)
   const [expandedMonths, setExpandedMonths] = useState({});
 
   const containerRef = useRef(null);
   const importRef = useRef(null);
+
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartScroll = useRef(0);
 
   useEffect(() => localStorage.setItem("globalPortfolioLots", JSON.stringify(lots)), [lots]);
   useEffect(() => localStorage.setItem("globalPortfolioAccounts", JSON.stringify(accounts)), [accounts]);
@@ -189,7 +259,6 @@ function App() {
       .catch(e => console.error("symbols load failed", e));
   }, []);
 
-  // 환율 로딩
   useEffect(() => {
     const loadFx = async () => {
       try {
@@ -216,7 +285,6 @@ function App() {
     loadFx();
   }, []);
 
-  // 최초 1회 혹은 종목 변경 시 Market Data (현재가 + 5년 배당) 로드
   useEffect(() => {
     if (!lots.length) {
       setMarketData(null);
@@ -254,6 +322,24 @@ function App() {
     loadMarketData();
     return () => { cancelled = true; };
   }, [lots]);
+
+  const convertKRW = (value) => {
+    if (value === null || value === undefined) return null;
+    if (displayCurrency === "KRW") return value;
+    const rate = Number(fx[displayCurrency] || 1);
+    return rate > 0 ? Number(value) / rate : value;
+  };
+
+  const displayMoney = (value) => {
+    const converted = convertKRW(value);
+    return money(converted, displayCurrency);
+  };
+
+  const displaySignedMoney = (value) => {
+    const converted = convertKRW(value);
+    if (converted === null) return "-";
+    return signedMoney(converted, displayCurrency);
+  };
 
   const symbolsBySearch = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -297,7 +383,6 @@ function App() {
       : lots.filter(l => (l.account || "기본 계좌") === selectedAccount);
   }, [lots, selectedAccount]);
 
-  // 포트폴리오 및 5년 배당 데이터 분석 집계
   const portfolio = useMemo(() => {
     const map = new Map();
     for (const lot of visibleLots) {
@@ -318,7 +403,7 @@ function App() {
       const priceKRW = Number(lot.avgPriceKRW) || 0;
       p.qty += q;
       p.investedKRW += q * priceKRW;
-      p.investedForeign += q * (Number(lot.avgPriceForeign) || (priceKRX / (fx[p.currency] || 1)));
+      p.investedForeign += q * (Number(lot.avgPriceForeign) || (priceKRW / (fx[p.currency] || 1)));
       p.lots.push(lot);
     }
 
@@ -338,7 +423,6 @@ function App() {
       const profit = currentValueKRW !== null ? currentValueKRW - p.investedKRW : null;
       const profitPct = profit !== null && p.investedKRW > 0 ? (profit / p.investedKRW) * 100 : null;
 
-      // 5년 배당 데이터 분석
       const rawDividends = Array.isArray(quote?.dividends) ? quote.dividends : [];
       const frequency = analyzeFrequency(rawDividends);
 
@@ -346,10 +430,7 @@ function App() {
       const annualPrevPrev = getAnnualDividendSum(rawDividends, prevPrevYear);
       const annualCurrent = getAnnualDividendSum(rawDividends, currentYear);
 
-      // 연간 성장률 (작년 vs 재작년 또는 올해 추정)
       const annualGrowth = growthRate(annualPrev, annualPrevPrev);
-
-      // 최근 12개월 또는 작년 연간 분배금을 주당 배당금으로 활용
       const annualDividendPerShare = annualPrev > 0 ? annualPrev : (annualCurrent > 0 ? annualCurrent : Number(quote?.annualDividend || 0));
       
       const dividendYield = (currentPriceForeign !== null && currentPriceForeign > 0 && annualDividendPerShare > 0)
@@ -382,6 +463,77 @@ function App() {
       };
     }).sort((a, b) => ((b.valueKRW ?? 0) - (a.valueKRW ?? 0)));
   }, [visibleLots, marketData, fx, taxRate]);
+
+  // 통합 월별 배당 분석
+  const monthlyDividendSummary = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const prevYear = currentYear - 1;
+    const months = Array.from({ length: 12 }, (_, i) => i + 1);
+
+    return months.map(m => {
+      let monthTotalCurrentKRW = 0;
+      let monthTotalPrevKRW = 0;
+      let hasAnyEstimated = false;
+      let hasAnyRecords = false;
+
+      const stocksInMonth = [];
+
+      portfolio.forEach(item => {
+        const monthDivs = item.dividends.filter(d => new Date(d.date).getMonth() + 1 === m);
+        if (monthDivs.length === 0) return;
+
+        hasAnyRecords = true;
+
+        const sorted = [...monthDivs].sort((a, b) => new Date(b.date) - new Date(a.date));
+        const currentRec = sorted.find(d => new Date(d.date).getFullYear() === currentYear);
+        const prevRec = sorted.find(d => new Date(d.date).getFullYear() === prevYear);
+
+        let perShareCurrent = 0;
+        let isEstimated = false;
+
+        if (currentRec) {
+          perShareCurrent = Number(currentRec.amount) || 0;
+        } else if (sorted.length > 0) {
+          perShareCurrent = Number(sorted[0].amount) || 0;
+          isEstimated = true;
+          hasAnyEstimated = true;
+        }
+
+        const perSharePrev = prevRec ? (Number(prevRec.amount) || 0) : 0;
+        const fxRate = Number(fx[item.currency] || 1);
+
+        const stockTotalKRW = item.qty * perShareCurrent * fxRate;
+        const stockPrevTotalKRW = item.qty * perSharePrev * fxRate;
+
+        monthTotalCurrentKRW += stockTotalKRW;
+        monthTotalPrevKRW += stockPrevTotalKRW;
+
+        stocksInMonth.push({
+          symbol: item.symbol,
+          name: item.name,
+          currency: item.currency,
+          qty: item.qty,
+          perShare: perShareCurrent,
+          amountKRW: stockTotalKRW,
+          isEstimated
+        });
+      });
+
+      const growth = (monthTotalPrevKRW > 0 && monthTotalCurrentKRW > 0)
+        ? ((monthTotalCurrentKRW - monthTotalPrevKRW) / monthTotalPrevKRW) * 100
+        : null;
+
+      return {
+        month: m,
+        hasRecords: hasAnyRecords,
+        totalKRW: monthTotalCurrentKRW,
+        totalPrevKRW: monthTotalPrevKRW,
+        growth,
+        hasAnyEstimated,
+        stocks: stocksInMonth
+      };
+    });
+  }, [portfolio, fx]);
 
   const stats = useMemo(() => {
     let totalInvested = 0;
@@ -416,6 +568,20 @@ function App() {
     };
   }, [portfolio]);
 
+  // Treemap 영역 분할 레이아웃 계산
+  const treemapItems = useMemo(() => {
+    const totalVal = stats.value && stats.value > 0 ? stats.value : 0;
+    if (totalVal <= 0 || portfolio.length === 0) return [];
+
+    const prepared = portfolio.map(item => ({
+      ...item,
+      val: item.valueKRW && item.valueKRW > 0 ? item.valueKRW : 0,
+      weight: totalVal > 0 ? ((item.valueKRW || 0) / totalVal) * 100 : 0
+    })).filter(x => x.val > 0);
+
+    return calculateTreemap(prepared, 0, 0, 100, 100);
+  }, [portfolio, stats.value]);
+
   const scrollToPage = (idx) => {
     setPage(idx);
     if (containerRef.current) {
@@ -433,6 +599,35 @@ function App() {
     const currentIdx = Math.round(containerRef.current.scrollLeft / width);
     if (currentIdx !== page) {
       setPage(currentIdx);
+    }
+  };
+
+  const handlePointerDown = (e) => {
+    if (!containerRef.current) return;
+    if (['INPUT', 'SELECT', 'BUTTON', 'A', 'OPTION'].includes(e.target.tagName)) return;
+
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartScroll.current = containerRef.current.scrollLeft;
+
+    containerRef.current.setPointerCapture?.(e.pointerId);
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isDragging.current || !containerRef.current) return;
+    const diff = e.clientX - dragStartX.current;
+    containerRef.current.scrollLeft = dragStartScroll.current - diff;
+  };
+
+  const handlePointerUp = (e) => {
+    if (!containerRef.current || !isDragging.current) return;
+    isDragging.current = false;
+    containerRef.current.releasePointerCapture?.(e.pointerId);
+
+    const width = containerRef.current.clientWidth;
+    if (width > 0) {
+      const targetPage = Math.round(containerRef.current.scrollLeft / width);
+      scrollToPage(targetPage);
     }
   };
 
@@ -555,6 +750,28 @@ function App() {
     e.target.value = "";
   };
 
+  const CurrencyToggleUI = () => (
+    <div className="inline-flex bg-slate-900 border border-slate-800 rounded-xl p-1">
+      {[
+        ["KRW", "원화 ₩"],
+        ["USD", "달러 $"],
+        ["JPY", "엔화 ¥"]
+      ].map(([currency, label]) => (
+        <button
+          key={currency}
+          onClick={() => setDisplayCurrency(currency)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            displayCurrency === currency
+              ? "bg-blue-600 text-white"
+              : "text-slate-400 hover:text-white"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col">
       <header className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 z-20 flex-shrink-0 gap-2">
@@ -601,49 +818,60 @@ function App() {
         </div>
       </header>
 
-      <div ref={containerRef} onScroll={handleScroll} className="page-container">
-        {/* PAGE 1: 포트폴리오 메인 */}
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="page-container"
+      >
+        {/* PAGE 1: 포트폴리오 */}
         <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
           <div className="max-w-7xl mx-auto space-y-4">
-            <div className="relative">
-              <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 focus-within:border-blue-500">
-                <SearchIcon className="w-5 h-5 text-slate-500 mr-2" />
-                <input
-                  value={search}
-                  onChange={e => { setSearch(e.target.value); setSearchOpen(true); }}
-                  onFocus={() => setSearchOpen(true)}
-                  placeholder="종목명 또는 티커 검색 (예: 삼성전자, VOO, 2805)"
-                  className="w-full bg-transparent outline-none text-sm text-white placeholder-slate-500"
-                />
-                {search && (
-                  <button onClick={() => { setSearch(""); setSearchOpen(false); }}>
-                    <CloseIcon className="w-4 h-4 text-slate-500" />
-                  </button>
+            <div className="flex justify-between items-center gap-2">
+              <div className="relative flex-1">
+                <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 focus-within:border-blue-500">
+                  <SearchIcon className="w-5 h-5 text-slate-500 mr-2" />
+                  <input
+                    value={search}
+                    onChange={e => { setSearch(e.target.value); setSearchOpen(true); }}
+                    onFocus={() => setSearchOpen(true)}
+                    placeholder="종목명 또는 티커 검색 (예: 삼성전자, VOO, 2805)"
+                    className="w-full bg-transparent outline-none text-sm text-white placeholder-slate-500"
+                  />
+                  {search && (
+                    <button onClick={() => { setSearch(""); setSearchOpen(false); }}>
+                      <CloseIcon className="w-4 h-4 text-slate-500" />
+                    </button>
+                  )}
+                </div>
+                {searchOpen && search.trim() && (
+                  <div className="absolute z-30 left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-72 overflow-y-auto thin-scroll">
+                    {symbolsBySearch.length ? symbolsBySearch.map(item => (
+                      <button
+                        key={item.symbol}
+                        onClick={() => { setShowAdd(item); setSearchOpen(false); }}
+                        className="w-full text-left px-4 py-3 hover:bg-slate-800 border-b border-slate-800/50 flex justify-between items-center"
+                      >
+                        <div>
+                          <div className="text-sm font-medium text-white">{item.name}</div>
+                          <div className="text-xs text-slate-400">{item.cleanedSymbol} · {marketLabel(item.symbol)}</div>
+                        </div>
+                        <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">{item.currency}</span>
+                      </button>
+                    )) : <div className="p-4 text-sm text-slate-500 text-center">검색 결과가 없습니다.</div>}
+                  </div>
                 )}
               </div>
-              {searchOpen && search.trim() && (
-                <div className="absolute z-30 left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-72 overflow-y-auto thin-scroll">
-                  {symbolsBySearch.length ? symbolsBySearch.map(item => (
-                    <button
-                      key={item.symbol}
-                      onClick={() => { setShowAdd(item); setSearchOpen(false); }}
-                      className="w-full text-left px-4 py-3 hover:bg-slate-800 border-b border-slate-800/50 flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="text-sm font-medium text-white">{item.name}</div>
-                        <div className="text-xs text-slate-400">{item.cleanedSymbol} · {marketLabel(item.symbol)}</div>
-                      </div>
-                      <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">{item.currency}</span>
-                    </button>
-                  )) : <div className="p-4 text-sm text-slate-500 text-center">검색 결과가 없습니다.</div>}
-                </div>
-              )}
+              <CurrencyToggleUI />
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Stat title="총 평가금액" value={money(stats.value)} />
-              <Stat title="총 투자원금" value={money(stats.invested)} />
-              <Stat title="평가손익" value={signedMoney(stats.profit)} valueClass={colorForReturn(stats.profit)} />
+              <Stat title="총 평가금액" value={displayMoney(stats.value)} />
+              <Stat title="총 투자원금" value={displayMoney(stats.invested)} />
+              <Stat title="평가손익" value={displaySignedMoney(stats.profit)} valueClass={colorForReturn(stats.profit)} />
               <Stat title="수익률" value={stats.profitPct !== null ? `${stats.profitPct >= 0 ? "+" : ""}${stats.profitPct.toFixed(2)}%` : "-"} valueClass={colorForReturn(stats.profitPct)} />
             </div>
 
@@ -676,22 +904,22 @@ function App() {
                     </div>
                     <div className="text-sm font-medium">{format(item.qty, item.currency)} 주</div>
                     <div>
-                      <div className="text-sm font-medium">{money(item.avgPriceKRW, "KRW")}</div>
-                      <div className="text-xs text-slate-400">{money(item.investedKRW, "KRW")}</div>
+                      <div className="text-sm font-medium">{displayMoney(item.avgPriceKRW)}</div>
+                      <div className="text-xs text-slate-400">{displayMoney(item.investedKRW)}</div>
                     </div>
                     <div>
                       <div className="text-sm font-medium">
-                        {item.currentPriceForeign !== null ? money(item.currentPriceForeign, item.currency) : "-"}
+                        {item.currentPriceKRW !== null ? displayMoney(item.currentPriceKRW) : "-"}
                       </div>
                       <div className="text-xs text-slate-400">
-                        {item.currentPriceKRW !== null ? money(item.currentPriceKRW, "KRW") : "-"}
+                        {item.currentPriceForeign !== null ? money(item.currentPriceForeign, item.currency) : "-"}
                       </div>
                     </div>
                     <div className="text-sm font-medium">
-                      {item.valueKRW !== null ? money(item.valueKRW, "KRW") : "-"}
+                      {item.valueKRW !== null ? displayMoney(item.valueKRW) : "-"}
                     </div>
                     <div className={`text-sm font-medium ${colorForReturn(item.profit)}`}>
-                      {item.profit !== null ? signedMoney(item.profit, "KRW") : "-"}
+                      {item.profit !== null ? displaySignedMoney(item.profit) : "-"}
                       <div className="text-xs">
                         {item.profitPct !== null ? `${item.profitPct >= 0 ? "+" : ""}${item.profitPct.toFixed(2)}%` : ""}
                       </div>
@@ -711,177 +939,180 @@ function App() {
           </div>
         </div>
 
-        {/* PAGE 2: 분배금 (5년 배당 내역 및 아코디언 상세 분석) */}
+        {/* PAGE 2: 분배금 */}
         <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
           <div className="max-w-6xl mx-auto space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="font-bold text-lg text-white">💰 월별 분배금 통합 요약</div>
+              <CurrencyToggleUI />
+            </div>
+
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Stat title="연간 예상 분배금" value={money(stats.annual)} />
-              <Stat title="세후 연간 분배금" value={money(stats.net)} />
-              <Stat title="월평균 세후 분배금" value={money(stats.monthly)} />
+              <Stat title="연간 예상 분배금" value={displayMoney(stats.annual)} />
+              <Stat title="세후 연간 분배금" value={displayMoney(stats.net)} />
+              <Stat title="월평균 세후 분배금" value={displayMoney(stats.monthly)} />
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
-                <div className="text-xs text-slate-400">배당소득세율 적용</div>
+                <div className="text-xs text-slate-400">배당소득세율 설정</div>
                 <div className="flex items-center gap-2 mt-2">
-                  <input
-                    type="number"
-                    step="0.1"
+                  <select
                     value={taxRate}
                     onChange={e => setTaxRate(Number(e.target.value))}
-                    className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white"
-                  />
-                  <span className="text-sm text-slate-300">%</span>
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-blue-500"
+                  >
+                    <option value={0}>0%</option>
+                    <option value={9.0}>9%</option>
+                    <option value={15.4}>15.4%</option>
+                    <option value={22}>22%</option>
+                  </select>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              {portfolio.length === 0 ? (
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-slate-500 text-sm">
-                  보유 중인 종목이 없습니다.
-                </div>
-              ) : (
-                portfolio.map(item => {
-                  const currentYear = new Date().getFullYear();
-                  const years = [currentYear, currentYear-1, currentYear-2, currentYear-3, currentYear-4];
-                  const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+            {/* 1월 ~ 12월 월별 통합 아코디언 */}
+            <div className="space-y-3">
+              {monthlyDividendSummary.map(mSummary => {
+                const isOpen = !!expandedMonths[mSummary.month];
 
-                  return (
-                    <div key={item.symbol} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-                        <div>
-                          <div className="font-bold text-base text-white">{item.name}</div>
-                          <div className="text-xs text-slate-400">{cleanTicker(item.symbol)} · 보유 {format(item.qty, item.currency)}주 · 지급주기: <span className="text-blue-400 font-medium">{item.frequency}</span></div>
-                        </div>
-                        <div className="flex items-center gap-4 text-right">
-                          <div>
-                            <div className="text-xs text-slate-400">연간 분배금</div>
-                            <div className="text-sm font-bold text-white">{money(item.annualDividendForeign, item.currency)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-slate-400">연간 성장률</div>
-                            <div className={`text-sm font-bold ${colorForReturn(item.annualGrowth)}`}>
-                              {item.annualGrowth !== null ? `${item.annualGrowth >= 0 ? "+" : ""}${item.annualGrowth.toFixed(1)}%` : "-"}
-                            </div>
-                          </div>
-                        </div>
+                return (
+                  <div key={mSummary.month} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                    <button
+                      onClick={() => setExpandedMonths(prev => ({ ...prev, [mSummary.month]: !isOpen }))}
+                      className="w-full p-4 flex items-center justify-between hover:bg-slate-800/50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-base text-white">{mSummary.month}월</span>
+                        {mSummary.hasAnyEstimated && (
+                          <span className="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-md">
+                            예상 포함
+                          </span>
+                        )}
                       </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-white">
+                            {mSummary.totalKRW > 0 ? displayMoney(mSummary.totalKRW) : "-"}
+                          </div>
+                          {mSummary.growth !== null && (
+                            <div className={`text-xs ${colorForReturn(mSummary.growth)}`}>
+                              전년 대비 {mSummary.growth >= 0 ? "+" : ""}{mSummary.growth.toFixed(1)}%
+                            </div>
+                          )}
+                        </div>
+                        {isOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+                      </div>
+                    </button>
 
-                      {/* 1~12월 월별 아코디언 배치 */}
-                      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-                        {months.map(m => {
-                          const key = `${item.symbol}_${m}`;
-                          const isOpen = !!expandedMonths[key];
-
-                          // 해당 월의 배당 내역 필터링
-                          const monthDividends = item.dividends.filter(d => new Date(d.date).getMonth() + 1 === m);
-                          const hasRecords = monthDividends.length > 0;
-
-                          // 올해 해당 월에 아직 지급 내역이 없고 과거 기록이 있다면 예상 배당 표시 가능
-                          const currentYearRecord = monthDividends.find(d => new Date(d.date).getFullYear() === currentYear);
-                          const isExpected = !currentYearRecord && hasRecords;
-                          const displayAmount = currentYearRecord ? currentYearRecord.amount : (isExpected ? monthDividends.sort((a,b)=>new Date(b.date)-new Date(a.date))[0]?.amount : null);
-
-                          return (
-                            <div key={m} className="bg-slate-950 border border-slate-800/80 rounded-xl overflow-hidden">
-                              <button
-                                onClick={() => setExpandedMonths(prev => ({ ...prev, [key]: !isOpen }))}
-                                className="w-full p-2.5 flex items-center justify-between hover:bg-slate-900 transition-colors text-left"
-                              >
-                                <div>
-                                  <div className="text-xs text-slate-400 font-medium">{m}월</div>
-                                  <div className="text-xs font-bold text-white mt-0.5">
-                                    {displayAmount !== null ? money(displayAmount, item.currency) : "-"}
-                                    {isExpected && <span className="text-[10px] text-amber-400 ml-1">(예상)</span>}
+                    {isOpen && (
+                      <div className="border-t border-slate-800 bg-slate-950/60 p-4 space-y-2">
+                        {mSummary.stocks.length === 0 ? (
+                          <div className="text-xs text-slate-500 text-center py-2">해당 월에 지급되는 분배금 내역이 없습니다.</div>
+                        ) : (
+                          <>
+                            <div className="space-y-2">
+                              {mSummary.stocks.map(st => (
+                                <div key={st.symbol} className="flex justify-between items-center bg-slate-900 border border-slate-800/80 rounded-xl px-3.5 py-2 text-sm">
+                                  <div>
+                                    <span className="font-semibold text-white">{st.name}</span>
+                                    <span className="text-xs text-slate-400 ml-2">({cleanTicker(st.symbol)})</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-medium text-white">
+                                      {displayMoney(st.amountKRW)}
+                                      {st.isEstimated && <span className="text-xs text-amber-400 ml-1">(예상)</span>}
+                                    </div>
+                                    <div className="text-xs text-slate-400">
+                                      {format(st.qty, st.currency)}주 × {money(st.perShare, st.currency)}
+                                    </div>
                                   </div>
                                 </div>
-                                {hasRecords ? (isOpen ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />) : null}
-                              </button>
-
-                              {/* 아코디언 펼침: 연도별 역사적 내역 */}
-                              {isOpen && hasRecords && (
-                                <div className="bg-slate-900/90 border-t border-slate-800 p-2 space-y-1 text-xs">
-                                  {years.map(y => {
-                                    const rec = monthDividends.find(d => new Date(d.date).getFullYear() === y);
-                                    if (!rec && y === currentYear && !isExpected) return null;
-                                    const amt = rec ? rec.amount : (y === currentYear && isExpected ? displayAmount : null);
-                                    if (amt === null) return null;
-
-                                    return (
-                                      <div key={y} className="flex justify-between items-center text-slate-300">
-                                        <span className="text-slate-400 font-mono">{y}</span>
-                                        <span className="font-medium">
-                                          {money(amt, item.currency)}
-                                          {y === currentYear && isExpected && <span className="text-[9px] text-amber-400 ml-0.5">예상</span>}
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
+                              ))}
                             </div>
-                          );
-                        })}
+                            <div className="flex justify-between items-center border-t border-slate-800 pt-3 mt-3 text-xs text-slate-400 font-medium px-1">
+                              <span>{mSummary.month}월 합계</span>
+                              <span className="text-sm font-bold text-white">{displayMoney(mSummary.totalKRW)}</span>
+                            </div>
+                          </>
+                        )}
                       </div>
-                    </div>
-                  );
-                })
-              )}
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        {/* PAGE 3: 마켓 히트맵 */}
+        {/* PAGE 3: 마켓 히트맵 (Treemap 알고리즘 적용) */}
         <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
           <div className="max-w-6xl mx-auto space-y-4">
             <div className="flex justify-between items-center">
-              <div className="font-semibold text-lg text-white">포트폴리오 히트맵 트리맵</div>
-              <div className="text-xs text-slate-400">자산 비중 및 당일 등락률 기준</div>
+              <div>
+                <div className="font-bold text-lg text-white">🗺️ 자산 비중 트리맵 (Treemap)</div>
+                <div className="text-xs text-slate-400 mt-0.5">면적 = 포트폴리오 비중 · 색상 = 평가손익률</div>
+              </div>
+              <CurrencyToggleUI />
             </div>
 
-            {portfolio.length === 0 ? (
+            {treemapItems.length === 0 ? (
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-slate-500 text-sm">
-                등록된 종목이 없습니다.
+                등록된 보유 종목이 없거나 평가금액이 0원입니다.
               </div>
             ) : (
-              <div className="flex flex-wrap gap-2 min-h-[520px] w-full">
-                {portfolio.map(item => {
-                  const totalVal = (stats.value && stats.value > 0) ? stats.value : 1;
-                  const itemVal = item.valueKRW ?? 0;
-                  const weight = itemVal > 0 ? (itemVal / totalVal) : (1 / portfolio.length);
-                  const weightPct = Math.max(weight * 100, 6);
-                  const change = item.changePercent;
+              <div className="relative w-full h-[540px] bg-slate-900 border border-slate-800 rounded-2xl p-1.5 overflow-hidden">
+                {treemapItems.map(item => {
+                  const profitPct = item.profitPct;
+                  const intensity = profitPct !== null ? Math.min(Math.abs(profitPct) / 30, 1) : 0;
                   
-                  const intensity = Math.min(Math.abs(change) / 5, 1);
-                  const bg = change > 0
-                    ? `rgba(16, 185, 129, ${0.25 + intensity * 0.65})`
-                    : change < 0
-                    ? `rgba(244, 63, 94, ${0.25 + intensity * 0.65})`
-                    : "rgba(51, 65, 85, 0.4)";
+                  const bg = profitPct === null
+                    ? "rgba(51, 65, 85, 0.6)"
+                    : profitPct > 0
+                    ? `rgba(16, 185, 129, ${0.3 + intensity * 0.6})`
+                    : profitPct < 0
+                    ? `rgba(244, 63, 94, ${0.3 + intensity * 0.6})`
+                    : "rgba(51, 65, 85, 0.6)";
+
+                  const isWide = item.w > 12 && item.h > 12;
+                  const isMedium = item.w > 6 && item.h > 6;
 
                   return (
                     <div
                       key={item.symbol}
-                      className="rounded-xl border border-slate-700/60 p-3.5 flex flex-col justify-between transition-all hover:scale-[1.01] overflow-hidden"
+                      title={`${item.name} (${cleanTicker(item.symbol)})\n비중: ${item.weight.toFixed(1)}%\n평가금액: ${displayMoney(item.valueKRW)}\n수익률: ${profitPct !== null ? (profitPct >= 0 ? '+' : '') + profitPct.toFixed(2) + '%' : '-'}`}
+                      className="absolute p-2 border border-slate-950/80 rounded-xl flex flex-col justify-between overflow-hidden transition-all hover:border-white hover:z-10 group"
                       style={{
-                        flexGrow: weightPct,
-                        flexBasis: `${weightPct}%`,
-                        minWidth: '125px',
-                        minHeight: '110px',
+                        left: `${item.x}%`,
+                        top: `${item.y}%`,
+                        width: `${item.w}%`,
+                        height: `${item.h}%`,
                         backgroundColor: bg
                       }}
                     >
-                      <div className="flex justify-between items-start gap-1">
-                        <span className="font-bold text-white text-sm truncate">{item.name}</span>
-                        <span className="text-[10px] bg-black/50 px-1.5 py-0.5 rounded text-slate-300 font-mono">
-                          {(weight * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-300 font-mono">{cleanTicker(item.symbol)}</div>
-                        <div className={`text-base font-black font-mono mt-0.5 ${colorForReturn(change)}`}>
-                          {change >= 0 ? "+" : ""}{change.toFixed(2)}%
+                      <div className="flex justify-between items-start gap-1 w-full">
+                        <div className="font-bold text-white text-xs md:text-sm truncate leading-tight">
+                          {isWide ? item.name : cleanTicker(item.symbol)}
                         </div>
-                        <div className="text-xs text-slate-100 font-medium">{item.valueKRW !== null ? money(item.valueKRW) : "-"}</div>
+                        {isMedium && (
+                          <span className="text-[10px] bg-black/40 px-1 py-0.5 rounded text-slate-200 font-mono whitespace-nowrap">
+                            {item.weight.toFixed(1)}%
+                          </span>
+                        )}
                       </div>
+
+                      {isMedium && (
+                        <div>
+                          {isWide && (
+                            <div className="text-[11px] text-slate-300 font-mono">{cleanTicker(item.symbol)}</div>
+                          )}
+                          <div className={`text-xs md:text-sm font-extrabold font-mono ${colorForReturn(profitPct)}`}>
+                            {profitPct !== null ? `${profitPct >= 0 ? "+" : ""}${profitPct.toFixed(1)}%` : "-"}
+                          </div>
+                          {isWide && (
+                            <div className="text-[11px] text-white/90 font-medium truncate">
+                              {displayMoney(item.valueKRW)}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -891,6 +1122,7 @@ function App() {
         </div>
       </div>
 
+      {/* 모달 창 구성 */}
       {showAdd && (
         <Modal title={`${showAdd.name} 추가`} onClose={() => setShowAdd(null)}>
           <form onSubmit={addLot} className="space-y-4">
