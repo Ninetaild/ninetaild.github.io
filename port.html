@@ -9,7 +9,7 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+    html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; scroll-behavior: smooth; }
     body { background: #020617; color: #f8fafc; user-select: none; }
     * { box-sizing: border-box; }
     
@@ -37,12 +37,12 @@
       scroll-snap-stop: always;
       overflow-y: auto;
       overflow-x: hidden;
+      scroll-behavior: smooth;
     }
     .thin-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
     .thin-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
     input, select, button { -webkit-tap-highlight-color: transparent; }
 
-    /* 화면 양 끝 클릭 이동 영역 */
     .page-edge {
       position: fixed;
       top: 3.5rem;
@@ -68,6 +68,7 @@ const { useEffect, useMemo, useRef, useState } = React;
 
 const WORKER_BASE_URL = "https://yahoo.ninetaild.workers.dev";
 const SYMBOLS_URL = "https://ninetaild.github.io/data/symbols.json";
+const ALIASES_URL = "https://ninetaild.github.io/data/aliases.json";
 
 const BRAND_ALIASES = {
   "lg": ["lg", "엘지"],
@@ -79,6 +80,14 @@ const BRAND_ALIASES = {
   "삼성": ["samsung", "삼성"],
   "현대": ["hyundai", "현대"]
 };
+
+function getDisplayName(symbol, aliases, fallback = "") {
+  const list = aliases?.[symbol];
+  if (Array.isArray(list) && list.length > 0) {
+    return list[0];
+  }
+  return fallback || symbol;
+}
 
 const cleanTicker = (symbol = "") => String(symbol).replace(/\.(KS|KQ|T)$/i, "").toUpperCase();
 
@@ -232,7 +241,6 @@ function App() {
     } catch { return []; }
   });
   
-  // 기본계좌 없이 불러오기
   const [accounts, setAccounts] = useState(() => {
     try {
       const saved = localStorage.getItem("globalPortfolioAccounts");
@@ -242,6 +250,7 @@ function App() {
 
   const [selectedAccount, setSelectedAccount] = useState("ALL");
   const [symbols, setSymbols] = useState([]);
+  const [aliases, setAliases] = useState({});
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [marketData, setMarketData] = useState(null);
@@ -274,6 +283,17 @@ function App() {
       .then(r => r.json())
       .then(data => Array.isArray(data) && setSymbols(data))
       .catch(e => console.error("symbols load failed", e));
+
+    fetch(ALIASES_URL, { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => {
+        if (data && typeof data === 'object') {
+          const cleanAliases = { ...data };
+          delete cleanAliases["_comment"];
+          setAliases(cleanAliases);
+        }
+      })
+      .catch(e => console.error("aliases load failed", e));
   }, []);
 
   useEffect(() => {
@@ -377,25 +397,40 @@ function App() {
 
     const searchTokens = BRAND_ALIASES[q] || [q];
 
-    return symbols
+    const combinedSymbols = [...symbols];
+    const existingSymbols = new Set(symbols.map(s => String(s.symbol || "").toUpperCase()));
+
+    Object.keys(aliases).forEach(sym => {
+      if (!existingSymbols.has(sym.toUpperCase())) {
+        combinedSymbols.push({
+          symbol: sym,
+          name: aliases[sym]?.[0] || sym,
+          searchKeywords: aliases[sym] || []
+        });
+      }
+    });
+
+    return combinedSymbols
       .filter(item => {
-        const symbol = String(item.symbol || "").toLowerCase();
-        const cleaned = cleanTicker(symbol).toLowerCase();
+        const rawSym = String(item.symbol || "");
+        const symbol = rawSym.toLowerCase();
+        const cleaned = cleanTicker(rawSym).toLowerCase();
         const kws = Array.isArray(item.searchKeywords) ? item.searchKeywords.map(x => String(x).toLowerCase()) : [];
         const itemName = String(item.name || "").toLowerCase();
+        const aliasList = Array.isArray(aliases[rawSym]) ? aliases[rawSym].map(x => String(x).toLowerCase()) : [];
 
         return searchTokens.some(token => 
           symbol.includes(token) || 
           cleaned.includes(token) || 
           itemName.includes(token) ||
-          kws.some(k => k.includes(token))
+          kws.some(k => k.includes(token)) ||
+          aliasList.some(a => a.includes(token))
         );
       })
       .map(item => {
         const rawSymbol = item.symbol;
         const cleaned = cleanTicker(rawSymbol);
-        const nameCandidates = (item.searchKeywords || []).filter(k => k.toLowerCase() !== rawSymbol.toLowerCase() && k.toLowerCase() !== cleaned.toLowerCase());
-        const displayName = item.name || nameCandidates[0] || cleaned;
+        const displayName = getDisplayName(rawSymbol, aliases, item.name);
         return {
           symbol: rawSymbol,
           cleanedSymbol: cleaned,
@@ -406,7 +441,7 @@ function App() {
         };
       })
       .slice(0, 15);
-  }, [search, symbols]);
+  }, [search, symbols, aliases]);
 
   const visibleLots = useMemo(() => {
     return selectedAccount === "ALL"
@@ -420,7 +455,7 @@ function App() {
       if (!map.has(lot.symbol)) {
         map.set(lot.symbol, {
           symbol: lot.symbol,
-          name: lot.name || lot.symbol,
+          name: getDisplayName(lot.symbol, aliases, lot.name || lot.symbol),
           market: marketOf(lot.symbol),
           currency: lot.currency || currencyOf(lot.symbol),
           searchKeywords: lot.searchKeywords || [],
@@ -471,9 +506,11 @@ function App() {
       const avgPriceKRW = p.qty > 0 ? p.investedKRW / p.qty : 0;
       const avgPriceForeign = p.qty > 0 ? p.investedForeign / p.qty : 0;
 
+      const displayName = getDisplayName(p.symbol, aliases, quote?.name || p.name);
+
       return {
         ...p,
-        name: quote?.name || p.name,
+        name: displayName,
         avgPriceKRW,
         avgPriceForeign,
         currentPriceForeign,
@@ -490,7 +527,7 @@ function App() {
         annualGrowth
       };
     }).sort((a, b) => ((b.valueKRW ?? 0) - (a.valueKRW ?? 0)));
-  }, [visibleLots, marketData, fx, taxRate]);
+  }, [visibleLots, marketData, fx, taxRate, aliases]);
 
   const monthlyDividendSummary = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -537,7 +574,7 @@ function App() {
 
         stocksInMonth.push({
           symbol: item.symbol,
-          name: item.name,
+          name: getDisplayName(item.symbol, aliases, item.name),
           currency: item.currency,
           qty: item.qty,
           perShare: perShareCurrent,
@@ -560,7 +597,7 @@ function App() {
         stocks: stocksInMonth
       };
     });
-  }, [portfolio, fx]);
+  }, [portfolio, fx, aliases]);
 
   const stats = useMemo(() => {
     let totalInvested = 0;
@@ -618,7 +655,6 @@ function App() {
     }
   };
 
-  // 3. 페이지 양 끝 클릭 제어 함수
   const goPreviousPage = () => {
     if (page > 0) scrollToPage(page - 1);
   };
@@ -681,7 +717,7 @@ function App() {
     const lot = {
       id: Date.now().toString(),
       symbol: showAdd.symbol,
-      name: showAdd.name || showAdd.symbol,
+      name: getDisplayName(showAdd.symbol, aliases, showAdd.name || showAdd.symbol),
       searchKeywords: showAdd.searchKeywords || [],
       market: showAdd.market,
       currency,
@@ -739,7 +775,8 @@ function App() {
   };
 
   const handleDeleteSymbolAll = (symbol) => {
-    if (confirm(`${cleanTicker(symbol)} 종목의 모든 매수 내역을 삭제하시겠습니까?`)) {
+    const displayName = getDisplayName(symbol, aliases, cleanTicker(symbol));
+    if (confirm(`${displayName} 종목의 모든 매수 내역을 삭제하시겠습니까?`)) {
       setLots(prev => prev.filter(l => l.symbol !== symbol));
       if (editingStock?.symbol === symbol) setEditingStock(null);
     }
@@ -760,7 +797,6 @@ function App() {
     if (selectedAccount === acc) setSelectedAccount("ALL");
   };
 
-  // 2. 계좌 구조 기반 JSON 내보내기 (실시간 야후 시세 데이터 제외)
   const exportData = () => {
     const exportObj = { accounts: {} };
     const allAccountNames = accounts.length > 0 
@@ -770,11 +806,10 @@ function App() {
     allAccountNames.forEach(accName => {
       const accLots = lots.filter(l => l.account === accName);
       
-      // 동일 종목별 중복 방지 및 최소 포트폴리오 구조 정리
       exportObj.accounts[accName] = {
         holdings: accLots.map(l => ({
           symbol: l.symbol,
-          name: l.name,
+          name: getDisplayName(l.symbol, aliases, l.name),
           searchKeywords: l.searchKeywords || [],
           quantity: l.quantity,
           avgPriceKRW: l.avgPriceKRW,
@@ -792,7 +827,6 @@ function App() {
     URL.revokeObjectURL(a.href);
   };
 
-  // 2. 계좌 구조 기반 JSON 불러오기 (기본계좌 미생성)
   const importData = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -811,7 +845,7 @@ function App() {
               loadedLots.push({
                 id: h.id || (Date.now() + Math.random()).toString(),
                 symbol: h.symbol,
-                name: h.name || h.symbol,
+                name: getDisplayName(h.symbol, aliases, h.name || h.symbol),
                 searchKeywords: h.searchKeywords || [],
                 market: h.market || marketOf(h.symbol),
                 currency: h.currency || currencyOf(h.symbol),
@@ -829,7 +863,6 @@ function App() {
           setSelectedAccount("ALL");
           alert("성공적으로 불러왔습니다.");
         } else if (Array.isArray(data) || data?.lots) {
-          // 기존 구형 포맷과의 호환성 유지
           const newLots = Array.isArray(data) ? data : data.lots;
           setLots(newLots);
           if (Array.isArray(data?.accounts)) setAccounts(data.accounts);
@@ -913,7 +946,6 @@ function App() {
         </div>
       </header>
 
-      {/* 3. 양 끝 클릭 터치 페이지 이동 오버레이 영역 */}
       {page > 0 && (
         <div
           className="page-edge page-edge-left"
@@ -949,7 +981,7 @@ function App() {
                     value={search}
                     onChange={e => { setSearch(e.target.value); setSearchOpen(true); }}
                     onFocus={() => setSearchOpen(true)}
-                    placeholder="종목명 또는 티커 검색 (예: 삼성전자, VOO, 2805)"
+                    placeholder="종목명 또는 티커 검색 (예: 삼성전자, VOO, 에스비 식품, 2805)"
                     className="w-full bg-transparent outline-none text-sm text-white placeholder-slate-500"
                   />
                   {search && (
@@ -967,7 +999,7 @@ function App() {
                         className="w-full text-left px-4 py-3 hover:bg-slate-800 border-b border-slate-800/50 flex justify-between items-center"
                       >
                         <div>
-                          <div className="text-sm font-medium text-white">{item.name}</div>
+                          <div className="text-sm font-medium text-white">{getDisplayName(item.symbol, aliases, item.name)}</div>
                           <div className="text-xs text-slate-400">{item.cleanedSymbol} · {marketLabel(item.symbol)}</div>
                         </div>
                         <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">{item.currency}</span>
@@ -1010,7 +1042,7 @@ function App() {
                 <div key={item.symbol} className="px-4 py-3.5 border-b border-slate-800/60 last:border-0 hover:bg-slate-800/30 transition-colors">
                   <div className="grid md:grid-cols-[2fr_1fr_1.2fr_1.2fr_1.2fr_1.2fr_70px] gap-2 md:gap-3 items-center">
                     <div>
-                      <div className="font-semibold text-white text-sm truncate">{item.name}</div>
+                      <div className="font-semibold text-white text-sm truncate">{getDisplayName(item.symbol, aliases, item.name)}</div>
                       <div className="text-xs text-slate-400">{cleanTicker(item.symbol)} · {marketLabel(item.symbol)}</div>
                     </div>
                     <div className="text-sm font-medium">{format(item.qty, item.currency)} 주</div>
@@ -1078,53 +1110,72 @@ function App() {
               </div>
             </div>
 
-            {/* 1. 월별 분배금 1~12월 SVG/CSS 막대그래프 */}
+            {/* 월별 분배금 인터랙티브 막대그래프 */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-5">
               <div className="text-sm font-semibold text-white mb-3 flex items-center justify-between">
                 <span>월별 예상 분배금</span>
-                <span className="text-xs text-slate-400 font-normal">막대를 클릭하면 해당 월 상세가 열립니다</span>
+                <span className="text-xs text-slate-400 font-normal">막대 클릭 시 해당 월로 이동 및 자동 오픈</span>
               </div>
               <div className="h-44 flex items-end gap-1 sm:gap-2 pt-6 pb-1">
                 {monthlyDividendSummary.map((mSummary) => {
                   const max = Math.max(...monthlyDividendSummary.map(m => m.totalKRW), 1);
                   const height = (mSummary.totalKRW / max) * 100;
-                  const isOpen = !!expandedMonths[mSummary.month];
 
                   return (
-                    <div
+                    <a
                       key={mSummary.month}
-                      onClick={() => setExpandedMonths(prev => ({ ...prev, [mSummary.month]: !isOpen }))}
-                      className="flex-1 h-full flex flex-col justify-end cursor-pointer group"
+                      href={`#month-${mSummary.month}`}
+                      onClick={() => {
+                        setExpandedMonths(prev => ({
+                          ...prev,
+                          [mSummary.month]: true
+                        }));
+                      }}
+                      className="flex-1 h-full flex flex-col justify-end group relative items-center cursor-pointer no-underline"
                     >
+                      {/* PC 마우스 오버 툴팁 */}
+                      <div className="
+                        absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                        hidden group-hover:block
+                        whitespace-nowrap
+                        bg-slate-800 border border-slate-700
+                        text-white text-xs font-medium
+                        rounded-lg px-2.5 py-1
+                        shadow-xl z-20
+                        pointer-events-none
+                      ">
+                        {mSummary.month}월&nbsp;{displayMoney(mSummary.totalKRW)}
+                      </div>
+
+                      {/* 그래프 막대 */}
                       <div className="w-full flex-1 flex items-end justify-center relative">
-                        {mSummary.totalKRW > 0 && (
-                          <div
-                            className={`w-full rounded-t-md transition-all ${
-                              isOpen ? "bg-blue-400" : "bg-blue-600 group-hover:bg-blue-500"
-                            }`}
-                            style={{ height: `${Math.max(height, 4)}%` }}
-                            title={`${mSummary.month}월 ${displayMoney(mSummary.totalKRW)}`}
-                          />
-                        )}
+                        <div
+                          className="w-full bg-blue-500 rounded-t-sm transition-all duration-200 group-hover:bg-blue-400"
+                          style={{ height: `${Math.max(height, mSummary.totalKRW > 0 ? 4 : 0)}%` }}
+                        />
                       </div>
-                      <div className={`text-[11px] text-center mt-2 font-medium transition-colors ${
-                        isOpen ? "text-blue-400 font-bold" : "text-slate-500 group-hover:text-slate-300"
-                      }`}>
-                        {mSummary.month}월
+
+                      {/* 월 레이블 */}
+                      <div className="text-[10px] text-slate-500 text-center mt-1 group-hover:text-slate-300">
+                        {mSummary.month}
                       </div>
-                    </div>
+                    </a>
                   );
                 })}
               </div>
             </div>
 
-            {/* 월별 아코디언 토글 목록 */}
+            {/* 월별 아코디언 상세 내역 */}
             <div className="space-y-3">
               {monthlyDividendSummary.map(mSummary => {
                 const isOpen = !!expandedMonths[mSummary.month];
 
                 return (
-                  <div key={mSummary.month} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                  <div
+                    key={mSummary.month}
+                    id={`month-${mSummary.month}`}
+                    className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden scroll-mt-6"
+                  >
                     <button
                       onClick={() => setExpandedMonths(prev => ({ ...prev, [mSummary.month]: !isOpen }))}
                       className="w-full p-4 flex items-center justify-between hover:bg-slate-800/50 transition-colors text-left"
@@ -1162,7 +1213,7 @@ function App() {
                               {mSummary.stocks.map(st => (
                                 <div key={st.symbol} className="flex justify-between items-center bg-slate-900 border border-slate-800/80 rounded-xl px-3.5 py-2 text-sm">
                                   <div>
-                                    <span className="font-semibold text-white">{st.name}</span>
+                                    <span className="font-semibold text-white">{getDisplayName(st.symbol, aliases, st.name)}</span>
                                     <span className="text-xs text-slate-400 ml-2">({cleanTicker(st.symbol)})</span>
                                   </div>
                                   <div className="text-right">
@@ -1223,11 +1274,12 @@ function App() {
 
                   const isWide = item.w > 12 && item.h > 12;
                   const isMedium = item.w > 6 && item.h > 6;
+                  const itemDisplayName = getDisplayName(item.symbol, aliases, item.name);
 
                   return (
                     <div
                       key={item.symbol}
-                      title={`${item.name} (${cleanTicker(item.symbol)})\n비중: ${item.weight.toFixed(1)}%\n평가금액: ${displayMoney(item.valueKRW, item.currency)}\n일일 변동률: ${changePercent !== null && Number.isFinite(changePercent) ? (changePercent >= 0 ? '+' : '') + changePercent.toFixed(2) + '%' : '-'}`}
+                      title={`${itemDisplayName} (${cleanTicker(item.symbol)})\n비중: ${item.weight.toFixed(1)}%\n평가금액: ${displayMoney(item.valueKRW, item.currency)}\n일일 변동률: ${changePercent !== null && Number.isFinite(changePercent) ? (changePercent >= 0 ? '+' : '') + changePercent.toFixed(2) + '%' : '-'}`}
                       className="absolute p-2 border border-slate-950/80 rounded-xl flex flex-col justify-between overflow-hidden transition-all hover:border-white hover:z-10 group"
                       style={{
                         left: `${item.x}%`,
@@ -1239,7 +1291,7 @@ function App() {
                     >
                       <div className="flex justify-between items-start gap-1 w-full">
                         <div className="font-bold text-white text-xs md:text-sm truncate leading-tight">
-                          {isWide ? item.name : cleanTicker(item.symbol)}
+                          {isWide ? itemDisplayName : cleanTicker(item.symbol)}
                         </div>
                         {isMedium && (
                           <span className="text-[10px] bg-black/40 px-1 py-0.5 rounded text-slate-200 font-mono whitespace-nowrap">
@@ -1274,7 +1326,7 @@ function App() {
 
       {/* 모달 창 */}
       {showAdd && (
-        <Modal title={`${showAdd.name} 추가`} onClose={() => setShowAdd(null)}>
+        <Modal title={`${getDisplayName(showAdd.symbol, aliases, showAdd.name)} 추가`} onClose={() => setShowAdd(null)}>
           <form onSubmit={addLot} className="space-y-4">
             <div className="text-xs text-slate-400">{showAdd.cleanedSymbol} · {showAdd.currency}</div>
             <Field label="매수 수량"><input name="quantity" type="number" step="any" required autoFocus className="field" /></Field>
@@ -1295,7 +1347,7 @@ function App() {
       )}
 
       {editingStock && (
-        <Modal title={`${editingStock.name} 보유 내역 수정`} onClose={() => setEditingStock(null)}>
+        <Modal title={`${getDisplayName(editingStock.symbol, aliases, editingStock.name)} 보유 내역 수정`} onClose={() => setEditingStock(null)}>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto thin-scroll pr-1">
             {editingStock.lots.map((lot, idx) => (
               <div key={lot.id} className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
