@@ -136,7 +136,6 @@ const analyzeFrequency = (dividends = []) => {
   return "연 1회";
 };
 
-// 2차원 Treemap 알고리즘 (버그 수정 완료)
 const calculateTreemap = (items, x = 0, y = 0, w = 100, h = 100) => {
   if (!items || items.length === 0) return [];
   if (items.length === 1) {
@@ -313,7 +312,7 @@ function App() {
       } catch (e) {
         console.error("Market Data Fetching Error:", e);
         if (!cancelled) setQuoteError("시세 및 배당 정보를 가져오지 못했습니다.");
-      } fontally {
+      } finally {
         if (!cancelled) setLoadingQuotes(false);
       }
     };
@@ -431,10 +430,6 @@ function App() {
 
       const annualGrowth = growthRate(annualPrev, annualPrevPrev);
       const annualDividendPerShare = annualPrev > 0 ? annualPrev : (annualCurrent > 0 ? annualCurrent : Number(quote?.annualDividend || 0));
-      
-      const dividendYield = (currentPriceForeign !== null && currentPriceForeign > 0 && annualDividendPerShare > 0)
-        ? (annualDividendPerShare / currentPriceForeign) * 100
-        : Number(quote?.dividendYield || 0);
 
       const annualDividendKRW = (annualDividendPerShare > 0 && fxRate > 0) ? p.qty * annualDividendPerShare * fxRate : 0;
       const netDividendKRW = annualDividendKRW * (1 - taxRate / 100);
@@ -1038,7 +1033,7 @@ function App() {
           </div>
         </div>
 
-        {/* PAGE 3: 마켓 히트맵 (Treemap 적용) */}
+        {/* PAGE 3: 마켓 히트맵 */}
         <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
           <div className="max-w-6xl mx-auto space-y-4">
             <div className="flex justify-between items-center">
