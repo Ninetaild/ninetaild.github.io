@@ -41,6 +41,23 @@
     .thin-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
     .thin-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
     input, select, button { -webkit-tap-highlight-color: transparent; }
+
+    /* 화면 양 끝 클릭 이동 영역 */
+    .page-edge {
+      position: fixed;
+      top: 3.5rem;
+      bottom: 0;
+      width: 5%;
+      z-index: 30;
+      cursor: pointer;
+    }
+    .page-edge-left { left: 0; }
+    .page-edge-right { right: 0; }
+    @media (min-width: 768px) {
+      .page-edge {
+        width: 6%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -214,11 +231,13 @@ function App() {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+  
+  // 기본계좌 없이 불러오기
   const [accounts, setAccounts] = useState(() => {
     try {
       const saved = localStorage.getItem("globalPortfolioAccounts");
-      return saved ? JSON.parse(saved) : ["기본 계좌"];
-    } catch { return ["기본 계좌"]; }
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
 
   const [selectedAccount, setSelectedAccount] = useState("ALL");
@@ -381,6 +400,7 @@ function App() {
           symbol: rawSymbol,
           cleanedSymbol: cleaned,
           name: displayName,
+          searchKeywords: item.searchKeywords || [],
           market: marketOf(rawSymbol),
           currency: currencyOf(rawSymbol)
         };
@@ -391,7 +411,7 @@ function App() {
   const visibleLots = useMemo(() => {
     return selectedAccount === "ALL"
       ? lots
-      : lots.filter(l => (l.account || "기본 계좌") === selectedAccount);
+      : lots.filter(l => l.account === selectedAccount);
   }, [lots, selectedAccount]);
 
   const portfolio = useMemo(() => {
@@ -403,6 +423,7 @@ function App() {
           name: lot.name || lot.symbol,
           market: marketOf(lot.symbol),
           currency: lot.currency || currencyOf(lot.symbol),
+          searchKeywords: lot.searchKeywords || [],
           qty: 0,
           investedKRW: 0,
           investedForeign: 0,
@@ -597,6 +618,15 @@ function App() {
     }
   };
 
+  // 3. 페이지 양 끝 클릭 제어 함수
+  const goPreviousPage = () => {
+    if (page > 0) scrollToPage(page - 1);
+  };
+
+  const goNextPage = () => {
+    if (page < 2) scrollToPage(page + 1);
+  };
+
   const handleScroll = () => {
     if (!containerRef.current) return;
     const width = containerRef.current.clientWidth;
@@ -642,7 +672,9 @@ function App() {
     const qty = Number(fd.get("quantity"));
     const priceKRW = Number(fd.get("priceKRW"));
     const date = fd.get("date");
-    if (!qty || !priceKRW || !date || !showAdd) return;
+    const accountName = fd.get("account");
+
+    if (!qty || !priceKRW || !date || !showAdd || !accountName) return;
 
     const currency = showAdd.currency;
     const rate = fx[currency] || 1;
@@ -650,16 +682,20 @@ function App() {
       id: Date.now().toString(),
       symbol: showAdd.symbol,
       name: showAdd.name || showAdd.symbol,
+      searchKeywords: showAdd.searchKeywords || [],
       market: showAdd.market,
       currency,
       quantity: qty,
       avgPriceKRW: priceKRW,
       avgPriceForeign: priceKRW / rate,
       date,
-      account: fd.get("account") || accounts[0] || "기본 계좌"
+      account: accountName
     };
 
     setLots(prev => [...prev, lot]);
+    if (!accounts.includes(accountName)) {
+      setAccounts(prev => [...prev, accountName]);
+    }
     setShowAdd(null);
     setSearch("");
     setSearchOpen(false);
@@ -718,15 +754,37 @@ function App() {
   };
 
   const deleteAccount = (acc) => {
-    if (accounts.length <= 1) return alert("최소 1개의 계좌는 필요합니다.");
     if (!confirm(`'${acc}' 계좌와 해당 계좌의 보유 종목을 삭제하시겠습니까?`)) return;
     setAccounts(prev => prev.filter(x => x !== acc));
-    setLots(prev => prev.filter(x => (x.account || "기본 계좌") !== acc));
+    setLots(prev => prev.filter(x => x.account !== acc));
     if (selectedAccount === acc) setSelectedAccount("ALL");
   };
 
+  // 2. 계좌 구조 기반 JSON 내보내기 (실시간 야후 시세 데이터 제외)
   const exportData = () => {
-    const blob = new Blob([JSON.stringify({ lots, accounts }, null, 2)], { type: "application/json" });
+    const exportObj = { accounts: {} };
+    const allAccountNames = accounts.length > 0 
+      ? accounts 
+      : [...new Set(lots.map(l => l.account).filter(Boolean))];
+
+    allAccountNames.forEach(accName => {
+      const accLots = lots.filter(l => l.account === accName);
+      
+      // 동일 종목별 중복 방지 및 최소 포트폴리오 구조 정리
+      exportObj.accounts[accName] = {
+        holdings: accLots.map(l => ({
+          symbol: l.symbol,
+          name: l.name,
+          searchKeywords: l.searchKeywords || [],
+          quantity: l.quantity,
+          avgPriceKRW: l.avgPriceKRW,
+          avgPriceForeign: l.avgPriceForeign,
+          date: l.date
+        }))
+      };
+    });
+
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "portfolio_backup.json";
@@ -734,6 +792,7 @@ function App() {
     URL.revokeObjectURL(a.href);
   };
 
+  // 2. 계좌 구조 기반 JSON 불러오기 (기본계좌 미생성)
   const importData = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -741,13 +800,45 @@ function App() {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        if (Array.isArray(data)) setLots(data);
-        else if (data?.lots) {
-          setLots(data.lots);
-          if (Array.isArray(data.accounts)) setAccounts(data.accounts);
+        
+        if (data?.accounts && typeof data.accounts === "object") {
+          const loadedAccounts = Object.keys(data.accounts);
+          const loadedLots = [];
+
+          Object.entries(data.accounts).forEach(([accName, accObj]) => {
+            const holdings = Array.isArray(accObj?.holdings) ? accObj.holdings : (Array.isArray(accObj) ? accObj : []);
+            holdings.forEach(h => {
+              loadedLots.push({
+                id: h.id || (Date.now() + Math.random()).toString(),
+                symbol: h.symbol,
+                name: h.name || h.symbol,
+                searchKeywords: h.searchKeywords || [],
+                market: h.market || marketOf(h.symbol),
+                currency: h.currency || currencyOf(h.symbol),
+                quantity: Number(h.quantity) || 1,
+                avgPriceKRW: Number(h.avgPriceKRW) || 0,
+                avgPriceForeign: Number(h.avgPriceForeign) || 0,
+                date: h.date || new Date().toISOString().slice(0, 10),
+                account: accName
+              });
+            });
+          });
+
+          setAccounts(loadedAccounts);
+          setLots(loadedLots);
+          setSelectedAccount("ALL");
+          alert("성공적으로 불러왔습니다.");
+        } else if (Array.isArray(data) || data?.lots) {
+          // 기존 구형 포맷과의 호환성 유지
+          const newLots = Array.isArray(data) ? data : data.lots;
+          setLots(newLots);
+          if (Array.isArray(data?.accounts)) setAccounts(data.accounts);
+          alert("성공적으로 불러왔습니다.");
+        } else {
+          alert("올바르지 않은 JSON 데이터 형태입니다.");
         }
-        alert("성공적으로 불러왔습니다.");
-      } catch {
+      } catch (err) {
+        console.error(err);
         alert("올바르지 않은 JSON 파일입니다.");
       }
     };
@@ -777,7 +868,7 @@ function App() {
   );
 
   return (
-    <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col relative">
       <header className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 z-20 flex-shrink-0 gap-2">
         <div className="flex items-center gap-3 min-w-max">
           <div className="font-bold text-base md:text-lg text-white">
@@ -821,6 +912,22 @@ function App() {
           <input ref={importRef} type="file" accept=".json" className="hidden" onChange={importData} />
         </div>
       </header>
+
+      {/* 3. 양 끝 클릭 터치 페이지 이동 오버레이 영역 */}
+      {page > 0 && (
+        <div
+          className="page-edge page-edge-left"
+          onClick={goPreviousPage}
+          title="이전 페이지 이동"
+        />
+      )}
+      {page < 2 && (
+        <div
+          className="page-edge page-edge-right"
+          onClick={goNextPage}
+          title="다음 페이지 이동"
+        />
+      )}
 
       <div
         ref={containerRef}
@@ -971,6 +1078,47 @@ function App() {
               </div>
             </div>
 
+            {/* 1. 월별 분배금 1~12월 SVG/CSS 막대그래프 */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-5">
+              <div className="text-sm font-semibold text-white mb-3 flex items-center justify-between">
+                <span>월별 예상 분배금</span>
+                <span className="text-xs text-slate-400 font-normal">막대를 클릭하면 해당 월 상세가 열립니다</span>
+              </div>
+              <div className="h-44 flex items-end gap-1 sm:gap-2 pt-6 pb-1">
+                {monthlyDividendSummary.map((mSummary) => {
+                  const max = Math.max(...monthlyDividendSummary.map(m => m.totalKRW), 1);
+                  const height = (mSummary.totalKRW / max) * 100;
+                  const isOpen = !!expandedMonths[mSummary.month];
+
+                  return (
+                    <div
+                      key={mSummary.month}
+                      onClick={() => setExpandedMonths(prev => ({ ...prev, [mSummary.month]: !isOpen }))}
+                      className="flex-1 h-full flex flex-col justify-end cursor-pointer group"
+                    >
+                      <div className="w-full flex-1 flex items-end justify-center relative">
+                        {mSummary.totalKRW > 0 && (
+                          <div
+                            className={`w-full rounded-t-md transition-all ${
+                              isOpen ? "bg-blue-400" : "bg-blue-600 group-hover:bg-blue-500"
+                            }`}
+                            style={{ height: `${Math.max(height, 4)}%` }}
+                            title={`${mSummary.month}월 ${displayMoney(mSummary.totalKRW)}`}
+                          />
+                        )}
+                      </div>
+                      <div className={`text-[11px] text-center mt-2 font-medium transition-colors ${
+                        isOpen ? "text-blue-400 font-bold" : "text-slate-500 group-hover:text-slate-300"
+                      }`}>
+                        {mSummary.month}월
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 월별 아코디언 토글 목록 */}
             <div className="space-y-3">
               {monthlyDividendSummary.map(mSummary => {
                 const isOpen = !!expandedMonths[mSummary.month];
@@ -1133,9 +1281,13 @@ function App() {
             <Field label="매수 단가 (원화)"><input name="priceKRW" type="number" step="any" required className="field" /></Field>
             <Field label="매수일"><input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required className="field" /></Field>
             <Field label="계좌 선택">
-              <select name="account" defaultValue={accounts[0]} className="field">
-                {accounts.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
+              {accounts.length > 0 ? (
+                <select name="account" defaultValue={accounts[0]} className="field">
+                  {accounts.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              ) : (
+                <input name="account" placeholder="계좌명 입력 (예: 미래에셋)" required className="field" />
+              )}
             </Field>
             <button className="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-3 font-medium transition-colors">추가하기</button>
           </form>
@@ -1196,7 +1348,9 @@ function App() {
               </button>
             </div>
             <div className="space-y-2 max-h-60 overflow-y-auto thin-scroll">
-              {accounts.map(a => (
+              {accounts.length === 0 ? (
+                <div className="text-xs text-slate-500 text-center py-4">등록된 계좌가 없습니다.</div>
+              ) : accounts.map(a => (
                 <div key={a} className="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5">
                   <span className="text-sm font-medium text-white">{a}</span>
                   <button onClick={() => deleteAccount(a)} className="text-slate-500 hover:text-rose-400 p-1">
