@@ -351,7 +351,7 @@ function App() {
       } catch (e) {
         console.error("Market Data Fetching Error:", e);
         if (!cancelled) setQuoteError("시세 및 배당 정보를 가져오지 못했습니다.");
-      } finally {
+      } font-medium {
         if (!cancelled) setLoadingQuotes(false);
       }
     };
@@ -490,6 +490,21 @@ function App() {
       const profit = currentValueKRW !== null ? currentValueKRW - p.investedKRW : null;
       const profitPct = profit !== null && p.investedKRW > 0 ? (profit / p.investedKRW) * 100 : null;
 
+      const dailyChangePercent = (() => {
+        if (quote?.regularMarketChangePercent !== undefined && quote?.regularMarketChangePercent !== null) {
+          return Number(quote.regularMarketChangePercent);
+        }
+        if (quote?.dailyChangePercent !== undefined && quote?.dailyChangePercent !== null) {
+          return Number(quote.dailyChangePercent);
+        }
+        const price = Number(quote?.price ?? quote?.regularMarketPrice);
+        const prevClose = Number(quote?.previousClose ?? quote?.regularMarketPreviousClose);
+        if (Number.isFinite(price) && Number.isFinite(prevClose) && prevClose > 0) {
+          return ((price - prevClose) / prevClose) * 100;
+        }
+        return Number(quote?.changePercent || 0);
+      })();
+
       const rawDividends = Array.isArray(quote?.dividends) ? quote.dividends : [];
       const frequency = analyzeFrequency(rawDividends);
 
@@ -518,7 +533,7 @@ function App() {
         valueKRW: currentValueKRW,
         profit,
         profitPct,
-        changePercent: Number(quote?.changePercent || 0),
+        changePercent: dailyChangePercent,
         dividends: rawDividends,
         frequency,
         annualDividendForeign: annualDividendPerShare,
@@ -673,9 +688,10 @@ function App() {
     }
   };
 
+  // 1. handlePointerDown 조건 수정 (.closest 적용)
   const handlePointerDown = (e) => {
     if (!containerRef.current) return;
-    if (['INPUT', 'SELECT', 'BUTTON', 'A', 'OPTION'].includes(e.target.tagName)) return;
+    if (e.target.closest('input, select, button, a, option')) return;
 
     isDragging.current = true;
     dragStartX.current = e.clientX;
@@ -1110,30 +1126,38 @@ function App() {
               </div>
             </div>
 
-            {/* 월별 분배금 인터랙티브 막대그래프 */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-5">
               <div className="text-sm font-semibold text-white mb-3 flex items-center justify-between">
                 <span>월별 예상 분배금</span>
                 <span className="text-xs text-slate-400 font-normal">막대 클릭 시 해당 월로 이동 및 자동 오픈</span>
               </div>
               <div className="h-44 flex items-end gap-1 sm:gap-2 pt-6 pb-1">
+                {/* 2. 막대 클릭 시 JS 직접 스크롤 처리 적용 (button으로 변경) */}
                 {monthlyDividendSummary.map((mSummary) => {
                   const max = Math.max(...monthlyDividendSummary.map(m => m.totalKRW), 1);
                   const height = (mSummary.totalKRW / max) * 100;
 
                   return (
-                    <a
+                    <button
                       key={mSummary.month}
-                      href={`#month-${mSummary.month}`}
+                      type="button"
                       onClick={() => {
+                        // 1. 해당 월 아코디언 열기
                         setExpandedMonths(prev => ({
                           ...prev,
                           [mSummary.month]: true
                         }));
+
+                        // 2. DOM 렌더링 후 해당 위치로 이동
+                        setTimeout(() => {
+                          const targetEl = document.getElementById(`month-${mSummary.month}`);
+                          if (targetEl) {
+                            targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }
+                        }, 50);
                       }}
-                      className="flex-1 h-full flex flex-col justify-end group relative items-center cursor-pointer no-underline"
+                      className="flex-1 h-full flex flex-col justify-end group relative items-center cursor-pointer bg-transparent border-0 p-0"
                     >
-                      {/* PC 마우스 오버 툴팁 */}
                       <div className="
                         absolute bottom-full left-1/2 -translate-x-1/2 mb-2
                         hidden group-hover:block
@@ -1147,7 +1171,6 @@ function App() {
                         {mSummary.month}월&nbsp;{displayMoney(mSummary.totalKRW)}
                       </div>
 
-                      {/* 그래프 막대 */}
                       <div className="w-full flex-1 flex items-end justify-center relative">
                         <div
                           className="w-full bg-blue-500 rounded-t-sm transition-all duration-200 group-hover:bg-blue-400"
@@ -1155,17 +1178,15 @@ function App() {
                         />
                       </div>
 
-                      {/* 월 레이블 */}
                       <div className="text-[10px] text-slate-500 text-center mt-1 group-hover:text-slate-300">
                         {mSummary.month}
                       </div>
-                    </a>
+                    </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* 월별 아코디언 상세 내역 */}
             <div className="space-y-3">
               {monthlyDividendSummary.map(mSummary => {
                 const isOpen = !!expandedMonths[mSummary.month];
@@ -1249,7 +1270,7 @@ function App() {
             <div className="flex justify-between items-center">
               <div>
                 <div className="font-bold text-lg text-white">🗺️ 자산 비중 트리맵 (Treemap)</div>
-                <div className="text-xs text-slate-400 mt-0.5">면적 = 포트폴리오 비중 · 색상 = 일일 변동률</div>
+                <div className="text-xs text-slate-400 mt-0.5">면적 = 포트폴리오 비중 · 색상 = 일일 변동률 (1D)</div>
               </div>
               <CurrencyToggleUI />
             </div>
