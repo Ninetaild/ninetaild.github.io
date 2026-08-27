@@ -136,7 +136,7 @@ const analyzeFrequency = (dividends = []) => {
   return "연 1회";
 };
 
-// 2차원 Treemap 알고리즘 (이진 공간 분할)
+// 2차원 Treemap 알고리즘 (버그 수정 완료)
 const calculateTreemap = (items, x = 0, y = 0, w = 100, h = 100) => {
   if (!items || items.length === 0) return [];
   if (items.length === 1) {
@@ -180,7 +180,6 @@ const calculateTreemap = (items, x = 0, y = 0, w = 100, h = 100) => {
   }
 
   const sum1 = g1.reduce((sum, item) => sum + (item.val || 0), 0);
-  const sum2 = g2.reduce((sum, item) => sum + (item.val || 0), 0);
 
   if (w >= h) {
     const w1 = (sum1 / total) * w;
@@ -193,7 +192,7 @@ const calculateTreemap = (items, x = 0, y = 0, w = 100, h = 100) => {
     const h1 = (sum1 / total) * h;
     const h2 = h - h1;
     return [
-      ...calculateTreemap(g1, x, y, w1, h1),
+      ...calculateTreemap(g1, x, y, w, h1),
       ...calculateTreemap(g2, x, y + h1, w, h2)
     ];
   }
@@ -314,7 +313,7 @@ function App() {
       } catch (e) {
         console.error("Market Data Fetching Error:", e);
         if (!cancelled) setQuoteError("시세 및 배당 정보를 가져오지 못했습니다.");
-      } finally {
+      } fontally {
         if (!cancelled) setLoadingQuotes(false);
       }
     };
@@ -464,7 +463,6 @@ function App() {
     }).sort((a, b) => ((b.valueKRW ?? 0) - (a.valueKRW ?? 0)));
   }, [visibleLots, marketData, fx, taxRate]);
 
-  // 통합 월별 배당 분석
   const monthlyDividendSummary = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const prevYear = currentYear - 1;
@@ -568,7 +566,6 @@ function App() {
     };
   }, [portfolio]);
 
-  // Treemap 영역 분할 레이아웃 계산
   const treemapItems = useMemo(() => {
     const totalVal = stats.value && stats.value > 0 ? stats.value : 0;
     if (totalVal <= 0 || portfolio.length === 0) return [];
@@ -968,7 +965,6 @@ function App() {
               </div>
             </div>
 
-            {/* 1월 ~ 12월 월별 통합 아코디언 */}
             <div className="space-y-3">
               {monthlyDividendSummary.map(mSummary => {
                 const isOpen = !!expandedMonths[mSummary.month];
@@ -1042,7 +1038,7 @@ function App() {
           </div>
         </div>
 
-        {/* PAGE 3: 마켓 히트맵 (Treemap 알고리즘 적용) */}
+        {/* PAGE 3: 마켓 히트맵 (Treemap 적용) */}
         <div className="page-pane thin-scroll p-4 md:p-6 space-y-4">
           <div className="max-w-6xl mx-auto space-y-4">
             <div className="flex justify-between items-center">
@@ -1122,7 +1118,7 @@ function App() {
         </div>
       </div>
 
-      {/* 모달 창 구성 */}
+      {/* 모달 창 */}
       {showAdd && (
         <Modal title={`${showAdd.name} 추가`} onClose={() => setShowAdd(null)}>
           <form onSubmit={addLot} className="space-y-4">
