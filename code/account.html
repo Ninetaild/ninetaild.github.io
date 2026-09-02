@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>가계부 정리 - Google Sheets URL 전용</title>
+    <title>가계부 정리 - 파일 업로드 전용</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -13,9 +13,9 @@
             font-family: 'Inter', sans-serif;
             background-color: #f7f7f9;
         }
-        /* ✅ 압축된 스타일: 세 번 반복되던 카드 스타일 통합 */
+        /* 카드 스타일 */
         .card-style {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2p x rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             background-color: white; 
             padding: 1.5rem; 
             border-radius: 0.75rem; 
@@ -25,7 +25,6 @@
             cursor: pointer;
             filter: invert(0.8); 
         }
-        /* 입력 필드 스타일은 Tailwind 기본 클래스를 유지하여 focus 스타일을 활용합니다. */
         .input-common-style {
             @apply w-full rounded-md border border-gray-300 p-2.5 bg-white text-gray-700 focus:ring-indigo-500 focus:border-indigo-500;
         }
@@ -51,19 +50,13 @@
         </div>
         
         <div class="card-style">
-          
             <div class="mb-6">
-                <label for="sheetUrlInput" class="block text-sm font-medium text-gray-700 mb-2">
-                    Google Sheets 파일 - 공유 - 웹에 게시(*.xlsx/csv)
+                <label for="fileInput" class="block text-sm font-medium text-gray-700 mb-2">
+                    가계부 파일 업로드 (*.csv, *.xlsx)
                 </label>
-                <div class="flex flex-col sm:flex-row gap-2">
-                    <input type="url" id="sheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv"
-                           class="flex-1 input-common-style">
-                    <button onclick="handleSheetUrl()"
-                            class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-md hover:bg-indigo-700 transition duration-200 flex-shrink-0">
-                        데이터 가져오기
-                    </button>
-                </div>
+                <input type="file" id="fileInput" accept=".csv, .xlsx, .xls"
+                       class="input-common-style file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                       onchange="handleFileUpload(event)">
             </div>
             <div class="flex flex-col md:flex-row gap-4 border-t pt-4">
                 <div class="flex-1">
@@ -84,7 +77,7 @@
         <div class="card-style">
 
             <div id="statusMessage" class="text-center text-gray-500 mb-4">
-                URL을 입력하고 기간을 설정해주세요.
+                파일을 업로드하고 기간을 설정해주세요.
             </div>
 
             <div id="resultsContainer" class="hidden">
@@ -132,13 +125,13 @@
         let totalIncome = 0;
         let totalExpense = 0;
 
-        const sheetUrlInput = document.getElementById('sheetUrlInput');
+        const fileInput = document.getElementById('fileInput');
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
         const statusMessage = document.getElementById('statusMessage');
         const resultsContainer = document.getElementById('resultsContainer');
         
-        // 새로 추가된 UI 요소
+        // UI 요소
         const incomeContainer = document.getElementById('incomeContainer');
         const expenseContainer = document.getElementById('expenseContainer');
         const totalIncomeDisplay = document.getElementById('totalIncomeDisplay');
@@ -148,19 +141,10 @@
         const downloadExcelBtn = document.getElementById('downloadExcelBtn');
         const errorMessageDiv = document.getElementById('errorMessage');
 
-        /**
-         * 금액을 현지 통화 형식으로 포맷합니다 (예: 1,800,000).
-         * @param {number} amount
-         * @returns {string} 포맷된 금액 문자열
-         */
         const formatAmount = (amount) => {
-            return new Intl.NumberFormat('ko-KR').format(Math.abs(amount)); // 금액은 절대값으로 표시
+            return new Intl.NumberFormat('ko-KR').format(Math.abs(amount));
         };
 
-        /**
-         * 오류 메시지를 표시합니다.
-         * @param {string} message
-         */
         const showErrorMessage = (message) => {
             errorMessageDiv.textContent = message;
             errorMessageDiv.classList.remove('hidden');
@@ -169,11 +153,7 @@
             statusMessage.classList.add('hidden');
         };
 
-        /**
-         * 오류 메시지를 숨기고 상태 메시지를 표시합니다.
-         * @param {string} message
-         */
-        const showStatusMessage = (message = 'URL을 입력하고 기간을 설정해주세요.') => {
+        const showStatusMessage = (message = '파일을 업로드하고 기간을 설정해주세요.') => {
             errorMessageDiv.classList.add('hidden');
             statusMessage.textContent = message;
             statusMessage.classList.remove('hidden');
@@ -181,74 +161,56 @@
             downloadExcelBtn.disabled = true;
         };
 
-
         /**
          * CSV/텍스트 파일 내용을 파싱합니다.
-         * Date, Content, Amount 순서를 가정하며, 탭 또는 쉼표를 구분자로 시도합니다.
-         * @param {string} text - 파일의 텍스트 내용
          */
         const parseCSV = (text) => {
             const lines = text.trim().split('\n');
             const parsed = [];
 
-            // 첫 줄 (헤더) 건너뛰기 로직
             const dataLines = lines.length > 0 && (lines[0].includes('날짜') || lines[0].includes('Date')) ? lines.slice(1) : lines;
 
             for (const line of dataLines) {
                 let parts = null;
 
-                // 빈 줄 건너뛰기
                 if (line.trim().length === 0) continue; 
 
-                // 구분자 시도 (탭 > 세미콜론 > 쉼표)
                 if (line.includes('\t')) {
                     parts = line.split('\t');
                 } else if (line.includes(';')) {
                     parts = line.split(';');
                 } else if (line.includes(',')) {
-                    // CSV 파싱 시 인용 부호 처리 (가장 강력한 로직)
                     parts = line.match(/(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|([^,]*))/g)
                                .map(p => p ? p.trim().replace(/^\"|\"$/g, '').replace(/""/g, '"') : '');
                 } else {
                     continue; 
                 }
 
-                // 빈 항목 제거 및 유효한 데이터만 필터링 (널 체크는 위에서 처리됨)
                 parts = parts.filter(p => p.length > 0);
                 
-                // 필드 개수가 3개 미만이면 건너뛰기
                 if (parts.length < 3) continue;
-
 
                 if (parts && parts.length >= 3) {
                     const dateStr = parts[0].trim().replace(/"/g, ''); 
                     const content = parts[1].trim().replace(/"/g, ''); 
                     
-                    // --- 금액 파싱 로직 (수정됨: 음수 인식 강화) ---
                     let amountStr = parts[2].trim().replace(/"/g, ''); 
                     
                     let sign = 1;
-                    // 1. 부호 결정: 하이픈(-) 포함 또는 괄호로 둘러싸인 경우 음수로 간주
                     if (amountStr.includes('-') || (amountStr.startsWith('(') && amountStr.endsWith(')'))) {
                         sign = -1;
                     }
 
-                    // 2. 금액 문자열에서 숫자와 소수점을 제외한 모든 문자(콤마, 통화기호, 부호, 괄호 등) 제거
-                    // 순수 금액 값만 남김. [^0-9.]는 숫자와 소수점을 제외한 모든 문자를 의미함.
                     amountStr = amountStr.replace(/[^0-9.]/g, '');
 
-                    // 3. 숫자를 파싱하고 결정된 부호 적용
                     const date = new Date(dateStr);
                     const amount = parseFloat(amountStr) * sign;
                     
-                    // ----------------------------------------
-
-                    // 유효한 데이터인지 확인
                     if (!isNaN(date.getTime()) && !isNaN(amount) && content) {
                         parsed.push({
                             date: dateStr,
                             content: content,
-                            amount: amount // 음수/양수 그대로 저장
+                            amount: amount
                         });
                     } else {
                         console.warn('Skipped invalid line or amount:', line);
@@ -259,118 +221,64 @@
         };
 
         /**
-         * Google Sheets URL에서 CSV/XLSX 데이터를 가져와 파싱합니다.
+         * 선택한 로컬 로컬 파일(CSV, XLSX)을 읽어 rawData에 저장합니다.
          */
-        const handleSheetUrl = async () => {
-            const url = sheetUrlInput.value.trim(); 
-            if (!url) {
-                showErrorMessage('Google Sheets URL을 입력해주세요.');
-                rawData = [];
-                return;
-            }
+        const handleFileUpload = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
 
-            showStatusMessage('Google Sheets에서 데이터를 가져오는 중...');
-            
-            try {
-                // 1. URL 분석 및 프록시 자동 추가
-                let effectiveUrl = url;
-                const proxyPrefix = 'https://corsproxy.io/?';
-                
-                // Google Sheets URL 패턴을 감지 (docs.google.com 포함)
-                const isGoogleSheetUrl = url.toLowerCase().includes('docs.google.com');
+            showStatusMessage('파일을 읽는 중입니다...');
 
-                // 이미 프록시가 붙어있지 않고, Google Sheets URL인 경우 프록시 자동 추가
-                if (isGoogleSheetUrl && !url.toLowerCase().startsWith(proxyPrefix.toLowerCase())) {
-                    effectiveUrl = proxyPrefix + url;
-                    showStatusMessage(`프록시를 통해 데이터를 가져오는 중... (${proxyPrefix} 자동 적용)`);
-                }
-                
-                // 2. outputType 결정 (URL 문자열 직접 분석으로 견고성 확보)
-                let outputType = '';
-                const lowerEffectiveUrl = effectiveUrl.toLowerCase();
-                
-                if (lowerEffectiveUrl.includes('output=csv')) {
-                    outputType = 'csv';
-                } else if (lowerEffectiveUrl.includes('output=xlsx') || lowerEffectiveUrl.includes('output=xls')) {
-                    outputType = 'xlsx';
-                } else {
-                    // 오류 메시지 수정: 쿼리 매개변수가 없는 경우
-                    showErrorMessage("유효하지 않은 URL 형식입니다. 'output=csv' 또는 'output=xlsx' 매개변수를 URL에 포함해야 합니다.");
-                    rawData = [];
-                    return;
-                }
+            const fileName = file.name.toLowerCase();
+            const reader = new FileReader();
 
-                let fileType = '';
-                if (outputType === 'csv') {
-                    fileType = 'csv';
-                } else if (outputType === 'xlsx' || outputType === 'xls') {
-                    fileType = 'xlsx';
-                } else {
-                    // 이 블록은 실행되지 않지만, 만약을 위해 둡니다.
-                    showErrorMessage("URL에 'output=csv' 또는 'output=xlsx' 쿼리 매개변수가 포함되어야 합니다.");
-                    rawData = [];
-                    return;
-                }
-
-                // 3. 데이터 Fetch
-                const response = await fetch(effectiveUrl);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP 오류: ${response.status} (Google Sheets의 공유 설정, URL 유효성 또는 네트워크 문제일 수 있음)`);
-                }
-                
-                let dataToParse = null;
-
-                if (fileType === 'csv') {
-                    // CSV 처리
-                    const csvText = await response.text();
-                    dataToParse = parseCSV(csvText);
-
-                } else if (fileType === 'xlsx') {
-                    // XLSX 처리
-                    showStatusMessage('Excel 데이터를 읽고 파싱 중... (메인 시트)');
-                    const arrayBuffer = await response.arrayBuffer();
-                    const data = new Uint8Array(arrayBuffer);
-                    const workbook = XLSX.read(data, {type: 'array'});
+            if (fileName.endsWith('.csv')) {
+                reader.onload = (e) => {
+                    try {
+                        const csvText = e.target.result;
+                        rawData = parseCSV(csvText);
                         
-                    // 첫 번째 시트의 데이터를 CSV 문자열로 변환 (메인 시트 파싱)
-                    const sheetName = workbook.SheetNames[0];
-                    const csvOutput = XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName]);
+                        if (rawData.length === 0) {
+                            showErrorMessage('파일에서 유효한 데이터를 찾을 수 없습니다. (날짜/내용/금액 순서 확인)');
+                            return;
+                        }
+                        validateAndProcess();
+                    } catch (error) {
+                        showErrorMessage(`CSV 파싱 오류: ${error.message}`);
+                    }
+                };
+                reader.readAsText(file, 'UTF-8');
+            } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                reader.onload = (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const sheetName = workbook.SheetNames[0];
+                        const csvOutput = XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName]);
                         
-                    dataToParse = parseCSV(csvOutput);
-                }
-                
-                rawData = dataToParse;
-                
-                if (rawData.length === 0) {
-                    showErrorMessage('URL에서 유효한 데이터를 찾을 수 없습니다. (날짜/내용/금액 순서 및 데이터 형식 확인)');
-                    return;
-                }
-                
-                // **✅ 추가된 로직: 데이터를 성공적으로 가져왔을 때 URL을 localStorage에 저장**
-                localStorage.setItem('googleSheetsUrl', url);
+                        rawData = parseCSV(csvOutput);
 
-                // 데이터가 준비되면 날짜 유효성 검사 및 처리를 시작
-                validateAndProcess();
-                
-            } catch (error) {
-                // CORS 정책 위반 또는 네트워크 오류일 가능성이 높음
-                showErrorMessage(`데이터를 가져오거나 파싱하는 중 오류가 발생했습니다: ${error.message}.`);
-                rawData = [];
-                console.error("Sheet URL Fetch Error:", error);
+                        if (rawData.length === 0) {
+                            showErrorMessage('엑셀 파일에서 유효한 데이터를 찾을 수 없습니다.');
+                            return;
+                        }
+                        validateAndProcess();
+                    } catch (error) {
+                        showErrorMessage(`엑셀 읽기 오류: ${error.message}`);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                showErrorMessage('.csv 또는 .xlsx 형식의 파일만 지원됩니다.');
             }
         };
-        
-        /**
-         * 날짜의 유효성을 검사하고 데이터 처리를 시작합니다.
-         */
+
         const validateAndProcess = () => {
             const startDateStr = startDateInput.value;
             const endDateStr = endDateInput.value;
 
-            // 1. 데이터 유효성 검사
             if (rawData.length === 0) {
-                showStatusMessage('업로드/입력된 데이터가 비어 있거나 유효하지 않습니다.');
+                showStatusMessage('파일을 선택해 주세요.');
                 return;
             }
             if (!startDateStr || !endDateStr) {
@@ -386,7 +294,6 @@
                 return;
             }
             
-            // 시간을 00:00:00으로 설정하여 날짜 비교의 정확도를 높임
             startDate.setHours(0, 0, 0, 0);
             endDate.setHours(0, 0, 0, 0);
 
@@ -395,15 +302,9 @@
                 return;
             }
             
-            // 모든 유효성 검사를 통과하면 처리 시작
             processData(startDate, endDate);
         };
 
-        /**
-         * 날짜 범위 내에서 데이터를 필터링, 수입/소비로 나누어 집계 및 정렬합니다.
-         * @param {Date} startDate - 시작 날짜 객체
-         * @param {Date} endDate - 종료 날짜 객체
-         */
         const processData = (startDate, endDate) => {
             const incomeMap = new Map();
             const expenseMap = new Map();
@@ -412,34 +313,29 @@
             totalExpense = 0;
             let dataFound = false;
 
-            // 1. 필터링 및 수입/소비 집계
             for (const item of rawData) {
                 const itemDate = new Date(item.date);
                 itemDate.setHours(0, 0, 0, 0);
 
-                // 기간 내 데이터만 필터링 (시작일 포함, 종료일 포함)
                 if (itemDate >= startDate && itemDate <= endDate) {
                     dataFound = true;
                     
                     const amount = item.amount;
                     const content = item.content;
 
-                    if (amount > 0) { // 수입 (양수)
+                    if (amount > 0) { 
                         const currentAmount = incomeMap.get(content) || 0;
                         incomeMap.set(content, currentAmount + amount);
                         totalIncome += amount;
-                    } else if (amount < 0) { // 소비 (음수)
-                        // 절대값으로 저장하여 나중에 백분율 계산에 용이하게 함
+                    } else if (amount < 0) { 
                         const absAmount = Math.abs(amount); 
                         const currentAmount = expenseMap.get(content) || 0;
                         expenseMap.set(content, currentAmount + absAmount); 
-                        totalExpense += absAmount; // 총 소비는 양수로 합산
+                        totalExpense += absAmount; 
                     }
-                    // amount === 0 인 경우는 무시
                 }
             }
             
-            // 기간 내 데이터가 아예 없는 경우
             if (!dataFound) {
                  showStatusMessage('선택된 기간 내에 해당하는 데이터가 없습니다.');
                  incomeData = [];
@@ -447,9 +343,6 @@
                  return;
             }
 
-            // 2. 백분율 계산 및 배열 변환
-            
-            // 수입 데이터
             incomeData = Array.from(incomeMap, ([content, amount]) => {
                 const percentage = totalIncome === 0 ? 0 : (amount / totalIncome) * 100;
                 return {
@@ -457,9 +350,8 @@
                     amount,
                     percentage: percentage.toFixed(2)
                 };
-            }).sort((a, b) => b.amount - a.amount); // 금액순 내림차순 정렬
+            }).sort((a, b) => b.amount - a.amount);
 
-            // 소비 데이터
             expenseData = Array.from(expenseMap, ([content, amount]) => {
                 const percentage = totalExpense === 0 ? 0 : (amount / totalExpense) * 100;
                 return {
@@ -467,21 +359,13 @@
                     amount,
                     percentage: percentage.toFixed(2)
                 };
-            }).sort((a, b) => b.amount - a.amount); // 금액순 내림차순 정렬
+            }).sort((a, b) => b.amount - a.amount);
 
-
-            // 3. 결과 출력
             renderResults();
         };
 
-        /**
-         * ✅ 압축된 로직: 수입/소비 목록을 생성하고 컨테이너에 추가하는 헬퍼 함수
-         * @param {Array<object>} data - 수입 또는 소비 데이터 배열
-         * @param {HTMLElement} container - 데이터를 추가할 DOM 요소
-         * @param {string} type - 'income' 또는 'expense'
-         */
         const renderItemList = (data, container, type) => {
-            container.innerHTML = ''; // 초기화
+            container.innerHTML = ''; 
             
             if (data.length === 0) {
                 const message = type === 'income' ? '기간 내 수입 데이터가 없습니다.' : '기간 내 소비 데이터가 없습니다.';
@@ -496,7 +380,6 @@
 
             data.forEach(item => {
                 const li = document.createElement('div');
-                // 색상 관련 클래스만 동적으로 처리
                 li.className = `flex justify-between items-center p-3 rounded-lg border border-gray-100 bg-white shadow-sm border-l-4 ${borderColor}`;
                 li.innerHTML = `
                     <div class="flex items-baseline min-w-0 flex-1 pr-4">
@@ -512,40 +395,27 @@
             });
         };
 
-
-        /**
-         * 결과를 UI에 렌더링합니다.
-         */
         const renderResults = () => {
-            // 컨테이너 초기화
             incomeContainer.innerHTML = '';
             expenseContainer.innerHTML = '';
             
             const netAsset = totalIncome - totalExpense;
 
-            // 총 합계 및 순저축 표시
             totalIncomeDisplay.textContent = `총 수입: ${formatAmount(totalIncome)} 원`;
             totalExpenseDisplay.textContent = `총 소비: ${formatAmount(totalExpense)} 원`;
             netAssetDisplay.textContent = `순저축: ${netAsset >= 0 ? '' : '-'} ${formatAmount(netAsset)} 원 `;
             netAssetDisplay.classList.toggle('text-green-700', netAsset >= 0);
             netAssetDisplay.classList.toggle('text-red-700', netAsset < 0);
 
-
-            // ✅ 압축된 로직 사용: 수입/소비 목록 렌더링
             renderItemList(incomeData, incomeContainer, 'income');
             renderItemList(expenseData, expenseContainer, 'expense');
 
-
-            // UI 업데이트
             statusMessage.classList.add('hidden');
             resultsContainer.classList.remove('hidden');
             errorMessageDiv.classList.add('hidden');
             downloadExcelBtn.disabled = false;
         };
 
-        /**
-         * 집계된 데이터를 HTML 테이블 형식으로 변환하여 Excel 파일로 다운로드합니다.
-         */
         const downloadExcel = () => {
             if (incomeData.length === 0 && expenseData.length === 0) {
                 showErrorMessage('다운로드할 집계 데이터가 없습니다.');
@@ -556,7 +426,6 @@
             const endDateStr = endDateInput.value;
             const netAsset = totalIncome - totalExpense;
 
-            // 엑셀에서 인식할 수 있는 HTML 테이블 형식 생성
             let tableHtml = `
                 <html xmlns:o="urn:schemas-microsoft-com:office:office" 
                       xmlns:x="urn:schemas-microsoft-com:office:excel" 
@@ -567,9 +436,9 @@
                         table { border-collapse: collapse; width: 100%; font-family: sans-serif; }
                         th, td { border: 1px solid #ccc; padding: 8px; }
                         th { background-color: #f2f2f2; font-weight: bold; text-align: center; }
-                        .total-income { background-color: #d1fae5; font-weight: bold; } /* Green */
-                        .total-expense { background-color: #fee2e2; font-weight: bold; } /* Red */
-                        .net-asset { background-color: #e0f2fe; font-weight: bold; } /* Indigo/Blue */
+                        .total-income { background-color: #d1fae5; font-weight: bold; }
+                        .total-expense { background-color: #fee2e2; font-weight: bold; }
+                        .net-asset { background-color: #e0f2fe; font-weight: bold; }
                         .income-row { background-color: #f0fdf4; }
                         .expense-row { background-color: #fef2f2; }
                     </style>
@@ -608,7 +477,6 @@
                         </tr>
             `;
 
-            // 수입 데이터 행 추가
             incomeData.forEach(item => {
                 tableHtml += `
                     <tr class="income-row">
@@ -619,7 +487,6 @@
                 `;
             });
             
-            // 소비 데이터 테이블 헤더
             tableHtml += `
                         <tr><td colspan="3" style="height: 15px; background-color: #fff;"></td></tr>
                         <tr>
@@ -632,7 +499,6 @@
                         </tr>
             `;
 
-            // 소비 데이터 행 추가
             expenseData.forEach(item => {
                 tableHtml += `
                     <tr class="expense-row">
@@ -643,7 +509,6 @@
                 `;
             });
 
-
             tableHtml += `
                     </tbody>
                 </table>
@@ -651,7 +516,6 @@
                 </html>
             `;
 
-            // Blob 생성 및 다운로드
             const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
@@ -661,35 +525,17 @@
             document.body.removeChild(link);
         };
 
-        // 초기 설정: 페이지 로드 시 상태 메시지 초기화 및 저장된 URL 로드
         window.onload = () => {
-             // **localStorage에서 URL 불러와 채우기**
-             const savedUrl = localStorage.getItem('googleSheetsUrl');
-             if (savedUrl) {
-                 sheetUrlInput.value = savedUrl;
-                 showStatusMessage('저장된 URL이 자동으로 채워졌습니다. 기간을 설정하고 "데이터 가져오기" 버튼을 누르세요.');
-             } else {
-                 showStatusMessage();
-             }
+             showStatusMessage();
              
-             // 🎯 시작일(2025-01-01)과 종료일(오늘 날짜) 기본값 설정
-             // 종료일: 오늘 날짜
              const today = new Date();
              const year = today.getFullYear();
              const month = String(today.getMonth() + 1).padStart(2, '0');
              const day = String(today.getDate()).padStart(2, '0');
-             const todayStr = `${year}-${month}-${day}`;
              
-             endDateInput.value = todayStr;
-             
-             // 시작일: 2025-01-01
+             endDateInput.value = `${year}-${month}-${day}`;
              startDateInput.value = '2025-01-01';
-             
-             if (sheetUrlInput.value && startDateInput.value && endDateInput.value) {
-                 // 데이터 로드 전이므로 validateAndProcess는 호출하지 않습니다.
-             }
         };
-
     </script>
 </body>
 </html>
