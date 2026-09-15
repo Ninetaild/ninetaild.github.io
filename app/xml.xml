@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<apptech>
+    <item
+        id="app001"
+        name="토스 만보기"
+        description="매일 걷기 미션과 행운복권으로 쏠쏠하게 모아 저축통장에 입금!"
+        category="만보기/출석"
+        referralCode="TOSS-SAVING26"
+        referralUrl="https://toss.im"
+        isActive="true" />
+
+    <item
+        id="app002"
+        name="모니모 (Monimo)"
+        description="매일 아침 젤리 수확 및 기상 미션으로 현금성 포인트 적립"
+        category="금융/미션"
+        referralCode="MONI-789XYZ"
+        referralUrl="https://monimo.com"
+        isActive="true" />
+
+    <item
+        id="app003"
+        name="캐시워크 (Cashwalk)"
+        description="걸으면서 잠금화면 보물상자를 터치하여 기프티콘 교환"
+        category="만보기"
+        referralCode="KRW-WALK88"
+        referralUrl="https://cashwalk.com"
+        isActive="true" />
+
+    <item
+        id="app004"
+        name="페이북 머니박스"
+        description="출석체크와 룰렛 돌리기로 모은 페이북 머니를 계좌로 송금"
+        category="출석/머니"
+        referralCode="PAYBOOK-010"
+        referralUrl="https://paybook.co.kr"
+        isActive="true" />
+
+    <item
+        id="app005"
+        name="비활성 프로모션 테스트"
+        description="isActive가 false이므로 화면에 노출되지 않아야 하는 테스트 항목"
+        category="테스트"
+        referralCode="TEST"
+        referralUrl="https://example.com"
+        isActive="false" />
+</apptech>
